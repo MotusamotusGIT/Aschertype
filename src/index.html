@@ -140,6 +140,15 @@
       </nav>
 
       <div class="sidebar-section">
+        <div class="sidebar-title-row">
+          <div class="sidebar-title">Projects</div>
+          <button type="button" id="add-project-btn" class="icon-btn round tiny" title="New project">+</button>
+        </div>
+        <div id="project-nav-list"></div>
+        <p id="project-empty-hint" class="sidebar-empty-hint" style="display:none">No projects yet</p>
+      </div>
+
+      <div class="sidebar-section">
         <div class="sidebar-title">Tools</div>
         <button class="nav-item" data-view="calendar">
           <span class="nav-label">Calendar</span>
@@ -172,8 +181,16 @@
 
       <section id="task-view" class="view-panel">
         <header class="main-header">
-          <h1 id="view-title">All Tasks</h1>
-          <span id="view-subtitle"></span>
+          <div class="main-header-top">
+            <div>
+              <h1 id="view-title">To-do list</h1>
+              <span id="view-subtitle"></span>
+            </div>
+            <div class="project-header-actions" id="project-header-actions" style="display:none">
+              <button type="button" id="project-rename-btn" class="pill-btn">Rename</button>
+              <button type="button" id="project-delete-btn" class="pill-btn danger-pill">Delete</button>
+            </div>
+          </div>
         </header>
 
         <form id="todo-form">
@@ -184,6 +201,9 @@
               <option value="low">Low</option>
               <option value="medium" selected>Medium</option>
               <option value="high">High</option>
+            </select>
+            <select id="todo-project-select" title="Project">
+              <option value="">No project</option>
             </select>
             <button type="submit">Add</button>
           </div>
@@ -321,40 +341,17 @@
           <div class="settings-block">
             <div class="settings-row">
               <div>
-                <div class="settings-label">Accent color</div>
-                <div class="settings-hint">Buttons, highlights and active states.</div>
+                <div class="settings-label">Theme</div>
+                <div class="settings-hint">Choose light or dark. Follows your device by default.</div>
               </div>
             </div>
-            <div class="color-picker-row">
-              <input type="color" id="accent-picker">
-              <input type="text" id="accent-hex-input" class="hex-input" maxlength="7" spellcheck="false">
-            </div>
-          </div>
-
-          <div class="settings-block">
-            <div class="settings-row">
-              <div>
-                <div class="settings-label">Background color</div>
-                <div class="settings-hint">Text and surfaces adjust automatically for contrast.</div>
-              </div>
-            </div>
-            <div class="color-picker-row">
-              <input type="color" id="bg-picker">
-              <input type="text" id="bg-hex-input" class="hex-input" maxlength="7" spellcheck="false">
-            </div>
-          </div>
-
-          <div class="settings-block">
-            <div class="settings-row">
-              <div>
-                <div class="settings-label">Text color</div>
-                <div class="settings-hint">Overrides the automatic contrast color. Reset to go back to automatic.</div>
-              </div>
-            </div>
-            <div class="color-picker-row">
-              <input type="color" id="text-picker">
-              <input type="text" id="text-hex-input" class="hex-input" maxlength="7" spellcheck="false">
-              <button type="button" id="text-reset-btn" class="pill-btn text-reset">Auto</button>
+            <div class="theme-toggle" id="theme-toggle" role="group" aria-label="Theme">
+              <button type="button" id="theme-light-btn" class="theme-toggle-btn" data-theme-choice="light">
+                <span class="theme-swatch light"></span> Light
+              </button>
+              <button type="button" id="theme-dark-btn" class="theme-toggle-btn" data-theme-choice="dark">
+                <span class="theme-swatch dark"></span> Dark
+              </button>
             </div>
           </div>
 
@@ -427,6 +424,25 @@
       <div class="modal-actions">
         <button type="button" id="closeout-move-all-btn" class="btn">Move all to tomorrow</button>
         <button type="button" id="closeout-done-btn" class="btn primary">Done for today</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="project-modal-overlay" class="modal-overlay" style="display:none">
+    <div class="modal-card project-modal-card">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title" id="project-modal-title">New project</div>
+          <div class="modal-sub">Group related tasks together.</div>
+        </div>
+        <button type="button" id="project-modal-close-btn" class="icon-btn" aria-label="Close">&times;</button>
+      </div>
+      <label class="field-label">Project name
+        <input type="text" id="project-name-input" placeholder="e.g. Website redesign" autocomplete="off" maxlength="60">
+      </label>
+      <div class="modal-actions">
+        <button type="button" id="project-modal-cancel-btn" class="btn">Cancel</button>
+        <button type="button" id="project-modal-save-btn" class="btn primary">Save</button>
       </div>
     </div>
   </div>

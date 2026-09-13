@@ -7,6 +7,59 @@
 let supabaseClient = null;
 let supabaseReady = false;
 
+// ----- Remember-me aware storage adapter -----
+// Previously "forget session" was implemented by writing the session to
+// localStorage like every other login, then trying to sign out on
+// `beforeunload`. That event is unreliable on mobile: browsers and PWAs
+// routinely suspend/kill the page (backgrounding, swipe-to-close, OS
+// memory pressure) without ever firing it, so the sign-out never ran.
+// That's what caused the reported mobile bug: the login screen would
+// reappear (or a session would linger) inconsistently depending on how
+// the app happened to be closed.
+//
+// The fix is to decide storage *before* the token is ever written: if
+// "remember me" is on, the session lives in localStorage (survives
+// closing/reopening the app); if off, it lives in sessionStorage
+// (cleared automatically when that browsing session ends — no timing
+// races, no reliance on an event that mobile browsers may never fire).
+// The preference flag itself always lives in localStorage so we know
+// which backing store to read the next time the app launches.
+const REMEMBER_KEY = 'aschertypeRememberSession';
+
+function getRememberPreference() {
+  const v = localStorage.getItem(REMEMBER_KEY);
+  return v === null ? true : v === 'true'; // default: remember
+}
+function setRememberPreference(remember) {
+  localStorage.setItem(REMEMBER_KEY, remember ? 'true' : 'false');
+}
+
+const rememberAwareStorage = {
+  getItem(key) {
+    try {
+      const store = getRememberPreference() ? localStorage : sessionStorage;
+      const val = store.getItem(key);
+      if (val !== null) return val;
+      // Fall back to the other store once, so a live session is never
+      // lost just because the preference changed mid-session.
+      const other = getRememberPreference() ? sessionStorage : localStorage;
+      return other.getItem(key);
+    } catch (err) {
+      return null;
+    }
+  },
+  setItem(key, value) {
+    try {
+      const store = getRememberPreference() ? localStorage : sessionStorage;
+      store.setItem(key, value);
+    } catch (err) { /* storage unavailable (private mode etc.) — ignore */ }
+  },
+  removeItem(key) {
+    try { localStorage.removeItem(key); } catch (err) { /* ignore */ }
+    try { sessionStorage.removeItem(key); } catch (err) { /* ignore */ }
+  },
+};
+
 (function initSupabaseClient() {
   const configured =
     typeof SUPABASE_URL === 'string' &&
@@ -23,7 +76,13 @@ let supabaseReady = false;
     return;
   }
   try {
-    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        storage: rememberAwareStorage,
+      },
+    });
     supabaseReady = true;
   } catch (err) {
     console.error('[Supabase] Failed to initialize client:', err);

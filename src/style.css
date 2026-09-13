@@ -1,8 +1,8 @@
 * { box-sizing: border-box; }
 
 :root {
-  --accent: #6366f1;
-  --accent-soft: rgba(99, 102, 241, 0.12);
+  --accent: #315142;
+  --accent-soft: rgba(49, 81, 66, 0.10);
   --ink: #0f172a;
   --ink-light: #64748b;
   --bg: #f8fafc;
@@ -19,8 +19,14 @@
 }
 
 [data-theme="dark"] {
-  --accent: #818cf8;
-  --accent-soft: rgba(129, 140, 248, 0.16);
+  --accent: #315142;
+  --accent-soft: rgba(49, 81, 66, 0.28);
+  /* Small badges put accent-colored TEXT on top of --accent-soft. In dark
+     mode a dark-green-on-near-black-green badge is hard to read, so text
+     in those specific spots uses this lighter tint instead — the accent
+     colour itself (buttons, borders, checkboxes, focus rings) is still
+     #315142 everywhere, unchanged. */
+  --accent-soft-text: #8fbfa4;
   --ink: #f8fafc;
   --ink-light: #94a3b8;
   --bg: #090d16;
@@ -34,12 +40,15 @@
 
 * { -webkit-font-smoothing: antialiased; }
 
+html, body { height: 100%; overscroll-behavior-y: none; }
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", Roboto, sans-serif;
   background: var(--bg);
   color: var(--ink);
   height: 100vh;
+  height: 100dvh; /* real viewport height on mobile browsers (accounts for the URL bar) */
   overflow: hidden;
   font-size: 14px;
   line-height: 1.5;
@@ -47,8 +56,10 @@ body {
   flex-direction: column;
 }
 
-/* .app fills whatever height remains after the mobile topbar (0 on desktop) —
-   this is what actually fixes the tips-bar overlap, not a fixed padding hack. */
+/* .app fills whatever height remains after the mobile topbar AND the tips
+   bar. Both are normal, non-fixed flex children now (see .tips-bar below) —
+   that's what actually fixes the overlap with Settings/modals/etc, rather
+   than a fixed-position bar plus a guessed padding-bottom hack. */
 .app { display: flex; flex: 1; min-height: 0; }
 
 /* Custom Scrollbars */
@@ -57,7 +68,7 @@ body {
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--ink-light); }
 
-body, .sidebar, .main, .nav-item, .task-row,
+body, .sidebar, .main, .nav-item, .task-card,
 input, select, textarea, button, .pomodoro-card, .settings-card,
 .day-cell, .calendar-grid, .event-row, .day-panel,
 .note-card, .category-tab, .tips-bar, .modal-card, .toast, .auth-card {
@@ -173,6 +184,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   -webkit-backdrop-filter: blur(12px);
   display: flex; align-items: center; justify-content: center; padding: 20px;
   transition: opacity .3s ease, visibility .3s ease;
+  overflow-y: auto;
 }
 #auth-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
 .auth-card {
@@ -180,6 +192,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   background: var(--card); border: 1px solid var(--border); border-radius: 20px;
   box-shadow: var(--shadow-lg);
   padding: 32px 28px; display: flex; flex-direction: column; gap: 18px;
+  margin: auto;
 }
 .auth-brand { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 4px; }
 .auth-brand-img { width: 34px; height: 34px; border-radius: 10px; }
@@ -200,9 +213,10 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .auth-form .field-label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-light); }
 .auth-form .field-label input {
   padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px;
-  background: var(--bg); color: var(--ink); font-size: 14px; font-family: inherit; width: 100%;
+  background: var(--bg); color: var(--ink); font-size: 16px; font-family: inherit; width: 100%;
 }
 .auth-submit { width: 100%; margin-top: 4px; }
+.auth-submit:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
 .auth-link-btn {
   background: none; border: none; color: var(--ink-light); font-size: 12px;
   cursor: pointer; font-family: inherit; align-self: center; padding: 2px;
@@ -218,13 +232,16 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 /* ===== Mobile Topbar ===== */
 .mobile-topbar {
   display: none; align-items: center; gap: 12px; padding: 12px 16px;
-  border-bottom: 1px solid var(--border); background: var(--panel); position: sticky; top: 0; z-index: 40;
+  border-bottom: 1px solid var(--border); background: var(--panel);
+  flex-shrink: 0; z-index: 40;
+  padding-top: calc(12px + env(safe-area-inset-top, 0px));
 }
 .mobile-title { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
 .icon-btn { background: none; border: none; cursor: pointer; padding: 6px; display: flex; align-items: center; justify-content: center; color: var(--ink); }
 .icon-btn.round { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--card); font-size: 16px; }
 .icon-btn.round:hover { border-color: var(--accent); color: var(--accent); }
-#menu-toggle { flex-direction: column; gap: 4px; width: 32px; height: 32px; }
+.icon-btn.round.tiny { width: 24px; height: 24px; font-size: 14px; }
+#menu-toggle { flex-direction: column; gap: 4px; width: 40px; height: 40px; }
 #menu-toggle .bar { display: block; width: 18px; height: 2px; background: var(--ink); border-radius: 2px; }
 
 #sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 45; }
@@ -234,6 +251,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .sidebar {
   width: 240px; background: var(--panel); border-right: 1px solid var(--border);
   display: flex; flex-direction: column; padding: 24px 16px; flex-shrink: 0;
+  overflow-y: auto;
 }
 .sidebar-header { display: flex; align-items: center; gap: 12px; padding: 0 8px 28px; }
 .logo-img { width: 32px; height: 32px; border-radius: 10px; }
@@ -241,6 +259,9 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 
 .sidebar-section { margin-bottom: 24px; }
 .sidebar-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-light); padding: 0 10px 10px; font-weight: 700; }
+.sidebar-title-row { display: flex; align-items: center; justify-content: space-between; padding-right: 6px; }
+.sidebar-title-row .sidebar-title { padding-bottom: 0; }
+.sidebar-empty-hint { font-size: 12px; color: var(--ink-light); padding: 2px 10px 4px; margin: 0; }
 
 .nav-item {
   display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: 1px solid transparent;
@@ -248,7 +269,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 }
 .nav-item:hover { background: var(--accent-soft); color: var(--ink); }
 .nav-item.active { background: var(--accent); color: #ffffff; border-color: var(--accent); box-shadow: var(--shadow-sm); font-weight: 600; }
-.nav-label { flex: 1; }
+.nav-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-count { background: var(--bg); border: 1px solid var(--border); border-radius: 9999px; padding: 2px 8px; font-size: 11px; color: var(--ink-light); font-weight: 600; }
 .nav-item.active .nav-count { background: rgba(255,255,255,0.2); border-color: transparent; color: #ffffff; }
 
@@ -259,6 +280,8 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .sub-nav { display: none; flex-direction: column; gap: 4px; padding-left: 14px; margin-top: 4px; }
 .sub-nav.open { display: flex; }
 .nav-item.sub { font-size: 13.5px; padding: 8px 12px; }
+
+.project-nav-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
 
 .sidebar-footer { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
 #clear-completed, #closeout-btn {
@@ -272,31 +295,32 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   flex: 1;
   min-height: 0;
   padding: 40px 52px;
-  /* Reserve real space below the fixed tips bar so the last card in any
-     view (Settings included) never sits underneath it. */
-  padding-bottom: calc(34px + 32px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
 .view-panel { max-width: 960px; }
 .main-header { margin-bottom: 28px; }
+.main-header-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .main-header h1 { margin: 0 0 6px; font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
 #view-subtitle, #pomodoro-mode-label, #calendar-subtitle { color: var(--ink-light); font-size: 14px; }
+.project-header-actions { display: flex; gap: 8px; }
+.danger-pill { color: var(--high); border-color: rgba(239, 68, 68, 0.3); }
+.danger-pill:hover { background: rgba(239, 68, 68, 0.1); border-color: var(--high); color: var(--high); }
 
 #todo-form { margin-bottom: 30px; }
 .form-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
 #todo-input {
   flex: 1; min-width: 200px; padding: 12px 16px; border: 1px solid var(--border);
-  border-radius: 12px; font-size: 14px; background: var(--card); color: var(--ink); font-family: inherit; box-shadow: var(--shadow-sm);
+  border-radius: 12px; font-size: 15px; background: var(--card); color: var(--ink); font-family: inherit; box-shadow: var(--shadow-sm);
 }
 #desc-input {
   width: 100%; padding: 11px 16px; border: 1px solid var(--border);
-  border-radius: 12px; font-size: 13.5px; background: var(--card); color: var(--ink); font-family: inherit; box-shadow: var(--shadow-sm);
+  border-radius: 12px; font-size: 14px; background: var(--card); color: var(--ink); font-family: inherit; box-shadow: var(--shadow-sm);
 }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 #todo-form select, #todo-form input[type="date"] {
   padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px;
-  font-size: 13.5px; background: var(--card); color: var(--ink); font-family: inherit; box-shadow: var(--shadow-sm);
+  font-size: 14px; background: var(--card); color: var(--ink); font-family: inherit; box-shadow: var(--shadow-sm);
 }
 #todo-form button[type="submit"] {
   padding: 12px 24px; border: none; background: var(--accent); color: #ffffff;
@@ -304,28 +328,58 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 }
 #todo-form button[type="submit"]:hover { filter: brightness(1.08); transform: translateY(-1px); }
 
-/* ===== Task list ===== */
-.task-list { display: flex; flex-direction: column; gap: 10px; }
-.task-row {
-  display: flex; align-items: flex-start; gap: 14px; padding: 16px 20px;
-  background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--low);
-  border-radius: 14px; box-shadow: var(--shadow-sm);
+/* ===== Task list (redesigned cards) ===== */
+.task-list { display: flex; flex-direction: column; gap: 12px; }
+.task-card {
+  display: flex; align-items: flex-start; gap: 14px; padding: 16px 18px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; box-shadow: var(--shadow-sm); position: relative; overflow: hidden;
 }
-.task-row:hover { border-color: var(--border); border-left-color: inherit; box-shadow: var(--shadow); transform: translateY(-1px); }
-.task-row.priority-low { border-left-color: var(--low); }
-.task-row.priority-medium { border-left-color: var(--medium); }
-.task-row.priority-high { border-left-color: var(--high); }
-.task-row.completed { opacity: 0.5; }
-.task-row.completed .task-title { text-decoration: line-through; }
+.task-card::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--low);
+}
+.task-card.priority-low::before { background: var(--low); }
+.task-card.priority-medium::before { background: var(--medium); }
+.task-card.priority-high::before { background: var(--high); }
+.task-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+.task-card.completed { opacity: 0.55; }
+.task-card.completed .task-title { text-decoration: line-through; }
 
-.task-row input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+.task-check {
+  width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border);
+  background: var(--card); flex-shrink: 0; margin-top: 1px; cursor: pointer;
+  appearance: none; -webkit-appearance: none; display: grid; place-content: center;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.task-check:checked { background: var(--accent); border-color: var(--accent); }
+.task-check:checked::after {
+  content: ""; width: 6px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+
 .task-main { flex: 1; min-width: 0; }
-.task-title { font-size: 14.5px; font-weight: 500; color: var(--ink); word-break: break-word; }
-.task-desc { font-size: 13px; color: var(--ink-light); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.task-meta { display: flex; gap: 10px; font-size: 12px; color: var(--ink-light); margin-top: 6px; font-weight: 500; }
-.task-meta .overdue { color: var(--high); font-weight: 600; }
-.task-row button.delete-btn { border: none; background: transparent; color: var(--ink-light); cursor: pointer; font-size: 16px; flex-shrink: 0; border-radius: 6px; padding: 2px 6px; }
-.task-row button.delete-btn:hover { color: var(--high); background: rgba(239,68,68,0.1); }
+.task-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.task-title { font-size: 14.5px; font-weight: 600; color: var(--ink); word-break: break-word; }
+.task-desc { font-size: 13px; color: var(--ink-light); margin-top: 4px; line-height: 1.45; }
+.task-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.task-pill {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600;
+  padding: 3px 9px; border-radius: 9999px; background: var(--bg); color: var(--ink-light); border: 1px solid var(--border);
+}
+.task-pill.due-overdue { color: var(--high); border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.08); }
+.task-pill.due-today { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.task-pill.priority-tag.priority-high { color: var(--high); }
+.task-pill.priority-tag.priority-medium { color: var(--medium); }
+.task-pill.project-tag { color: var(--accent); background: var(--accent-soft); border-color: transparent; cursor: pointer; }
+.task-pill.project-tag:hover { filter: brightness(0.95); }
+
+.task-card-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.task-card button.delete-btn {
+  border: none; background: transparent; color: var(--ink-light); cursor: pointer;
+  border-radius: 8px; padding: 6px; display: flex; align-items: center; justify-content: center;
+}
+.task-card button.delete-btn:hover { color: var(--high); background: rgba(239,68,68,0.1); }
+.task-card button.delete-btn svg { width: 16px; height: 16px; }
 
 .empty-state {
   text-align: center; color: var(--ink-light); margin-top: 48px; font-size: 14px;
@@ -360,7 +414,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .pomodoro-settings-row label { display: flex; flex-direction: column; gap: 6px; text-align: center; }
 .pomodoro-settings-row input {
   width: 80px; padding: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--ink);
-  border-radius: 8px; font-size: 14px; text-align: center; font-weight: 600;
+  border-radius: 8px; font-size: 16px; text-align: center; font-weight: 600;
 }
 .pomodoro-sessions { font-size: 13px; color: var(--ink-light); font-weight: 600; }
 
@@ -405,7 +459,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .day-panel-form-title { font-size: 15px; font-weight: 700; }
 .day-panel-form .field-label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-light); }
 .day-panel-form input, .day-panel-form textarea {
-  padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--ink); font-size: 13px; font-family: inherit;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--ink); font-size: 16px; font-family: inherit;
 }
 .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
 
@@ -423,7 +477,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 }
 .note-form .form-row { margin: 0; }
 .note-form input, .note-form select, .note-form textarea {
-  padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--ink); font-size: 13.5px; font-family: inherit;
+  padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--ink); font-size: 16px; font-family: inherit;
 }
 .note-submit { align-self: flex-end; }
 .notes-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
@@ -448,14 +502,23 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .settings-label { font-size: 15px; font-weight: 700; color: var(--ink); }
 .settings-hint { font-size: 13px; color: var(--ink-light); margin-top: 2px; }
 .color-picker-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.color-picker-row input[type="color"] { width: 38px; height: 38px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; background: transparent; padding: 2px; }
-.hex-input { width: 100px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--ink); font-size: 13px; font-weight: 600; text-transform: uppercase; font-family: monospace; }
-.theme-select { padding: 8px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--ink); font-size: 13.5px; font-weight: 600; font-family: inherit; }
+.hex-input { width: 100px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--ink); font-size: 15px; font-weight: 600; font-family: monospace; }
 .closeout-toggle-label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--ink); cursor: pointer; }
 .closeout-toggle-label input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
 .notif-permission-hint { font-size: 12px; color: var(--ink-light); font-weight: 500; }
 
-/* ===== Modal / Closeout ===== */
+/* Theme toggle (light/dark only — no custom colors) */
+.theme-toggle { display: flex; gap: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 4px; }
+.theme-toggle-btn {
+  display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 9px; border: none;
+  background: none; color: var(--ink-light); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.theme-toggle-btn.active { background: var(--card); color: var(--ink); box-shadow: var(--shadow-sm); }
+.theme-swatch { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--border); display: inline-block; }
+.theme-swatch.light { background: #f8fafc; }
+.theme-swatch.dark { background: #111827; }
+
+/* ===== Modal / Closeout / Project ===== */
 .modal-overlay {
   position: fixed; inset: 0; z-index: 600;
   background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(8px);
@@ -464,6 +527,12 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .modal-card {
   width: 100%; max-width: 520px; background: var(--card); border: 1px solid var(--border); border-radius: 20px;
   box-shadow: var(--shadow-lg); padding: 28px; display: flex; flex-direction: column; gap: 20px;
+}
+.project-modal-card { max-width: 420px; }
+.project-modal-card .field-label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-light); }
+.project-modal-card .field-label input {
+  padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg); color: var(--ink); font-size: 16px; font-family: inherit; width: 100%;
 }
 .modal-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 .modal-title { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
@@ -484,7 +553,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 8px; }
 
 /* ===== Toast Container ===== */
-.toast-container { position: fixed; bottom: 50px; right: 24px; z-index: 700; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+.toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 700; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
 .toast {
   pointer-events: auto; background: var(--card); border: 1px solid var(--border); border-radius: 12px;
   padding: 12px 18px; box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 10px;
@@ -496,16 +565,23 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .toast-emoji { font-size: 16px; }
 .toast-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
 
-/* ===== Tips Bar ===== */
+/* ===== Tips Bar =====
+   Normal flex child (NOT position:fixed) placed right after .app in the
+   document, inside the same column-flex <body>. This is what fixes the
+   overlap: nothing needs a guessed padding-bottom anymore, because the
+   tips bar genuinely occupies its own space at the bottom of the layout
+   on every view, including Settings and any open modal/toast. */
 .tips-bar {
-  position: fixed; bottom: 0; left: 0; right: 0; height: 34px; z-index: 30;
+  flex-shrink: 0;
+  min-height: 34px;
   background: var(--panel); border-top: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: center; gap: 10px; padding: 0 20px;
+  display: flex; align-items: center; justify-content: center; gap: 10px; padding: 6px 20px;
+  padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
   font-size: 12px; color: var(--ink-light);
 }
-.tips-label { font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; font-size: 10px; }
+.tips-label { font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; font-size: 10px; flex-shrink: 0; }
 .tips-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 600px; font-weight: 500; }
-.tips-refresh { background: none; border: none; color: var(--ink-light); cursor: pointer; font-size: 14px; padding: 2px 6px; border-radius: 4px; }
+.tips-refresh { background: none; border: none; color: var(--ink-light); cursor: pointer; font-size: 14px; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
 .tips-refresh:hover { color: var(--accent); background: var(--accent-soft); }
 
 /* ===== Media Queries ===== */
@@ -515,14 +591,14 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
   .sidebar {
     position: fixed; top: 0; bottom: 0; left: -260px; z-index: 50; width: 260px;
     transition: transform .3s ease; box-shadow: var(--shadow-lg);
+    padding-top: calc(24px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   }
   .sidebar.open { transform: translateX(260px); }
 
-  .main {
-    padding: 22px 18px;
-    padding-bottom: calc(34px + 26px + env(safe-area-inset-bottom, 0px));
-  }
+  .main { padding: 22px 18px; }
   .main-header h1 { font-size: 22px; }
+  .main-header-top { flex-direction: column; align-items: flex-start; gap: 10px; }
 
   .form-row { flex-direction: column; align-items: stretch; }
   #todo-form select, #todo-form input[type="date"] { width: 100%; }
@@ -541,22 +617,31 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
     padding: 18px 20px;
   }
   .color-picker-row { width: 100%; }
+  .theme-toggle { width: 100%; }
+  .theme-toggle-btn { flex: 1; justify-content: center; }
 
   .pomodoro-card { padding: 28px 20px; gap: 20px; }
   .pomodoro-timer { font-size: 54px; }
   .pomodoro-settings-row { gap: 14px; }
 
-  .modal-card { padding: 22px; max-height: calc(100vh - 40px); overflow-y: auto; }
+  .modal-card { padding: 22px; max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); overflow-y: auto; }
 
-  .toast-container { bottom: calc(34px + 16px); right: 14px; left: 14px; }
+  .toast-container { bottom: 16px; right: 14px; left: 14px; }
   .toast { justify-content: center; }
 
   .tips-text { max-width: 60vw; }
+
+  /* iOS Safari zooms the whole page in when a focused input's font-size
+     is under 16px — every form control above is already set to 16px,
+     this is just a hard backstop for anything missed. */
+  input, select, textarea { font-size: 16px; }
 }
 
 @media (max-width: 480px) {
-  .tips-bar { padding: 0 12px; gap: 6px; }
+  .tips-bar { padding: 6px 12px; gap: 6px; }
   .tips-label { display: none; }
   .tips-divider { display: none; }
-  .tips-text { max-width: 70vw; font-size: 11.5px; }
+  .tips-text { max-width: 68vw; font-size: 11.5px; }
+  .sidebar { width: 82vw; left: -82vw; }
+  .sidebar.open { transform: translateX(82vw); }
 }

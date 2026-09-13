@@ -8,83 +8,28 @@ if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.p
   });
 }
 
-// ===== Color helpers =====
-function isValidHex(hex) { return /^#[0-9a-fA-F]{6}$/.test(hex); }
-function hexToRgb(hex) {
-  hex = hex.replace('#', '');
-  const num = parseInt(hex, 16);
-  return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+// ===== Theme (light / dark only — no custom colors) =====
+const THEME_KEY = 'theme';
+function getTheme() {
+  const stored = localStorage.getItem(THEME_KEY);
+  if (stored === 'light' || stored === 'dark') return stored;
+  return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
 }
-function relativeLuminance(hex) {
-  const { r, g, b } = hexToRgb(hex);
-  const [R, G, B] = [r, g, b].map(c => {
-    c /= 255;
-    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-  });
-  return 0.2126 * R + 0.7152 * G + 0.0722 * B;
+function applyTheme(mode) {
+  document.documentElement.setAttribute('data-theme', mode === 'dark' ? 'dark' : 'light');
+  localStorage.setItem(THEME_KEY, mode);
+  const lightBtn = document.getElementById('theme-light-btn');
+  const darkBtn = document.getElementById('theme-dark-btn');
+  if (lightBtn && darkBtn) {
+    lightBtn.classList.toggle('active', mode !== 'dark');
+    darkBtn.classList.toggle('active', mode === 'dark');
+  }
 }
-function isDarkColor(hex) { return relativeLuminance(hex) < 0.5; }
-function shadeColor(hex, percent) {
-  const num = parseInt(hex.replace('#', ''), 16);
-  const amt = Math.round(2.55 * percent);
-  let R = (num >> 16) + amt, G = (num >> 8 & 0x00FF) + amt, B = (num & 0x0000FF) + amt;
-  R = R < 255 ? (R < 0 ? 0 : R) : 255;
-  G = G < 255 ? (G < 0 ? 0 : G) : 255;
-  B = B < 255 ? (B < 0 ? 0 : B) : 255;
-  return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
-}
-
-// ===== Theme (fully custom color pickers, no presets) =====
-const DEFAULT_ACCENT = '#3b6fe0';
-const DEFAULT_BG = '#ffffff';
-
-function applyAccent(hex) {
-  document.documentElement.style.setProperty('--accent', hex);
-  document.documentElement.style.setProperty('--accent-soft', isDarkColor(localStorage.getItem('bgColor') || DEFAULT_BG) ? 'rgba(255,255,255,0.1)' : hexToRgbaSoft(hex));
-  localStorage.setItem('accent', hex);
-}
-function hexToRgbaSoft(hex) {
-  const { r, g, b } = hexToRgb(hex);
-  return `rgba(${r},${g},${b},0.08)`;
-}
-function autoTextColor(bgHex) {
-  return isDarkColor(bgHex) ? '#f5f5f5' : '#20242b';
-}
-function applyBackground(hex) {
-  const dark = isDarkColor(hex);
-  const root = document.documentElement;
-  root.style.setProperty('--bg', hex);
-  root.style.setProperty('--panel', shadeColor(hex, dark ? 8 : -3));
-  root.style.setProperty('--card', shadeColor(hex, dark ? 14 : 0));
-  root.style.setProperty('--border', shadeColor(hex, dark ? 22 : -8));
-  const customText = localStorage.getItem('textColor');
-  root.style.setProperty('--ink', customText || autoTextColor(hex));
-  root.style.setProperty('--ink-light', dark ? '#a8a8a8' : '#8b8f98');
-  localStorage.setItem('bgColor', hex);
-  applyAccent(localStorage.getItem('accent') || DEFAULT_ACCENT);
-}
-function applyTextColor(hex) {
-  document.documentElement.style.setProperty('--ink', hex);
-  localStorage.setItem('textColor', hex);
-}
-function resetTextColor() {
-  localStorage.removeItem('textColor');
-  const bg = localStorage.getItem('bgColor') || DEFAULT_BG;
-  document.documentElement.style.setProperty('--ink', autoTextColor(bg));
-  renderSettingsUI();
-}
+document.getElementById('theme-light-btn').addEventListener('click', () => applyTheme('light'));
+document.getElementById('theme-dark-btn').addEventListener('click', () => applyTheme('dark'));
 
 function renderSettingsUI() {
-  const accent = localStorage.getItem('accent') || DEFAULT_ACCENT;
-  const bg = localStorage.getItem('bgColor') || DEFAULT_BG;
-  const text = localStorage.getItem('textColor') || autoTextColor(bg);
-  document.getElementById('accent-picker').value = accent;
-  document.getElementById('accent-hex-input').value = accent.toUpperCase();
-  document.getElementById('bg-picker').value = bg;
-  document.getElementById('bg-hex-input').value = bg.toUpperCase();
-  document.getElementById('text-picker').value = text;
-  document.getElementById('text-hex-input').value = text.toUpperCase();
-
+  applyTheme(getTheme());
   document.getElementById('closeout-time-input').value = getCloseoutTime();
   document.getElementById('closeout-enabled-input').checked = isCloseoutEnabled();
   document.getElementById('tips-enabled-input').checked = areTipsEnabled();
@@ -93,42 +38,6 @@ function renderSettingsUI() {
   updateNotifPermissionHint();
   renderAccountSection();
 }
-
-document.getElementById('accent-picker').addEventListener('input', (e) => {
-  applyAccent(e.target.value);
-  document.getElementById('accent-hex-input').value = e.target.value.toUpperCase();
-});
-document.getElementById('accent-hex-input').addEventListener('input', (e) => {
-  let v = e.target.value;
-  if (!v.startsWith('#')) v = '#' + v;
-  if (isValidHex(v)) { applyAccent(v); document.getElementById('accent-picker').value = v; }
-});
-document.getElementById('bg-picker').addEventListener('input', (e) => {
-  applyBackground(e.target.value);
-  document.getElementById('bg-hex-input').value = e.target.value.toUpperCase();
-  document.getElementById('text-picker').value = localStorage.getItem('textColor') || autoTextColor(e.target.value);
-  document.getElementById('text-hex-input').value = (localStorage.getItem('textColor') || autoTextColor(e.target.value)).toUpperCase();
-});
-document.getElementById('bg-hex-input').addEventListener('input', (e) => {
-  let v = e.target.value;
-  if (!v.startsWith('#')) v = '#' + v;
-  if (isValidHex(v)) {
-    applyBackground(v);
-    document.getElementById('bg-picker').value = v;
-    document.getElementById('text-picker').value = localStorage.getItem('textColor') || autoTextColor(v);
-    document.getElementById('text-hex-input').value = (localStorage.getItem('textColor') || autoTextColor(v)).toUpperCase();
-  }
-});
-document.getElementById('text-picker').addEventListener('input', (e) => {
-  applyTextColor(e.target.value);
-  document.getElementById('text-hex-input').value = e.target.value.toUpperCase();
-});
-document.getElementById('text-hex-input').addEventListener('input', (e) => {
-  let v = e.target.value;
-  if (!v.startsWith('#')) v = '#' + v;
-  if (isValidHex(v)) { applyTextColor(v); document.getElementById('text-picker').value = v; }
-});
-document.getElementById('text-reset-btn').addEventListener('click', resetTextColor);
 
 // ===== Account section (Settings) =====
 const accountStatusEl = document.getElementById('account-status');
@@ -516,6 +425,133 @@ const allChevron = document.getElementById('all-chevron');
 const allSubnav = document.getElementById('all-subnav');
 const navItems = document.querySelectorAll('.nav-item');
 
+// ===== Projects =====
+// A project just groups todos together (todo.projectId -> project.id).
+// Kept deliberately simple: no nesting, no per-project settings.
+let projects = JSON.parse(localStorage.getItem('projects') || '[]');
+let currentProjectId = null; // set when currentView === 'project'
+
+const projectNavListEl = document.getElementById('project-nav-list');
+const projectEmptyHintEl = document.getElementById('project-empty-hint');
+const addProjectBtn = document.getElementById('add-project-btn');
+const projectSelectEl = document.getElementById('todo-project-select');
+const projectHeaderActions = document.getElementById('project-header-actions');
+const projectRenameBtn = document.getElementById('project-rename-btn');
+const projectDeleteBtn = document.getElementById('project-delete-btn');
+
+const projectModalOverlay = document.getElementById('project-modal-overlay');
+const projectModalTitle = document.getElementById('project-modal-title');
+const projectNameInput = document.getElementById('project-name-input');
+const projectModalSaveBtn = document.getElementById('project-modal-save-btn');
+const projectModalCancelBtn = document.getElementById('project-modal-cancel-btn');
+const projectModalCloseBtn = document.getElementById('project-modal-close-btn');
+
+let editingProjectId = null; // non-null => modal is renaming, not creating
+
+function saveProjects() { localStorage.setItem('projects', JSON.stringify(projects)); }
+function getProject(id) { return projects.find(p => p.id === id) || null; }
+
+function openProjectModal(existingProject = null) {
+  editingProjectId = existingProject ? existingProject.id : null;
+  projectModalTitle.textContent = existingProject ? 'Rename project' : 'New project';
+  projectNameInput.value = existingProject ? existingProject.name : '';
+  projectModalOverlay.style.display = 'flex';
+  setTimeout(() => projectNameInput.focus(), 30);
+}
+function closeProjectModal() { projectModalOverlay.style.display = 'none'; editingProjectId = null; }
+
+addProjectBtn.addEventListener('click', () => openProjectModal());
+projectModalCancelBtn.addEventListener('click', closeProjectModal);
+projectModalCloseBtn.addEventListener('click', closeProjectModal);
+projectModalOverlay.addEventListener('click', (e) => { if (e.target === projectModalOverlay) closeProjectModal(); });
+
+projectModalSaveBtn.addEventListener('click', () => {
+  const name = projectNameInput.value.trim();
+  if (!name) { projectNameInput.focus(); return; }
+  if (editingProjectId) {
+    const p = getProject(editingProjectId);
+    if (p) {
+      p.name = name;
+      saveProjects();
+      if (currentUser) dbUpsert('projects', projectRemoteRow(p));
+    }
+  } else {
+    const p = { id: Date.now(), name };
+    projects.push(p);
+    saveProjects();
+    if (currentUser) dbUpsert('projects', projectRemoteRow(p));
+  }
+  closeProjectModal();
+  renderProjectNav();
+  renderProjectSelect();
+  if (currentView === 'project') { renderViewHeader(); renderTodos(); }
+});
+
+function deleteProject(id) {
+  projects = projects.filter(p => p.id !== id);
+  // Unassign (not delete) any tasks that belonged to this project.
+  let touched = [];
+  todos.forEach(t => { if (t.projectId === id) { t.projectId = null; touched.push(t); } });
+  saveProjects();
+  saveTodos();
+  if (currentUser) {
+    dbDelete('projects', id, currentUser.id);
+    touched.forEach(t => dbUpsert('todos', todoRemoteRow(t)));
+  }
+}
+projectDeleteBtn.addEventListener('click', () => {
+  if (!currentProjectId) return;
+  const p = getProject(currentProjectId);
+  if (!p) return;
+  if (!confirm(`Delete "${p.name}"? Tasks in it will be kept but unassigned from the project.`)) return;
+  deleteProject(currentProjectId);
+  setView('all');
+});
+projectRenameBtn.addEventListener('click', () => {
+  const p = getProject(currentProjectId);
+  if (p) openProjectModal(p);
+});
+
+function renderProjectNav() {
+  projectNavListEl.innerHTML = '';
+  projectEmptyHintEl.style.display = projects.length ? 'none' : 'block';
+  projects.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'nav-item' + (currentView === 'project' && currentProjectId === p.id ? ' active' : '');
+    btn.dataset.view = 'project';
+    btn.dataset.projectId = p.id;
+    const dot = document.createElement('span');
+    dot.className = 'project-nav-dot';
+    const label = document.createElement('span');
+    label.className = 'nav-label';
+    label.textContent = p.name;
+    const count = document.createElement('span');
+    count.className = 'nav-count';
+    count.textContent = todos.filter(t => t.projectId === p.id).length;
+    btn.append(dot, label, count);
+    btn.addEventListener('click', () => { currentProjectId = p.id; setView('project'); });
+    projectNavListEl.appendChild(btn);
+  });
+}
+function renderProjectSelect() {
+  if (!projectSelectEl) return;
+  const prevValue = projectSelectEl.value;
+  projectSelectEl.innerHTML = '<option value="">No project</option>';
+  projects.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.name;
+    projectSelectEl.appendChild(opt);
+  });
+  // Pre-select the project currently being viewed, so adding a task
+  // from inside a project drops it straight into that project.
+  if (currentView === 'project' && currentProjectId && getProject(currentProjectId)) {
+    projectSelectEl.value = String(currentProjectId);
+  } else if (projects.some(p => String(p.id) === prevValue)) {
+    projectSelectEl.value = prevValue;
+  }
+}
+
 function saveTodos() { localStorage.setItem('todos', JSON.stringify(todos)); }
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 function tomorrowStr() {
@@ -530,7 +566,10 @@ function escapeHtml(str) {
 }
 
 function todoRemoteRow(t) {
-  return { id: t.id, user_id: currentUser.id, text: t.text, desc: t.desc || '', done: t.done, due: t.due, priority: t.priority };
+  return { id: t.id, user_id: currentUser.id, text: t.text, desc: t.desc || '', done: t.done, due: t.due, priority: t.priority, project_id: t.projectId || null };
+}
+function projectRemoteRow(p) {
+  return { id: p.id, user_id: currentUser.id, name: p.name };
 }
 
 function showView(view) {
@@ -543,21 +582,24 @@ function showView(view) {
   else if (view === 'settings') document.getElementById('settings-view').style.display = 'block';
   else if (view === 'calendar') document.getElementById('calendar-view').style.display = 'block';
   else if (view === 'notes') document.getElementById('notes-view').style.display = 'block';
-  else document.getElementById('task-view').style.display = 'block';
+  else document.getElementById('task-view').style.display = 'block'; // 'all' | 'today' | 'active' | 'completed' | 'project'
 }
 
 function setView(view) {
   currentView = view;
+  if (view !== 'project') currentProjectId = null;
   navItems.forEach(b => b.classList.toggle('active', b.dataset.view === view));
   allTasksBtn.classList.toggle('active', ['all', 'today', 'active', 'completed'].includes(view));
   showView(view);
   if (view === 'settings') renderSettingsUI();
   if (view === 'calendar') { renderCalendar(); renderDayPanel(); }
   if (view === 'notes') renderNotes();
-  if (['all', 'today', 'active', 'completed'].includes(view)) {
+  if (['all', 'today', 'active', 'completed', 'project'].includes(view)) {
+    renderProjectSelect();
     renderTodos();
     renderViewHeader();
   }
+  renderProjectNav();
   closeSidebar();
 }
 
@@ -577,6 +619,7 @@ function getFilteredTodos() {
   if (currentView === 'today') filtered = filtered.filter(t => t.due === todayStr());
   else if (currentView === 'active') filtered = filtered.filter(t => !t.done);
   else if (currentView === 'completed') filtered = filtered.filter(t => t.done);
+  else if (currentView === 'project') filtered = filtered.filter(t => t.projectId === currentProjectId);
   const priorityRank = { high: 0, medium: 1, low: 2 };
   filtered.sort((a, b) => {
     if (a.done !== b.done) return a.done ? 1 : -1;
@@ -589,50 +632,84 @@ function renderTodos() {
   const filtered = getFilteredTodos();
   todoListEl.innerHTML = '';
   emptyState.style.display = filtered.length ? 'none' : 'block';
+  const todayKey = todayStr();
+
   filtered.forEach(t => {
-    const row = document.createElement('div');
-    row.className = `task-row priority-${t.priority}` + (t.done ? ' completed' : '');
+    const card = document.createElement('div');
+    card.className = `task-card priority-${t.priority}` + (t.done ? ' completed' : '');
+
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
+    checkbox.className = 'task-check';
     checkbox.checked = t.done;
+    checkbox.setAttribute('aria-label', t.done ? 'Mark task as not done' : 'Mark task as done');
     checkbox.addEventListener('change', () => {
       t.done = checkbox.checked;
       saveTodos(); renderTodos(); renderCounts();
       if (currentUser) dbUpsert('todos', todoRemoteRow(t));
       if (t.done) showToast('complete');
     });
+
     const main = document.createElement('div');
     main.className = 'task-main';
+
     const title = document.createElement('div');
     title.className = 'task-title';
     title.textContent = t.text;
     main.appendChild(title);
+
     if (t.desc) {
       const desc = document.createElement('div');
       desc.className = 'task-desc';
       desc.textContent = t.desc;
       main.appendChild(desc);
     }
+
+    const meta = document.createElement('div');
+    meta.className = 'task-meta';
+
     if (t.due) {
-      const meta = document.createElement('div');
-      meta.className = 'task-meta';
-      const overdue = !t.done && t.due < todayStr();
+      const overdue = !t.done && t.due < todayKey;
+      const isToday = t.due === todayKey;
       const due = document.createElement('span');
-      due.className = overdue ? 'overdue' : '';
-      due.textContent = t.due;
+      due.className = 'task-pill' + (overdue ? ' due-overdue' : '') + (isToday ? ' due-today' : '');
+      due.textContent = (overdue ? '⚠ ' : '📅 ') + t.due;
       meta.appendChild(due);
-      main.appendChild(meta);
     }
+    if (t.priority === 'high' || t.priority === 'medium') {
+      const pr = document.createElement('span');
+      pr.className = `task-pill priority-tag priority-${t.priority}`;
+      pr.textContent = t.priority === 'high' ? 'High priority' : 'Medium';
+      meta.appendChild(pr);
+    }
+    if (t.projectId && currentView !== 'project') {
+      const p = getProject(t.projectId);
+      if (p) {
+        const tag = document.createElement('span');
+        tag.className = 'task-pill project-tag';
+        tag.textContent = p.name;
+        tag.title = 'Go to project';
+        tag.addEventListener('click', () => { currentProjectId = p.id; setView('project'); });
+        meta.appendChild(tag);
+      }
+    }
+    if (meta.children.length) main.appendChild(meta);
+
+    const actions = document.createElement('div');
+    actions.className = 'task-card-actions';
     const del = document.createElement('button');
     del.className = 'delete-btn';
-    del.textContent = 'x';
+    del.setAttribute('aria-label', 'Delete task');
+    del.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>';
     del.addEventListener('click', () => {
       todos = todos.filter(x => x.id !== t.id);
-      saveTodos(); renderTodos(); renderCounts();
+      saveTodos(); renderTodos(); renderCounts(); renderProjectNav();
       if (currentUser) dbDelete('todos', t.id, currentUser.id);
     });
-    row.append(checkbox, main, del);
-    todoListEl.appendChild(row);
+    actions.appendChild(del);
+
+    card.append(checkbox, main, actions);
+    todoListEl.appendChild(card);
   });
 }
 function renderCounts() {
@@ -643,7 +720,14 @@ function renderCounts() {
 }
 function renderViewHeader() {
   const titles = { all: 'All Tasks', today: 'Today', active: 'Active', completed: 'Completed' };
-  viewTitle.textContent = titles[currentView] || 'Tasks';
+  if (currentView === 'project') {
+    const p = getProject(currentProjectId);
+    viewTitle.textContent = p ? p.name : 'Project';
+    projectHeaderActions.style.display = 'flex';
+  } else {
+    viewTitle.textContent = titles[currentView] || 'Tasks';
+    projectHeaderActions.style.display = 'none';
+  }
   const remaining = getFilteredTodos().filter(t => !t.done).length;
   viewSubtitle.textContent = `${remaining} remaining`;
 }
@@ -651,11 +735,12 @@ form.addEventListener('submit', (e) => {
   e.preventDefault();
   const text = input.value.trim();
   if (!text) return;
-  const newTodo = { id: Date.now(), text, desc: descInput.value.trim(), done: false, due: dueInput.value || null, priority: priorityInput.value };
+  const projectId = projectSelectEl.value ? Number(projectSelectEl.value) : null;
+  const newTodo = { id: Date.now(), text, desc: descInput.value.trim(), done: false, due: dueInput.value || null, priority: priorityInput.value, projectId };
   todos.push(newTodo);
   input.value = ''; descInput.value = ''; dueInput.value = '';
   saveTodos();
-  renderTodos(); renderCounts(); renderViewHeader();
+  renderTodos(); renderCounts(); renderViewHeader(); renderProjectNav();
   if (currentUser) dbUpsert('todos', todoRemoteRow(newTodo));
   showToast('add');
   input.focus();
@@ -663,7 +748,7 @@ form.addEventListener('submit', (e) => {
 clearBtn.addEventListener('click', () => {
   todos = todos.filter(t => !t.done);
   saveTodos();
-  renderTodos(); renderCounts(); renderViewHeader();
+  renderTodos(); renderCounts(); renderViewHeader(); renderProjectNav();
   if (currentUser) dbDeleteWhere('todos', currentUser.id, { done: true });
 });
 
@@ -1085,13 +1170,18 @@ window.initApp = async function initApp(user) {
   currentUser = user || null;
 
   if (currentUser) {
-    const [remoteTodos, remoteNotes, remoteEvents] = await Promise.all([
+    const [remoteTodos, remoteNotes, remoteEvents, remoteProjects] = await Promise.all([
       dbFetchAll('todos', currentUser.id),
       dbFetchAll('notes', currentUser.id),
       dbFetchAll('events', currentUser.id),
+      dbFetchAll('projects', currentUser.id),
     ]);
+    if (remoteProjects) {
+      projects = remoteProjects.map(p => ({ id: p.id, name: p.name }));
+      saveProjects();
+    }
     if (remoteTodos) {
-      todos = remoteTodos.map(t => ({ id: t.id, text: t.text, desc: t.desc, done: t.done, due: t.due, priority: t.priority }));
+      todos = remoteTodos.map(t => ({ id: t.id, text: t.text, desc: t.desc, done: t.done, due: t.due, priority: t.priority, projectId: t.project_id || null }));
       saveTodos();
     }
     if (remoteNotes) {
@@ -1104,10 +1194,10 @@ window.initApp = async function initApp(user) {
     }
   }
 
-  applyBackground(localStorage.getItem('bgColor') || DEFAULT_BG);
-  applyAccent(localStorage.getItem('accent') || DEFAULT_ACCENT);
-  if (localStorage.getItem('textColor')) applyTextColor(localStorage.getItem('textColor'));
+  applyTheme(getTheme());
   renderSettingsUI();
+  renderProjectNav();
+  renderProjectSelect();
   renderTodos();
   renderCounts();
   renderViewHeader();
