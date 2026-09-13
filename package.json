@@ -1,0 +1,23 @@
+{
+  "name": "aschertype",
+  "version": "1.0.0",
+  "description": "Aschertype - tasks, calendar, notes and focus timer",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.aschertype.app",
+    "productName": "Aschertype",
+    "files": ["main.js", "src/**/*"],
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Utility"
+    }
+  }
+}

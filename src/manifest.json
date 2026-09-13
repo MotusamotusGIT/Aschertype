@@ -1,0 +1,25 @@
+{
+  "name": "Aschertype",
+  "short_name": "Aschertype",
+  "description": "Productivity, all in one",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#111111",
+  "theme_color": "#7c5cff",
+  "icons": [
+    {
+      "src": "../Build/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "../Build/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
