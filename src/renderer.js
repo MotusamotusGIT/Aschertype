@@ -636,6 +636,7 @@ const projectDeleteBtn = document.getElementById('project-delete-btn');
 const projectModalOverlay = document.getElementById('project-modal-overlay');
 const projectModalTitle = document.getElementById('project-modal-title');
 const projectNameInput = document.getElementById('project-name-input');
+const projectPreviewTile = document.getElementById('project-preview-tile');
 const projectModalSaveBtn = document.getElementById('project-modal-save-btn');
 const projectModalCancelBtn = document.getElementById('project-modal-cancel-btn');
 const projectModalCloseBtn = document.getElementById('project-modal-close-btn');
@@ -691,10 +692,22 @@ function canToggleTaskIn(projectId) {
 }
 
 // Project modal
+let previewTileColor = null;
+function updateProjectPreviewLetter() {
+  const name = projectNameInput.value.trim();
+  projectPreviewTile.textContent = name.charAt(0).toUpperCase() || '?';
+}
+projectNameInput.addEventListener('input', updateProjectPreviewLetter);
+
 function openProjectModal(existingProject = null) {
   editingProjectId = existingProject ? existingProject.id : null;
   projectModalTitle.textContent = existingProject ? 'Rename project' : 'New project';
   projectNameInput.value = existingProject ? existingProject.name : '';
+  // Color is decided once per time the modal opens (not per keystroke) so
+  // it doesn't flicker while typing — only the letter updates live.
+  previewTileColor = projectTileColor(existingProject || { id: 'preview-' + Date.now(), name: '' });
+  projectPreviewTile.style.background = previewTileColor;
+  updateProjectPreviewLetter();
   projectModalOverlay.style.display = 'flex';
   setTimeout(() => projectNameInput.focus(), 30);
 }
@@ -957,6 +970,12 @@ function renderTodos() {
 
     const titleRow = document.createElement('div');
     titleRow.className = 'task-title-row';
+    if (t.priority === 'high' || t.priority === 'medium') {
+      const dot = document.createElement('span');
+      dot.className = `task-priority-dot priority-${t.priority}`;
+      dot.title = t.priority === 'high' ? 'High priority' : 'Medium priority';
+      titleRow.appendChild(dot);
+    }
     const title = document.createElement('div');
     title.className = 'task-title';
     title.textContent = t.text;
@@ -982,12 +1001,6 @@ function renderTodos() {
       dueText.textContent = t.due;
       due.appendChild(dueText);
       meta.appendChild(due);
-    }
-    if (t.priority === 'high' || t.priority === 'medium') {
-      const pr = document.createElement('span');
-      pr.className = `task-pill priority-tag priority-${t.priority}`;
-      pr.textContent = t.priority === 'high' ? 'High' : 'Medium';
-      meta.appendChild(pr);
     }
     if (t.projectId && currentView !== 'project') {
       const p = getProject(t.projectId);

@@ -398,16 +398,23 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .icon-btn.round:hover { border-color: var(--accent); color: var(--accent-ink); }
 .icon-btn.round.tiny { width: 24px; height: 24px; font-size: 14px; }
 
-/* Plain "+" buttons: no circle/border, just the glyph, with a generous
-   invisible tap area (via padding) so it's still easy to hit on mobile
-   without looking bulky. */
+/* Small circular "+" buttons. Kept visually compact (22px) on every
+   device — mobile and desktop alike — but each gets an invisible
+   enlarged hit-zone via ::before so it's still comfortable to tap on
+   touch screens without the circle itself looking bulky. */
 .icon-btn.plus {
-  width: 20px; height: 20px; padding: 8px; margin: -8px;
-  border-radius: 8px; border: none; background: none;
-  font-size: 15px; font-weight: 400; line-height: 1;
+  position: relative;
+  width: 22px; height: 22px; padding: 0;
+  border-radius: 50%; border: 1px solid var(--border); background: var(--card);
+  font-size: 13px; font-weight: 400; line-height: 1;
   color: var(--ink-light);
 }
-.icon-btn.plus:hover { background: var(--accent-soft); color: var(--accent-ink); }
+.icon-btn.plus::before {
+  content: "";
+  position: absolute;
+  inset: -7px; /* invisible tap-area padding, ~36px effective target */
+}
+.icon-btn.plus:hover { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft); }
 #menu-toggle { flex-direction: column; gap: 4px; width: 40px; height: 40px; }
 #menu-toggle .bar { display: block; width: 18px; height: 2px; background: var(--ink-2); border-radius: 2px; }
 
@@ -448,7 +455,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .nav-item:hover { background: var(--accent-soft); color: var(--ink); }
 .nav-item.active { background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; }
 .nav-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nav-count { background: var(--bg); border: 1px solid var(--border); border-radius: 9999px; padding: 2px 8px; font-size: 11px; color: var(--ink-light); font-weight: 600; }
+.nav-count { background: var(--bg); border: 1px solid var(--border); border-radius: 9999px; padding: 1px 6px; font-size: 10px; min-width: 16px; text-align: center; color: var(--ink-light); font-weight: 600; }
 .nav-item.active .nav-count { background: var(--card); border-color: transparent; color: var(--accent-ink); }
 .chevron {
   font-size: 10px; color: var(--ink-light); transition: transform 0.2s ease; flex-shrink: 0;
@@ -1363,23 +1370,28 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   .tips-refresh { padding-top: 2px; }
 
   /* ----- Sidebar nav on mobile -----
-     The chevron's visible glyph and the count pill both get smaller
-     and more minimal, but the chevron's tappable area is enlarged via
-     padding (invisible) so it's actually easy to hit with a thumb. */
+     The chevron's visible glyph stays small and minimal, but its
+     tappable area is enlarged via padding (invisible) so it's easy
+     to hit with a thumb. The count pill uses the same compact size
+     as everywhere else — see the base .nav-count rule above. */
   .nav-item { padding: 8px 10px; gap: 9px; }
   .chevron {
     font-size: 11px;
     padding: 11px;
     margin: -11px -11px -11px -2px;
   }
-  .nav-count {
-    padding: 1px 6px;
-    font-size: 10px;
-    min-width: 14px;
-    text-align: center;
-  }
   .sub-nav { margin-left: 16px; padding-left: 12px; }
   .nav-item.sub { padding: 6px 10px; font-size: 13px; }
+
+  /* Hover-to-reveal doesn't work on touchscreens, so edit/delete on a
+     task would otherwise be unreachable on mobile — keep them visible
+     and give them a slightly bigger, easier-to-hit tap target here. */
+  .task-icon-btn {
+    opacity: 1;
+    transform: none;
+    width: 28px;
+    height: 28px;
+  }
 }
 
 @media (max-width: 480px) {

@@ -166,7 +166,7 @@
       <div class="sidebar-section">
         <div class="sidebar-title-row">
           <div class="sidebar-title">Projects</div>
-          <button type="button" id="add-project-btn" class="icon-btn round tiny" title="New project">+</button>
+          <button type="button" id="add-project-btn" class="icon-btn plus" title="New project">+</button>
         </div>
         <div id="project-nav-list"></div>
         <p id="project-empty-hint" class="sidebar-empty-hint" style="display:none">No projects yet</p>
@@ -296,7 +296,7 @@
             <div class="collab-sheet">
               <div class="collab-head">
                 <span class="collab-title">Collaborators</span>
-                <button type="button" id="collab-invite-btn" class="icon-btn round tiny" title="Invite collaborator">+</button>
+                <button type="button" id="collab-invite-btn" class="icon-btn plus" title="Invite collaborator">+</button>
               </div>
               <div id="collab-body" class="collab-body"></div>
               <div id="collab-empty" class="collab-empty" style="display:none">No collaborators yet.</div>
@@ -414,7 +414,7 @@
 
         <div class="notes-toolbar">
           <div class="category-tabs" id="category-tabs"></div>
-          <button type="button" id="add-category-btn" class="icon-btn round" title="Add category">+</button>
+          <button type="button" id="add-category-btn" class="icon-btn plus" title="Add category">+</button>
         </div>
 
         <form id="note-form" class="note-form">
@@ -556,9 +556,12 @@
         </div>
         <button type="button" id="project-modal-close-btn" class="icon-btn" aria-label="Close">&times;</button>
       </div>
-      <label class="field-label">Project name
-        <input type="text" id="project-name-input" placeholder="e.g. Website redesign" autocomplete="off" maxlength="60">
-      </label>
+      <div class="project-modal-field">
+        <span id="project-preview-tile" class="project-preview-tile">?</span>
+        <label class="field-label">Project name
+          <input type="text" id="project-name-input" placeholder="e.g. Website redesign" autocomplete="off" maxlength="60">
+        </label>
+      </div>
       <div class="modal-actions">
         <button type="button" id="project-modal-cancel-btn" class="btn">Cancel</button>
         <button type="button" id="project-modal-save-btn" class="btn primary">Save</button>
