@@ -167,6 +167,20 @@ function showToast(category) {
     setTimeout(() => el.remove(), 320);
   }, 3200);
 }
+
+// Surfaces any dbUpsert/dbFetchAll/dbDelete failure (from db.js) as a
+// visible toast instead of a silent console.error.
+window.onSyncError = function (table, action, message) {
+  const el = document.createElement('div');
+  el.className = 'toast notif';
+  el.innerHTML = `<span class="toast-dot" style="background:var(--high)"></span><span><strong>Sync issue</strong><br>Couldn't ${action} ${table}: ${escapeHtml(message)}</span>`;
+  toastContainer.appendChild(el);
+  setTimeout(() => {
+    el.classList.add('leaving');
+    setTimeout(() => el.remove(), 320);
+  }, 5000);
+};
+
 document.getElementById('encouragement-enabled-input').addEventListener('change', (e) => {
   setEncouragementEnabled(e.target.checked);
 });
@@ -187,6 +201,37 @@ function updateNotifPermissionHint() {
   else if (Notification.permission === 'denied') notifPermissionHintEl.textContent = 'Blocked — using in-app alerts instead';
   else notifPermissionHintEl.textContent = "We'll ask permission when needed";
 }
+// ===== Notification sound =====
+// Web Audio API two-tone chime — no audio file needed. Browsers require a
+// user gesture before audio can play; the loading-screen click provides that.
+let audioCtx = null;
+function unlockAudioContext() {
+  if (audioCtx) return;
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (Ctx) audioCtx = new Ctx();
+  } catch (err) { /* Web Audio unsupported — sound just won't play */ }
+}
+function playNotificationSound() {
+  if (!audioCtx) unlockAudioContext();
+  if (!audioCtx) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+  const now = audioCtx.currentTime;
+  [660, 880].forEach((freq, i) => {
+    const start = now + i * 0.13;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, start);
+    gain.gain.linearRampToValueAtTime(0.22, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.32);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(start);
+    osc.stop(start + 0.34);
+  });
+}
+
 function requestNotifPermissionIfNeeded() {
   if (!isNotifEnabled()) return;
   if ('Notification' in window && Notification.permission === 'default') {
@@ -197,6 +242,7 @@ function requestNotifPermissionIfNeeded() {
 }
 function sendNotification(title, body) {
   if (!isNotifEnabled()) return;
+  playNotificationSound();
   if ('Notification' in window && Notification.permission === 'granted') {
     try { new Notification(title, { body }); return; } catch (err) { /* fall through to in-app */ }
   }
@@ -1225,6 +1271,7 @@ let loadingDismissed = false;
 function dismissLoading() {
   if (loadingDismissed) return;
   loadingDismissed = true;
+  unlockAudioContext();
   loadingScreen.classList.add('hidden');
 }
 loadingScreen.addEventListener('click', dismissLoading);

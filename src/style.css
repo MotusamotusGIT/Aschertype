@@ -257,7 +257,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .logo-img { width: 32px; height: 32px; border-radius: 10px; }
 .logo-text { font-size: 18px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
 
-.sidebar-section { margin-bottom: 24px; }
+.sidebar-section { margin-bottom: 24px; display: flex; flex-direction: column; gap: 4px; }
 .sidebar-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-light); padding: 0 10px 10px; font-weight: 700; }
 .sidebar-title-row { display: flex; align-items: center; justify-content: space-between; padding-right: 6px; }
 .sidebar-title-row .sidebar-title { padding-bottom: 0; }
@@ -282,6 +282,8 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .nav-item.sub { font-size: 13.5px; padding: 8px 12px; }
 
 .project-nav-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+
+#project-nav-list { display: flex; flex-direction: column; gap: 4px; }
 
 .sidebar-footer { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
 #clear-completed, #closeout-btn {

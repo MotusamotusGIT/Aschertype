@@ -90,23 +90,30 @@ const rememberAwareStorage = {
 })();
 
 // ----- Generic table helpers, each scoped to the signed-in user -----
+function reportSyncError(table, action, message) {
+  console.error(`[Supabase] ${action} ${table} failed:`, message);
+  if (typeof window !== 'undefined' && typeof window.onSyncError === 'function') {
+    window.onSyncError(table, action, message);
+  }
+}
+
 async function dbFetchAll(table, userId) {
   if (!supabaseReady) return null;
   const { data, error } = await supabaseClient.from(table).select('*').eq('user_id', userId);
-  if (error) { console.error(`[Supabase] fetch ${table} failed:`, error.message); return null; }
+  if (error) { reportSyncError(table, 'load', error.message); return null; }
   return data;
 }
 
 async function dbUpsert(table, row) {
   if (!supabaseReady) return;
   const { error } = await supabaseClient.from(table).upsert(row);
-  if (error) console.error(`[Supabase] upsert ${table} failed:`, error.message);
+  if (error) reportSyncError(table, 'save', error.message);
 }
 
 async function dbDelete(table, id, userId) {
   if (!supabaseReady) return;
   const { error } = await supabaseClient.from(table).delete().eq('id', id).eq('user_id', userId);
-  if (error) console.error(`[Supabase] delete ${table} failed:`, error.message);
+  if (error) reportSyncError(table, 'delete', error.message);
 }
 
 async function dbDeleteWhere(table, userId, matchExtra) {
@@ -114,5 +121,5 @@ async function dbDeleteWhere(table, userId, matchExtra) {
   let query = supabaseClient.from(table).delete().eq('user_id', userId);
   Object.entries(matchExtra || {}).forEach(([key, value]) => { query = query.eq(key, value); });
   const { error } = await query;
-  if (error) console.error(`[Supabase] bulk delete ${table} failed:`, error.message);
+  if (error) reportSyncError(table, 'bulk delete', error.message);
 }
