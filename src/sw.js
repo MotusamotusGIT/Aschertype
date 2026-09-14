@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aschertype-v4';
+const CACHE_NAME = 'aschertype-v5';
 const ASSETS = [
   '/',
   '/index.html',
