@@ -29,13 +29,6 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Aschertype">
 
-  <!--
-    Content-Security-Policy
-    - No 'unsafe-eval'. Nothing in the app needs eval/Function.
-    - No 'unsafe-inline' in script-src. All scripts are external files.
-    - No dev-only localhost entries. Production policy only.
-    - file: is kept for the Electron build; 'self' covers the Vercel origin.
-  -->
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self' file:;
                  img-src 'self' file: data: blob: https://aschertype.vercel.app;
@@ -144,7 +137,7 @@
 
       <nav class="sidebar-section">
         <button class="nav-item active" id="all-tasks-btn" data-view="all">
-          <span class="nav-label">All Tasks</span>
+          <span class="nav-label">Home</span>
           <span class="nav-count" id="count-all">0</span>
           <span class="chevron" id="all-chevron">&#9662;</span>
         </button>
@@ -216,18 +209,50 @@
         <div id="project-view-layout" class="project-view-layout">
           <div class="project-view-main">
             <header class="main-header">
-              <div class="main-header-top">
-                <div>
-                  <h1 id="view-title">To-do list</h1>
+              <div class="main-header-block">
+                <h1 id="view-title">To-do list</h1>
+                <div class="main-header-meta">
                   <span id="view-subtitle"></span>
-                </div>
-                <div class="project-header-actions" id="project-header-actions" style="display:none">
-                  <button type="button" id="project-invite-btn" class="pill-btn" style="display:none">Invite</button>
-                  <button type="button" id="project-rename-btn" class="pill-btn">Rename</button>
-                  <button type="button" id="project-delete-btn" class="pill-btn danger-pill">Delete</button>
+                  <div class="project-header-actions" id="project-header-actions" style="display:none">
+                    <button type="button" id="project-rename-btn" class="header-icon-btn" title="Rename project" aria-label="Rename project">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 20h9"></path>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
+                      </svg>
+                    </button>
+                    <button type="button" id="project-delete-btn" class="header-icon-btn danger" title="Delete project" aria-label="Delete project">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                        <path d="M10 11v6"></path>
+                        <path d="M14 11v6"></path>
+                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             </header>
+
+            <div id="home-summary" class="home-summary" style="display:none">
+              <p id="home-greeting" class="home-greeting"></p>
+              <div class="home-pulse">
+                <div class="home-pulse-item">
+                  <span id="home-pulse-today" class="home-pulse-num">0</span>
+                  <span class="home-pulse-label">today</span>
+                </div>
+                <span class="home-pulse-dot">&middot;</span>
+                <div class="home-pulse-item">
+                  <span id="home-pulse-active" class="home-pulse-num">0</span>
+                  <span class="home-pulse-label">active</span>
+                </div>
+                <span class="home-pulse-dot">&middot;</span>
+                <div class="home-pulse-item">
+                  <span id="home-pulse-week" class="home-pulse-num">0</span>
+                  <span class="home-pulse-label">done this week</span>
+                </div>
+              </div>
+            </div>
 
             <div class="task-add" id="task-add">
               <button type="button" id="task-add-toggle" class="task-add-toggle">
@@ -286,8 +311,12 @@
 
       <section id="pomodoro-view" class="view-panel" style="display:none">
         <header class="main-header">
-          <h1>Pomodoro</h1>
-          <span id="pomodoro-mode-label">Focus session</span>
+          <div class="main-header-block">
+            <h1>Pomodoro</h1>
+            <div class="main-header-meta">
+              <span id="pomodoro-mode-label">Focus session</span>
+            </div>
+          </div>
         </header>
 
         <div class="pomodoro-card">
@@ -312,8 +341,12 @@
 
       <section id="calendar-view" class="view-panel" style="display:none">
         <header class="main-header">
-          <h1>Calendar</h1>
-          <span id="calendar-subtitle">Keep track of important dates</span>
+          <div class="main-header-block">
+            <h1>Calendar</h1>
+            <div class="main-header-meta">
+              <span id="calendar-subtitle">Keep track of important dates</span>
+            </div>
+          </div>
         </header>
 
         <div class="calendar-layout">
@@ -365,8 +398,12 @@
 
       <section id="notes-view" class="view-panel" style="display:none">
         <header class="main-header">
-          <h1>Notes</h1>
-          <span>Quick notes and ideas</span>
+          <div class="main-header-block">
+            <h1>Notes</h1>
+            <div class="main-header-meta">
+              <span>Quick notes and ideas</span>
+            </div>
+          </div>
         </header>
 
         <div class="notes-toolbar">
@@ -390,8 +427,12 @@
 
       <section id="settings-view" class="view-panel" style="display:none">
         <header class="main-header">
-          <h1>Settings</h1>
-          <span>Personalize the app</span>
+          <div class="main-header-block">
+            <h1>Settings</h1>
+            <div class="main-header-meta">
+              <span>Personalize the app</span>
+            </div>
+          </div>
         </header>
 
         <div class="settings-card">
@@ -519,7 +560,7 @@
     </div>
   </div>
 
-  <!-- Invite / permissions modal -->
+  <!-- Invite modal -->
   <div id="invite-overlay" class="modal-overlay" style="display:none">
     <div class="modal-card invite-modal-card">
       <div class="modal-header">
@@ -607,6 +648,35 @@
       <button type="button" id="profile-settings-btn" class="profile-pop-action">Open settings</button>
       <button type="button" id="profile-signout-btn" class="profile-pop-action danger">Sign out</button>
       <button type="button" id="profile-signin-btn" class="profile-pop-action" style="display:none">Sign in / Create account</button>
+    </div>
+  </div>
+
+  <!-- Permissions popover (opens from collaborator rows) -->
+  <div id="perm-popover" class="perm-popover" style="display:none" role="dialog" aria-label="Collaborator permissions">
+    <div class="perm-popover-header">
+      <div class="perm-popover-title">Permissions</div>
+      <div class="perm-popover-email" id="perm-popover-email"></div>
+    </div>
+    <div class="perm-popover-list">
+      <label class="perm-toggle">
+        <input type="checkbox" data-perm="can_add_task">
+        <span>Add tasks</span>
+      </label>
+      <label class="perm-toggle">
+        <input type="checkbox" data-perm="can_rename_task">
+        <span>Rename tasks</span>
+      </label>
+      <label class="perm-toggle">
+        <input type="checkbox" data-perm="can_remove_task">
+        <span>Remove tasks</span>
+      </label>
+      <label class="perm-toggle">
+        <input type="checkbox" data-perm="can_rename_project">
+        <span>Rename the project</span>
+      </label>
+    </div>
+    <div class="perm-popover-footer">
+      Everyone can always view and check off tasks.
     </div>
   </div>
 

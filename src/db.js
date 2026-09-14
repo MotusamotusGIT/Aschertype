@@ -42,7 +42,17 @@ const rememberAwareStorage = {
     SUPABASE_ANON_KEY.indexOf('YOUR-ANON-PUBLIC-KEY') === -1;
 
   if (!configured) return;
-  if (typeof window.supabase === 'undefined') return;
+  if (typeof window.supabase === 'undefined') {
+    // Your SUPABASE_URL / SUPABASE_ANON_KEY look real, so this isn't a
+    // config problem — the Supabase SDK script tag
+    // (cdn.jsdelivr.net/npm/@supabase/supabase-js) just never loaded
+    // before this ran. Usually offline testing, an ad/script blocker,
+    // or a network hiccup. The app falls back to local-only mode
+    // silently otherwise, which is why the "not configured" message
+    // is misleading — nothing to fix in schema.sql for this.
+    console.warn('[Supabase] SDK did not load from the CDN — falling back to local-only mode. Check your network connection or any script/ad blockers.');
+    return;
+  }
 
   try {
     supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

@@ -49,9 +49,13 @@ function renderAccountSection() {
     accountSignoutBtn.style.display = 'inline-block';
     accountSwitchBtn.style.display = 'none';
   } else if (isGuest) {
-    accountStatusEl.textContent = supabaseReady
-      ? "You're using Aschertype without an account. Data is stored on this device only."
-      : "Accounts aren't configured on this deployment yet — data is stored on this device only.";
+    if (supabaseReady) {
+      accountStatusEl.textContent = "You're using Aschertype without an account. Data is stored on this device only.";
+    } else if (typeof window.supabase === 'undefined') {
+      accountStatusEl.textContent = "Couldn't reach the accounts service (check your connection) — data is stored on this device only.";
+    } else {
+      accountStatusEl.textContent = "Accounts aren't configured on this deployment yet — data is stored on this device only.";
+    }
     accountSignoutBtn.style.display = 'none';
     accountSwitchBtn.style.display = supabaseReady ? 'inline-block' : 'none';
   } else {
@@ -585,6 +589,7 @@ const todoListEl = document.getElementById('todo-list');
 const emptyState = document.getElementById('empty-state');
 const viewTitle = document.getElementById('view-title');
 const viewSubtitle = document.getElementById('view-subtitle');
+const mainHeaderEl = viewTitle.closest('.main-header');
 const clearBtn = document.getElementById('clear-completed');
 const allTasksBtn = document.getElementById('all-tasks-btn');
 const allChevron = document.getElementById('all-chevron');
@@ -627,7 +632,6 @@ const projectSelectEl = document.getElementById('todo-project-select');
 const projectHeaderActions = document.getElementById('project-header-actions');
 const projectRenameBtn = document.getElementById('project-rename-btn');
 const projectDeleteBtn = document.getElementById('project-delete-btn');
-const projectInviteBtn = document.getElementById('project-invite-btn');
 
 const projectModalOverlay = document.getElementById('project-modal-overlay');
 const projectModalTitle = document.getElementById('project-modal-title');
@@ -747,6 +751,14 @@ projectRenameBtn.addEventListener('click', () => {
   if (p) openProjectModal(p);
 });
 
+const PROJECT_TILE_COLORS = ['#3c6350', '#8a6d3f', '#5b6f8c', '#7a5b7f', '#8c5b57', '#4f7a78', '#6b6b45', '#5c6b8a'];
+function projectTileColor(p) {
+  const key = String(p.id) + '|' + (p.name || '');
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  return PROJECT_TILE_COLORS[hash % PROJECT_TILE_COLORS.length];
+}
+
 function renderProjectNav() {
   projectNavListEl.innerHTML = '';
   projectEmptyHintEl.style.display = projects.length ? 'none' : 'block';
@@ -757,9 +769,10 @@ function renderProjectNav() {
     btn.dataset.view = 'project';
     btn.dataset.projectId = p.id;
 
-    const dot = document.createElement('span');
-    dot.className = 'project-nav-dot';
-    if (!isOwned) dot.classList.add('shared-dot');
+    const tile = document.createElement('span');
+    tile.className = 'project-nav-tile' + (isOwned ? '' : ' shared-dot');
+    tile.style.background = projectTileColor(p);
+    tile.textContent = (p.name || '?').trim().charAt(0).toUpperCase() || '?';
 
     const label = document.createElement('span');
     label.className = 'nav-label';
@@ -769,7 +782,7 @@ function renderProjectNav() {
     count.className = 'nav-count';
     count.textContent = todos.filter(t => String(t.projectId) === String(p.id)).length;
 
-    btn.append(dot, label, count);
+    btn.append(tile, label, count);
     btn.addEventListener('click', () => { currentProjectId = p.id; setView('project'); });
     projectNavListEl.appendChild(btn);
   });
@@ -837,15 +850,14 @@ function showView(view) {
 }
 
 function setView(view) {
-  // Close the collaborator sheet when leaving the project view.
   const collabPanel = document.getElementById('project-collab-panel');
   const collabFab = document.getElementById('collab-fab');
   if (view !== 'project') {
     if (collabPanel) collabPanel.classList.remove('open');
     if (collabFab) collabFab.style.display = 'none';
   }
-  // Reset the add-task form when changing views.
   closeTaskAdd();
+  closePermPopover();
 
   currentView = view;
   if (view !== 'project') currentProjectId = null;
@@ -866,10 +878,16 @@ function setView(view) {
   closeSidebar();
 }
 
-allTasksBtn.addEventListener('click', () => {
+// Home dropdown chevron: toggling the sub-nav should NOT navigate or
+// close the sidebar. Detect whether the click landed on the chevron and,
+// if so, return early after the toggle.
+allTasksBtn.addEventListener('click', (e) => {
+  const isChevronClick = e.target === allChevron || allChevron.contains(e.target);
   const isOpen = allSubnav.classList.contains('open');
   allSubnav.classList.toggle('open', !isOpen);
   allChevron.classList.toggle('open', !isOpen);
+
+  if (isChevronClick) return;
   setView('all');
 });
 navItems.forEach(btn => {
@@ -892,6 +910,20 @@ function getFilteredTodos() {
   return filtered;
 }
 
+const ICON_CALENDAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>';
+const ICON_FOLDER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>';
+const ICON_PEOPLE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>';
+const ICON_PENCIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>';
+const ICON_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>';
+const ICON_SHIELD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>';
+
+function pillIcon(svgMarkup) {
+  const span = document.createElement('span');
+  span.className = 'pill-icon';
+  span.innerHTML = svgMarkup;
+  return span;
+}
+
 function renderTodos() {
   const filtered = getFilteredTodos();
   todoListEl.innerHTML = '';
@@ -912,7 +944,9 @@ function renderTodos() {
     checkbox.checked = t.done;
     checkbox.disabled = !canToggle;
     checkbox.addEventListener('change', () => {
+      const wasDone = t.done;
       t.done = checkbox.checked;
+      if (!wasDone && t.done) recordCompletion();
       saveTodos(); renderTodos(); renderCounts();
       if (currentUser) dbUpdate('todos', t.id, { done: t.done });
       if (t.done) showToast('complete');
@@ -927,15 +961,6 @@ function renderTodos() {
     title.className = 'task-title';
     title.textContent = t.text;
     titleRow.appendChild(title);
-    if (canRename) {
-      const pencil = document.createElement('button');
-      pencil.type = 'button';
-      pencil.className = 'task-inline-edit';
-      pencil.title = 'Rename task';
-      pencil.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>';
-      pencil.addEventListener('click', () => startInlineEdit(title, t));
-      titleRow.appendChild(pencil);
-    }
     main.appendChild(titleRow);
 
     if (t.desc) {
@@ -952,7 +977,10 @@ function renderTodos() {
       const isToday = t.due === todayKey;
       const due = document.createElement('span');
       due.className = 'task-pill' + (overdue ? ' due-overdue' : '') + (isToday ? ' due-today' : '');
-      due.textContent = t.due;
+      due.appendChild(pillIcon(ICON_CALENDAR));
+      const dueText = document.createElement('span');
+      dueText.textContent = t.due;
+      due.appendChild(dueText);
       meta.appendChild(due);
     }
     if (t.priority === 'high' || t.priority === 'medium') {
@@ -964,9 +992,13 @@ function renderTodos() {
     if (t.projectId && currentView !== 'project') {
       const p = getProject(t.projectId);
       if (p) {
+        const shared = !isProjectOwner(p.id);
         const tag = document.createElement('span');
-        tag.className = 'task-pill project-tag';
-        tag.textContent = p.name;
+        tag.className = 'task-pill project-tag' + (shared ? ' shared-tag' : '');
+        tag.appendChild(pillIcon(shared ? ICON_PEOPLE : ICON_FOLDER));
+        const tagText = document.createElement('span');
+        tagText.textContent = p.name;
+        tag.appendChild(tagText);
         tag.addEventListener('click', () => { currentProjectId = p.id; setView('project'); });
         meta.appendChild(tag);
       }
@@ -975,10 +1007,22 @@ function renderTodos() {
 
     const actions = document.createElement('div');
     actions.className = 'task-card-actions';
+
+    if (canRename) {
+      const pencil = document.createElement('button');
+      pencil.type = 'button';
+      pencil.className = 'task-icon-btn';
+      pencil.title = 'Rename task';
+      pencil.innerHTML = ICON_PENCIL;
+      pencil.addEventListener('click', () => startInlineEdit(title, t));
+      actions.appendChild(pencil);
+    }
     if (canRemove) {
       const del = document.createElement('button');
-      del.className = 'delete-btn';
-      del.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>';
+      del.type = 'button';
+      del.className = 'task-icon-btn delete-btn';
+      del.title = 'Delete task';
+      del.innerHTML = ICON_TRASH;
       del.addEventListener('click', () => {
         todos = todos.filter(x => x.id !== t.id);
         saveTodos(); renderTodos(); renderCounts(); renderProjectNav();
@@ -1023,25 +1067,79 @@ function renderCounts() {
   document.getElementById('count-today').textContent = todos.filter(t => t.due === todayStr()).length;
   document.getElementById('count-active').textContent = todos.filter(t => !t.done).length;
   document.getElementById('count-completed').textContent = todos.filter(t => t.done).length;
+  renderHomeSummary();
 }
 
 function renderViewHeader() {
-  const titles = { all: 'All Tasks', today: 'Today', active: 'Active', completed: 'Completed' };
+  const titles = { all: 'Home', today: 'Today', active: 'Active', completed: 'Completed' };
   if (currentView === 'project') {
     const p = getProject(currentProjectId);
     viewTitle.textContent = p ? p.name : 'Project';
     projectHeaderActions.style.display = 'flex';
-    const owner = isProjectOwner(currentProjectId);
     const mayRename = canRenameProject(currentProjectId);
-    projectRenameBtn.style.display = mayRename ? 'inline-block' : 'none';
-    projectDeleteBtn.style.display = owner ? 'inline-block' : 'none';
-    projectInviteBtn.style.display = owner ? 'inline-block' : 'none';
+    projectRenameBtn.style.display = mayRename ? 'inline-flex' : 'none';
+    projectDeleteBtn.style.display = isProjectOwner(currentProjectId) ? 'inline-flex' : 'none';
   } else {
     viewTitle.textContent = titles[currentView] || 'Tasks';
     projectHeaderActions.style.display = 'none';
   }
-  const remaining = getFilteredTodos().filter(t => !t.done).length;
-  viewSubtitle.textContent = `${remaining} remaining`;
+  if (currentView === 'all') {
+    viewSubtitle.textContent = '';
+    if (mainHeaderEl) mainHeaderEl.style.display = 'none';
+  } else {
+    const remaining = getFilteredTodos().filter(t => !t.done).length;
+    viewSubtitle.textContent = `${remaining} remaining`;
+    if (mainHeaderEl) mainHeaderEl.style.display = '';
+  }
+  renderHomeSummary();
+}
+
+// ----- Home dashboard -----
+const COMPLETION_LOG_KEY = 'aschertypeCompletionLog';
+function loadCompletionLog() {
+  try { return JSON.parse(localStorage.getItem(COMPLETION_LOG_KEY) || '[]'); }
+  catch (err) { return []; }
+}
+function recordCompletion() {
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const log = loadCompletionLog().filter((ts) => ts > cutoff);
+  log.push(Date.now());
+  try { localStorage.setItem(COMPLETION_LOG_KEY, JSON.stringify(log)); } catch (err) { /* ignore */ }
+}
+function startOfWeek(date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = d.getDay();
+  const diffToMonday = day === 0 ? 6 : day - 1;
+  d.setDate(d.getDate() - diffToMonday);
+  return d.getTime();
+}
+function completedThisWeekCount() {
+  const weekStart = startOfWeek(new Date());
+  return loadCompletionLog().filter((ts) => ts >= weekStart).length;
+}
+function homeGreeting() {
+  const h = new Date().getHours();
+  if (h < 5) return 'Still up';
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+function renderHomeSummary() {
+  const homeSummary = document.getElementById('home-summary');
+  if (!homeSummary) return;
+  if (currentView !== 'all') { homeSummary.style.display = 'none'; return; }
+  homeSummary.style.display = 'block';
+
+  const dateLabel = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  document.getElementById('home-greeting').innerHTML =
+    `${homeGreeting()}<span class="home-date">${dateLabel}</span>`;
+
+  const todayKey = todayStr();
+  document.getElementById('home-pulse-today').textContent =
+    todos.filter((t) => t.due === todayKey && !t.done).length;
+  document.getElementById('home-pulse-active').textContent =
+    todos.filter((t) => !t.done).length;
+  document.getElementById('home-pulse-week').textContent = completedThisWeekCount();
 }
 
 function updateTaskFormForView() {
@@ -1075,6 +1173,88 @@ clearBtn.addEventListener('click', () => {
   if (currentUser) dbDeleteWhere('todos', currentUser.id, { done: true });
 });
 
+// ===== Permissions popover =====
+const permPopover = document.getElementById('perm-popover');
+let permPopoverMember = null;
+
+function isPermPopoverOpen() {
+  return permPopover.style.display === 'flex';
+}
+
+function openPermPopover(member, anchorEl) {
+  permPopoverMember = member;
+  document.getElementById('perm-popover-email').textContent = member.member_email;
+  permPopover.querySelectorAll('input[data-perm]').forEach(cb => {
+    cb.checked = !!member[cb.dataset.perm];
+    cb.disabled = false;
+  });
+  permPopover.style.display = 'flex';
+  positionPermPopover(anchorEl);
+}
+
+function closePermPopover() {
+  permPopover.style.display = 'none';
+  permPopoverMember = null;
+}
+
+function positionPermPopover(anchorEl) {
+  if (!anchorEl) return;
+  const rect = anchorEl.getBoundingClientRect();
+  const popRect = permPopover.getBoundingClientRect();
+  let top = rect.bottom + 6;
+  let left = rect.left + rect.width - popRect.width;
+  // Flip above if it would overflow the bottom.
+  if (top + popRect.height > window.innerHeight - 12) {
+    top = rect.top - popRect.height - 6;
+  }
+  if (left < 12) left = 12;
+  if (left + popRect.width > window.innerWidth - 12) {
+    left = window.innerWidth - popRect.width - 12;
+  }
+  permPopover.style.top = top + 'px';
+  permPopover.style.left = left + 'px';
+}
+
+permPopover.querySelectorAll('input[data-perm]').forEach(cb => {
+  cb.addEventListener('change', async () => {
+    if (!permPopoverMember) return;
+    const key = cb.dataset.perm;
+    const value = cb.checked;
+    cb.disabled = true;
+    const { error } = await dbUpdateProjectMember(permPopoverMember.id, { [key]: value });
+    cb.disabled = false;
+    if (error) { cb.checked = !value; return; }
+    const local = projectMembers.find(m => String(m.id) === String(permPopoverMember.id));
+    if (local) {
+      local[key] = value;
+      permPopoverMember = local;
+    } else {
+      permPopoverMember[key] = value;
+    }
+    renderCollabPanel();
+    // Re-position against the freshly-rendered shield button.
+    const newAnchor = document.querySelector(`.collab-member[data-member-id="${permPopoverMember.id}"] .collab-perm-btn`);
+    if (newAnchor) positionPermPopover(newAnchor);
+    showToast('permission');
+  });
+});
+
+// Click outside → close
+document.addEventListener('click', (e) => {
+  if (!isPermPopoverOpen()) return;
+  if (permPopover.contains(e.target)) return;
+  if (e.target.closest('.collab-perm-btn')) return;
+  closePermPopover();
+});
+// Escape → close
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && isPermPopoverOpen()) closePermPopover();
+});
+// Resize → close (positions get stale fast)
+window.addEventListener('resize', () => {
+  if (isPermPopoverOpen()) closePermPopover();
+});
+
 // ===== Collaborator panel + FAB =====
 const collabPanel = document.getElementById('project-collab-panel');
 const collabBody = document.getElementById('collab-body');
@@ -1096,7 +1276,7 @@ function updateCollabFabVisibility() {
     return;
   }
   const members = membersForProject(currentProjectId).filter(m => m.status === 'accepted');
-  const n = members.length + 1; // + owner
+  const n = members.length + 1;
   collabFab.style.display = 'flex';
   if (n > 1) {
     collabFabCount.textContent = String(n);
@@ -1111,6 +1291,7 @@ collabFab.addEventListener('click', () => {
 });
 collabBackdrop.addEventListener('click', () => {
   collabPanel.classList.remove('open');
+  closePermPopover();
 });
 
 function renderCollabPanel() {
@@ -1119,6 +1300,7 @@ function renderCollabPanel() {
     collabPanel.style.display = 'none';
     projectViewLayout.classList.remove('with-collab');
     updateCollabFabVisibility();
+    closePermPopover();
     return;
   }
   const members = membersForProject(currentProjectId);
@@ -1128,6 +1310,7 @@ function renderCollabPanel() {
     collabPanel.style.display = 'none';
     projectViewLayout.classList.remove('with-collab');
     updateCollabFabVisibility();
+    closePermPopover();
     return;
   }
 
@@ -1137,7 +1320,6 @@ function renderCollabPanel() {
 
   collabBody.innerHTML = '';
 
-  // Owner row
   const ownerRow = document.createElement('div');
   ownerRow.className = 'collab-member owner';
   const ownerName = ownerIsMe ? profileDisplayName() + ' (you)' : 'Project owner';
@@ -1165,6 +1347,7 @@ function renderCollabPanel() {
 function buildMemberRow(m, ownerIsMe) {
   const row = document.createElement('div');
   row.className = 'collab-member';
+  row.dataset.memberId = m.id;
   const initial = (m.member_email || '?').charAt(0).toUpperCase();
 
   const avatar = document.createElement('div');
@@ -1203,12 +1386,20 @@ function buildMemberRow(m, ownerIsMe) {
     const actions = document.createElement('div');
     actions.className = 'collab-actions';
 
-    const editBtn = document.createElement('button');
-    editBtn.type = 'button';
-    editBtn.className = 'collab-action-btn';
-    editBtn.title = 'Edit permissions';
-    editBtn.textContent = '✎';
-    editBtn.addEventListener('click', () => openInviteModal(m));
+    const permBtn = document.createElement('button');
+    permBtn.type = 'button';
+    permBtn.className = 'collab-action-btn collab-perm-btn';
+    permBtn.title = 'Permissions';
+    permBtn.setAttribute('aria-label', 'Permissions');
+    permBtn.innerHTML = ICON_SHIELD;
+    permBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (permPopoverMember && String(permPopoverMember.id) === String(m.id) && isPermPopoverOpen()) {
+        closePermPopover();
+      } else {
+        openPermPopover(m, permBtn);
+      }
+    });
 
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
@@ -1217,7 +1408,7 @@ function buildMemberRow(m, ownerIsMe) {
     removeBtn.textContent = '×';
     removeBtn.addEventListener('click', () => removeMember(m));
 
-    actions.append(editBtn, removeBtn);
+    actions.append(permBtn, removeBtn);
     row.appendChild(actions);
   }
 
@@ -1226,54 +1417,49 @@ function buildMemberRow(m, ownerIsMe) {
 
 async function removeMember(member) {
   if (!confirm(`Remove ${member.member_email} from this project?`)) return;
+  closePermPopover();
   const { error } = await dbDeleteProjectMember(member.id);
   if (error) return;
   await refreshSharedData();
 }
 collabInviteBtn.addEventListener('click', () => openInviteModal());
 
-// ===== Invite modal =====
+// ===== Invite modal (add new collaborators only) =====
 const inviteOverlay = document.getElementById('invite-overlay');
-const inviteModalTitle = document.getElementById('invite-modal-title');
 const inviteEmailInput = document.getElementById('invite-email');
 const inviteErrorEl = document.getElementById('invite-error');
 const inviteSendBtn = document.getElementById('invite-send-btn');
-let editingMemberId = null;
 
 function showInviteError(msg) {
   inviteErrorEl.textContent = msg;
   inviteErrorEl.style.display = msg ? 'block' : 'none';
 }
-function openInviteModal(member = null) {
+function openInviteModal() {
   if (!currentUser || !supabaseReady) {
     alert('Sign in with an account to invite collaborators.');
     return;
   }
   if (!isProjectOwner(currentProjectId)) return;
 
-  editingMemberId = member ? member.id : null;
-  inviteModalTitle.textContent = member ? 'Edit collaborator' : 'Invite collaborator';
-  inviteEmailInput.value = member ? member.member_email : '';
-  inviteEmailInput.readOnly = !!member;
-  document.getElementById('invite-can-add-task').checked = member ? !!member.can_add_task : false;
-  document.getElementById('invite-can-rename-task').checked = member ? !!member.can_rename_task : false;
-  document.getElementById('invite-can-remove-task').checked = member ? !!member.can_remove_task : false;
-  document.getElementById('invite-can-rename-project').checked = member ? !!member.can_rename_project : false;
-  inviteSendBtn.textContent = member ? 'Save changes' : 'Send invite';
+  inviteEmailInput.value = '';
+  inviteEmailInput.readOnly = false;
+  document.getElementById('invite-can-add-task').checked = false;
+  document.getElementById('invite-can-rename-task').checked = false;
+  document.getElementById('invite-can-remove-task').checked = false;
+  document.getElementById('invite-can-rename-project').checked = false;
+  inviteSendBtn.textContent = 'Send invite';
   showInviteError('');
   inviteOverlay.style.display = 'flex';
-  setTimeout(() => { if (!member) inviteEmailInput.focus(); }, 30);
+  setTimeout(() => inviteEmailInput.focus(), 30);
 }
 function closeInviteModal() {
   inviteOverlay.style.display = 'none';
-  editingMemberId = null;
   showInviteError('');
 }
 
 document.getElementById('invite-close-btn').addEventListener('click', closeInviteModal);
 document.getElementById('invite-cancel-btn').addEventListener('click', closeInviteModal);
 inviteOverlay.addEventListener('click', (e) => { if (e.target === inviteOverlay) closeInviteModal(); });
-projectInviteBtn.addEventListener('click', () => openInviteModal());
 
 inviteSendBtn.addEventListener('click', async () => {
   const email = inviteEmailInput.value.trim().toLowerCase();
@@ -1288,25 +1474,17 @@ inviteSendBtn.addEventListener('click', async () => {
   if (email === (currentUser.email || '').toLowerCase()) { showInviteError("That's your own email address."); return; }
 
   setButtonBusy(inviteSendBtn, 'Saving…');
-
-  if (editingMemberId) {
-    const { error } = await dbUpdateProjectMember(editingMemberId, perms);
-    clearButtonBusy(inviteSendBtn);
-    if (error) { showInviteError(error.message); return; }
-    showToast('permission');
-  } else {
-    const row = {
-      project_id: currentProjectId,
-      owner_id: currentUser.id,
-      member_email: email,
-      status: 'pending',
-      ...perms,
-    };
-    const { error } = await dbUpsertProjectMember(row);
-    clearButtonBusy(inviteSendBtn);
-    if (error) { showInviteError(error.message || 'Could not send invite.'); return; }
-    showToast('invite');
-  }
+  const row = {
+    project_id: currentProjectId,
+    owner_id: currentUser.id,
+    member_email: email,
+    status: 'pending',
+    ...perms,
+  };
+  const { error } = await dbUpsertProjectMember(row);
+  clearButtonBusy(inviteSendBtn);
+  if (error) { showInviteError(error.message || 'Could not send invite.'); return; }
+  showToast('invite');
 
   closeInviteModal();
   await refreshSharedData();
