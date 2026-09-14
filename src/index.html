@@ -29,18 +29,24 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Aschertype">
 
+  <!-- Note: frame-ancestors is intentionally NOT set here. The CSP spec
+       requires frame-ancestors to be delivered as an HTTP response
+       header — browsers ignore it (with a console warning) when it's
+       set via a <meta> tag, since a page could otherwise strip its own
+       clickjacking protection just by controlling its own HTML. Set it
+       as a real header at the host (e.g. vercel.json) if you need it
+       enforced; see the note at the end of this file. -->
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self' file:;
                  img-src 'self' file: data: blob: https://aschertype.vercel.app;
                  style-src 'self' 'unsafe-inline';
-                 script-src 'self' https://cdn.jsdelivr.net;
+                 script-src 'self' https://cdn.jsdelivr.net https://unpkg.com;
                  connect-src 'self' https://api.quotable.io https://*.supabase.co wss://*.supabase.co;
                  font-src 'self';
                  manifest-src 'self';
                  worker-src 'self' blob:;
                  base-uri 'self';
                  form-action 'self';
-                 frame-ancestors 'none';
                  object-src 'none'">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -689,10 +695,6 @@
     <button type="button" id="tips-refresh-btn" class="tips-refresh" title="Next tip">&#8635;</button>
   </footer>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="./supabase-config.js"></script>
-  <script src="./db.js"></script>
-  <script src="./renderer.js"></script>
-  <script src="./auth.js"></script>
+  <script src="./loader.js"></script>
 </body>
 </html>

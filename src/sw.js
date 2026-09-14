@@ -1,15 +1,17 @@
-const CACHE_NAME = 'aschertype-v6';
+const CACHE_NAME = 'aschertype-v7';
 const ASSETS = [
   '/',
   '/index.html',
   '/style.css',
+  '/loader.js',
   '/renderer.js',
   '/supabase-config.js',
   '/db.js',
   '/auth.js',
   '/manifest.json',
   '/favicon.png',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js'
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js',
+  'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js'
 ];
 
 self.addEventListener('install', (event) => {
