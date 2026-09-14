@@ -3,13 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
-  <!-- Primary Meta Tags -->
+
   <title>Aschertype &mdash; Productivity, all in one</title>
   <meta name="title" content="Aschertype &mdash; Productivity, all in one">
   <meta name="description" content="A modern, privacy-first productivity suite featuring tasks, calendar, notes, and Pomodoro focus timers.">
 
-  <!-- Open Graph / Facebook / LinkedIn / Discord / Slack -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://aschertype.vercel.app/">
   <meta property="og:title" content="Aschertype &mdash; Productivity, all in one">
@@ -17,14 +15,12 @@
   <meta property="og:image" content="https://aschertype.vercel.app/favicon.png">
   <meta property="og:site_name" content="Aschertype">
 
-  <!-- Twitter / X -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:url" content="https://aschertype.vercel.app/">
   <meta name="twitter:title" content="Aschertype &mdash; Productivity, all in one">
   <meta name="twitter:description" content="A modern, privacy-first productivity suite featuring tasks, calendar, notes, and Pomodoro focus timers.">
   <meta name="twitter:image" content="https://aschertype.vercel.app/favicon.png">
 
-  <!-- Favicons and PWA Config -->
   <link rel="icon" type="image/png" href="./favicon.png">
   <link rel="apple-touch-icon" href="./favicon.png">
   <link rel="manifest" href="./manifest.json">
@@ -33,9 +29,26 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Aschertype">
 
-  <!-- Security Policy & Styles -->
+  <!--
+    Content-Security-Policy
+    - No 'unsafe-eval'. Nothing in the app needs eval/Function.
+    - No 'unsafe-inline' in script-src. All scripts are external files.
+    - No dev-only localhost entries. Production policy only.
+    - file: is kept for the Electron build; 'self' covers the Vercel origin.
+  -->
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self' file: data: gap:; img-src 'self' file: data: blob: https://aschertype.vercel.app; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net http://localhost:* http://127.0.0.1:*; connect-src 'self' https://api.quotable.io https://*.supabase.co wss://*.supabase.co http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*; manifest-src 'self'; worker-src 'self' blob:">
+        content="default-src 'self' file:;
+                 img-src 'self' file: data: blob: https://aschertype.vercel.app;
+                 style-src 'self' 'unsafe-inline';
+                 script-src 'self' https://cdn.jsdelivr.net;
+                 connect-src 'self' https://api.quotable.io https://*.supabase.co wss://*.supabase.co;
+                 font-src 'self';
+                 manifest-src 'self';
+                 worker-src 'self' blob:;
+                 base-uri 'self';
+                 form-action 'self';
+                 frame-ancestors 'none';
+                 object-src 'none'">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -52,7 +65,7 @@
     </div>
   </div>
 
-  <!-- Auth gate: login / register -->
+  <!-- Auth gate -->
   <div id="auth-screen" class="hidden">
     <div class="auth-card">
       <div class="auth-brand">
@@ -108,6 +121,18 @@
       <span class="bar"></span><span class="bar"></span><span class="bar"></span>
     </button>
     <span class="mobile-title">Aschertype</span>
+    <div class="mobile-topbar-right">
+      <button type="button" id="mobile-notif-bell" class="icon-btn compact" aria-label="Notifications" title="Notifications">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+        </svg>
+        <span id="mobile-notif-count" class="notif-badge" style="display:none">0</span>
+      </button>
+      <button type="button" id="mobile-profile-chip" class="profile-chip" aria-label="Account" title="Account">
+        <div id="mobile-profile-avatar" class="profile-avatar">U</div>
+      </button>
+    </div>
   </header>
 
   <div class="app">
@@ -171,47 +196,92 @@
     </aside>
 
     <main class="main">
-      <!-- Top Right Profile Badge Header -->
       <div class="top-header-bar">
-        <div id="profile-badge" class="profile-badge hidden" title="Account settings">
+        <button type="button" id="notif-bell" class="topbar-btn" aria-label="Notifications" title="Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+          <span id="notif-count" class="notif-badge" style="display:none">0</span>
+        </button>
+
+        <button type="button" id="profile-chip" class="profile-chip hidden" aria-label="Account" title="Account">
           <div id="profile-avatar" class="profile-avatar">U</div>
           <span id="profile-name" class="profile-name">User</span>
-        </div>
+          <span class="profile-caret">&#9662;</span>
+        </button>
       </div>
 
       <section id="task-view" class="view-panel">
-        <header class="main-header">
-          <div class="main-header-top">
-            <div>
-              <h1 id="view-title">To-do list</h1>
-              <span id="view-subtitle"></span>
-            </div>
-            <div class="project-header-actions" id="project-header-actions" style="display:none">
-              <button type="button" id="project-rename-btn" class="pill-btn">Rename</button>
-              <button type="button" id="project-delete-btn" class="pill-btn danger-pill">Delete</button>
-            </div>
-          </div>
-        </header>
+        <div id="project-view-layout" class="project-view-layout">
+          <div class="project-view-main">
+            <header class="main-header">
+              <div class="main-header-top">
+                <div>
+                  <h1 id="view-title">To-do list</h1>
+                  <span id="view-subtitle"></span>
+                </div>
+                <div class="project-header-actions" id="project-header-actions" style="display:none">
+                  <button type="button" id="project-invite-btn" class="pill-btn" style="display:none">Invite</button>
+                  <button type="button" id="project-rename-btn" class="pill-btn">Rename</button>
+                  <button type="button" id="project-delete-btn" class="pill-btn danger-pill">Delete</button>
+                </div>
+              </div>
+            </header>
 
-        <form id="todo-form">
-          <div class="form-row">
-            <input type="text" id="todo-input" placeholder="Add a new task..." autocomplete="off" required>
-            <input type="date" id="due-input" title="Due date">
-            <select id="priority-input" title="Priority">
-              <option value="low">Low</option>
-              <option value="medium" selected>Medium</option>
-              <option value="high">High</option>
-            </select>
-            <select id="todo-project-select" title="Project">
-              <option value="">No project</option>
-            </select>
-            <button type="submit">Add</button>
-          </div>
-          <input type="text" id="desc-input" placeholder="Add description (optional)">
-        </form>
+            <div class="task-add" id="task-add">
+              <button type="button" id="task-add-toggle" class="task-add-toggle">
+                <span class="task-add-plus">+</span>
+                <span>Add a task</span>
+              </button>
 
-        <div id="todo-list" class="task-list"></div>
-        <p id="empty-state" class="empty-state" style="display:none">Nothing here. Add a task above.</p>
+              <form id="todo-form" class="task-add-form" hidden>
+                <input type="text" id="todo-input" placeholder="What needs to be done?" autocomplete="off" required>
+                <input type="text" id="desc-input" placeholder="Description (optional)">
+                <div class="task-add-row">
+                  <input type="date" id="due-input" title="Due date">
+                  <select id="priority-input" title="Priority">
+                    <option value="low">Low</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                  <select id="todo-project-select" title="Project">
+                    <option value="">No project</option>
+                  </select>
+                </div>
+                <div class="task-add-actions">
+                  <button type="button" id="task-add-cancel" class="btn small">Cancel</button>
+                  <button type="submit" class="btn primary small">Add task</button>
+                </div>
+              </form>
+            </div>
+
+            <div id="todo-list" class="task-list"></div>
+            <p id="empty-state" class="empty-state" style="display:none">Nothing here yet.</p>
+          </div>
+
+          <aside id="project-collab-panel" class="project-collab-panel" style="display:none">
+            <div class="collab-backdrop" id="collab-backdrop"></div>
+            <div class="collab-sheet">
+              <div class="collab-head">
+                <span class="collab-title">Collaborators</span>
+                <button type="button" id="collab-invite-btn" class="icon-btn round tiny" title="Invite collaborator">+</button>
+              </div>
+              <div id="collab-body" class="collab-body"></div>
+              <div id="collab-empty" class="collab-empty" style="display:none">No collaborators yet.</div>
+            </div>
+          </aside>
+        </div>
+
+        <button type="button" id="collab-fab" class="collab-fab" aria-label="Collaborators" style="display:none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          <span id="collab-fab-count" class="collab-fab-count" style="display:none">1</span>
+        </button>
       </section>
 
       <section id="pomodoro-view" class="view-panel" style="display:none">
@@ -410,12 +480,13 @@
     </main>
   </div>
 
+  <!-- Closeout modal -->
   <div id="closeout-overlay" class="modal-overlay" style="display:none">
     <div class="modal-card closeout-card">
       <div class="modal-header">
         <div>
           <div class="modal-title">Closeout &middot; end of day</div>
-          <div class="modal-sub">A quick 2-minute pass over what's still open. No pressure &mdash; just decide, one by one.</div>
+          <div class="modal-sub">A quick 2-minute pass over what's still open.</div>
         </div>
         <button type="button" id="closeout-close-btn" class="icon-btn" aria-label="Close">&times;</button>
       </div>
@@ -428,6 +499,7 @@
     </div>
   </div>
 
+  <!-- Project create/rename modal -->
   <div id="project-modal-overlay" class="modal-overlay" style="display:none">
     <div class="modal-card project-modal-card">
       <div class="modal-header">
@@ -447,6 +519,97 @@
     </div>
   </div>
 
+  <!-- Invite / permissions modal -->
+  <div id="invite-overlay" class="modal-overlay" style="display:none">
+    <div class="modal-card invite-modal-card">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title" id="invite-modal-title">Invite collaborator</div>
+          <div class="modal-sub" id="invite-modal-sub">They'll get an invite in their notification bell.</div>
+        </div>
+        <button type="button" id="invite-close-btn" class="icon-btn" aria-label="Close">&times;</button>
+      </div>
+
+      <div id="invite-error" class="auth-message error" style="display:none"></div>
+
+      <label class="field-label">Email address
+        <input type="email" id="invite-email" placeholder="name@gmail.com" autocomplete="off">
+      </label>
+
+      <div class="perm-block">
+        <div class="perm-title">Permissions</div>
+        <div class="perm-hint">Everyone can view tasks and check them off. Add extra abilities below.</div>
+        <label class="perm-row">
+          <input type="checkbox" id="invite-can-add-task">
+          <span>Add tasks</span>
+        </label>
+        <label class="perm-row">
+          <input type="checkbox" id="invite-can-rename-task">
+          <span>Rename tasks</span>
+        </label>
+        <label class="perm-row">
+          <input type="checkbox" id="invite-can-remove-task">
+          <span>Remove tasks</span>
+        </label>
+        <label class="perm-row">
+          <input type="checkbox" id="invite-can-rename-project">
+          <span>Rename the project</span>
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" id="invite-cancel-btn" class="btn">Cancel</button>
+        <button type="button" id="invite-send-btn" class="btn primary">Send invite</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification inbox -->
+  <div id="notif-overlay" class="modal-overlay" style="display:none">
+    <div class="modal-card notif-modal-card">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Notifications</div>
+          <div class="modal-sub">Invites, project activity, and updates.</div>
+        </div>
+        <button type="button" id="notif-close-btn" class="icon-btn" aria-label="Close">&times;</button>
+      </div>
+      <div id="notif-list" class="notif-list"></div>
+      <div class="modal-actions">
+        <button type="button" id="notif-mark-all-btn" class="btn small">Mark all read</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile popover -->
+  <div id="profile-overlay" class="profile-overlay" style="display:none"></div>
+  <div id="profile-popover" class="profile-popover" style="display:none">
+    <div class="profile-pop-head">
+      <div id="profile-pop-avatar" class="profile-avatar large">U</div>
+      <div class="profile-pop-info">
+        <div id="profile-pop-name" class="profile-pop-name">User</div>
+        <div id="profile-pop-email" class="profile-pop-email">user@example.com</div>
+      </div>
+    </div>
+
+    <div id="profile-pop-name-edit" class="profile-pop-edit" style="display:none">
+      <label class="field-label small">Display name
+        <input type="text" id="profile-name-input" maxlength="40" placeholder="Your name">
+      </label>
+      <div class="profile-pop-edit-actions">
+        <button type="button" id="profile-name-cancel" class="btn small">Cancel</button>
+        <button type="button" id="profile-name-save" class="btn primary small">Save</button>
+      </div>
+    </div>
+
+    <div class="profile-pop-actions">
+      <button type="button" id="profile-edit-name-btn" class="profile-pop-action">Edit display name</button>
+      <button type="button" id="profile-settings-btn" class="profile-pop-action">Open settings</button>
+      <button type="button" id="profile-signout-btn" class="profile-pop-action danger">Sign out</button>
+      <button type="button" id="profile-signin-btn" class="profile-pop-action" style="display:none">Sign in / Create account</button>
+    </div>
+  </div>
+
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
   <footer class="tips-bar" id="tips-bar">
@@ -459,7 +622,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="./supabase-config.js"></script>
   <script src="./db.js"></script>
-  <script src="./auth.js"></script>
   <script src="./renderer.js"></script>
+  <script src="./auth.js"></script>
 </body>
 </html>

@@ -1,14 +1,13 @@
-// ===== PWA: service worker registration (skip inside Electron / file://) =====
+// ===== PWA =====
 if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('./sw.js')
+    navigator.serviceWorker.register('./sw.js')
       .then((reg) => console.log('[PWA] SW registered:', reg.scope))
       .catch((err) => console.error('[PWA] SW failed:', err));
   });
 }
 
-// ===== Theme (light / dark only — no custom colors) =====
+// ===== Theme =====
 const THEME_KEY = 'theme';
 function getTheme() {
   const stored = localStorage.getItem(THEME_KEY);
@@ -39,7 +38,7 @@ function renderSettingsUI() {
   renderAccountSection();
 }
 
-// ===== Account section (Settings) =====
+// ===== Account section =====
 const accountStatusEl = document.getElementById('account-status');
 const accountSignoutBtn = document.getElementById('account-signout-btn');
 const accountSwitchBtn = document.getElementById('account-switch-btn');
@@ -60,8 +59,11 @@ function renderAccountSection() {
     accountSignoutBtn.style.display = 'none';
     accountSwitchBtn.style.display = 'none';
   }
+  renderProfileChip();
 }
-accountSignoutBtn.addEventListener('click', signOutAndReset);
+accountSignoutBtn.addEventListener('click', () => {
+  if (typeof signOutAndReset === 'function') signOutAndReset();
+});
 accountSwitchBtn.addEventListener('click', () => {
   sessionStorage.removeItem('aschertypeGuest');
   location.reload();
@@ -102,7 +104,7 @@ function setFocusMode(on) {
   }
 }
 
-// ===== Mobile sidebar toggle =====
+// ===== Mobile sidebar =====
 const sidebar = document.getElementById('sidebar');
 const sidebarBackdrop = document.getElementById('sidebar-backdrop');
 const menuToggle = document.getElementById('menu-toggle');
@@ -113,6 +115,164 @@ menuToggle.addEventListener('click', () => {
 });
 sidebarBackdrop.addEventListener('click', closeSidebar);
 
+// ===== Profile state =====
+let currentProfile = null;
+
+function profileDisplayName() {
+  if (currentProfile && currentProfile.display_name) return currentProfile.display_name;
+  if (currentUser && currentUser.email) return currentUser.email.split('@')[0];
+  return 'User';
+}
+function profileInitial() {
+  const n = profileDisplayName();
+  return (n.charAt(0) || 'U').toUpperCase();
+}
+
+function renderProfileChip() {
+  const chip = document.getElementById('profile-chip');
+  const mobileChip = document.getElementById('mobile-profile-chip');
+  const avatar = document.getElementById('profile-avatar');
+  const mobileAvatar = document.getElementById('mobile-profile-avatar');
+  const name = document.getElementById('profile-name');
+
+  if (currentUser || isGuest) {
+    chip.classList.remove('hidden');
+    mobileChip.style.display = 'flex';
+    const initial = profileInitial();
+    const disp = profileDisplayName();
+    avatar.textContent = initial;
+    mobileAvatar.textContent = initial;
+    name.textContent = disp;
+    chip.title = currentUser ? currentUser.email : 'Guest session';
+  } else {
+    chip.classList.add('hidden');
+    mobileChip.style.display = 'none';
+  }
+}
+
+async function loadProfile() {
+  if (!currentUser || !supabaseReady) {
+    currentProfile = currentUser ? { id: currentUser.id, email: currentUser.email, display_name: null } : null;
+    renderProfileChip();
+    return;
+  }
+  const p = await dbFetchMyProfile();
+  currentProfile = p
+    ? { id: p.id, email: p.email, display_name: p.display_name }
+    : { id: currentUser.id, email: currentUser.email, display_name: null };
+  renderProfileChip();
+  renderProfilePopover();
+}
+
+// ===== Profile popover =====
+const profileOverlay = document.getElementById('profile-overlay');
+const profilePopover = document.getElementById('profile-popover');
+const profilePopNameEdit = document.getElementById('profile-pop-name-edit');
+
+function positionProfilePopover() {
+  const chip = document.getElementById('profile-chip');
+  if (!chip) return;
+  const rect = chip.getBoundingClientRect();
+  const popRect = profilePopover.getBoundingClientRect();
+  const top = Math.min(rect.bottom + 8, window.innerHeight - popRect.height - 12);
+  const right = Math.max(12, window.innerWidth - rect.right);
+  profilePopover.style.top = top + 'px';
+  profilePopover.style.right = right + 'px';
+  profilePopover.style.left = 'auto';
+}
+
+function openProfilePopover() {
+  profileOverlay.style.display = 'block';
+  profilePopover.style.display = 'flex';
+  renderProfilePopover();
+  positionProfilePopover();
+}
+function closeProfilePopover() {
+  profileOverlay.style.display = 'none';
+  profilePopover.style.display = 'none';
+  profilePopNameEdit.style.display = 'none';
+}
+
+function renderProfilePopover() {
+  const avatar = document.getElementById('profile-pop-avatar');
+  const nameEl = document.getElementById('profile-pop-name');
+  const emailEl = document.getElementById('profile-pop-email');
+  const editBtn = document.getElementById('profile-edit-name-btn');
+  const signoutBtn = document.getElementById('profile-signout-btn');
+  const signinBtn = document.getElementById('profile-signin-btn');
+
+  avatar.textContent = profileInitial();
+  nameEl.textContent = profileDisplayName();
+  emailEl.textContent = currentUser ? currentUser.email : (isGuest ? 'Guest session — local only' : 'Not signed in');
+
+  if (currentUser) {
+    editBtn.style.display = 'block';
+    signoutBtn.style.display = 'block';
+    signinBtn.style.display = 'none';
+  } else if (isGuest) {
+    editBtn.style.display = 'none';
+    signoutBtn.style.display = 'none';
+    signinBtn.style.display = supabaseReady ? 'block' : 'none';
+  } else {
+    editBtn.style.display = 'none';
+    signoutBtn.style.display = 'none';
+    signinBtn.style.display = 'none';
+  }
+}
+
+function bindProfileChip(el) {
+  el.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (profilePopover.style.display === 'flex') closeProfilePopover();
+    else openProfilePopover();
+  });
+}
+bindProfileChip(document.getElementById('profile-chip'));
+bindProfileChip(document.getElementById('mobile-profile-chip'));
+
+profileOverlay.addEventListener('click', closeProfilePopover);
+
+document.getElementById('profile-settings-btn').addEventListener('click', () => {
+  closeProfilePopover();
+  setView('settings');
+});
+document.getElementById('profile-signout-btn').addEventListener('click', () => {
+  closeProfilePopover();
+  signOutAndReset();
+});
+document.getElementById('profile-signin-btn').addEventListener('click', () => {
+  closeProfilePopover();
+  sessionStorage.removeItem('aschertypeGuest');
+  location.reload();
+});
+
+document.getElementById('profile-edit-name-btn').addEventListener('click', () => {
+  const input = document.getElementById('profile-name-input');
+  input.value = currentProfile && currentProfile.display_name ? currentProfile.display_name : '';
+  profilePopNameEdit.style.display = 'flex';
+  positionProfilePopover();
+  setTimeout(() => input.focus(), 40);
+});
+document.getElementById('profile-name-cancel').addEventListener('click', () => {
+  profilePopNameEdit.style.display = 'none';
+});
+document.getElementById('profile-name-save').addEventListener('click', async () => {
+  if (!currentUser) return;
+  const v = document.getElementById('profile-name-input').value.trim();
+  const row = {
+    id: currentUser.id,
+    email: currentUser.email,
+    display_name: v || null,
+  };
+  const { error } = await dbUpsertMyProfile(row);
+  if (error) return;
+  currentProfile = row;
+  profilePopNameEdit.style.display = 'none';
+  renderProfileChip();
+  renderProfilePopover();
+  showToast('permission');
+});
+
 // ===== Encouragement toasts =====
 const ENCOURAGEMENT_KEY = 'encouragementEnabled';
 function isEncouragementEnabled() {
@@ -122,34 +282,14 @@ function isEncouragementEnabled() {
 function setEncouragementEnabled(on) { localStorage.setItem(ENCOURAGEMENT_KEY, on ? 'true' : 'false'); }
 
 const ENCOURAGEMENT_MESSAGES = {
-  add: [
-    { emoji: '📝', text: 'Added. One less thing to hold in your head.' },
-    { emoji: '✨', text: "Nice — that's on the list now, not just in your mind." },
-    { emoji: '🌱', text: 'Small step logged. That counts.' },
-    { emoji: '👍', text: "Got it. You're staying ahead of it." },
-  ],
-  complete: [
-    { emoji: '🎉', text: 'Done! Nice work.' },
-    { emoji: '✅', text: 'Checked off — that feels good, right?' },
-    { emoji: '💪', text: "One more finished. You're on a roll." },
-    { emoji: '🙌', text: 'Nicely done. Onto the next.' },
-  ],
-  note: [
-    { emoji: '🗒️', text: 'Saved — future you will thank you.' },
-    { emoji: '💡', text: 'Good thought, safely stored.' },
-  ],
-  event: [
-    { emoji: '📅', text: "Added to your calendar. It's handled." },
-    { emoji: '🕒', text: "Saved. One less date to remember." },
-  ],
-  pomodoro: [
-    { emoji: '🍅', text: 'Focus session complete — take a real break.' },
-    { emoji: '🌤️', text: "That's a solid stretch of deep work. Well done." },
-  ],
-  closeout: [
-    { emoji: '🌙', text: "That's a wrap. Whatever's left will keep till tomorrow." },
-    { emoji: '🕯️', text: 'Closeout done — go rest, you earned it.' },
-  ],
+  add: [{ emoji: '📝', text: 'Added. One less thing to hold in your head.' }],
+  complete: [{ emoji: '🎉', text: 'Done! Nice work.' }],
+  note: [{ emoji: '🗒️', text: 'Saved — future you will thank you.' }],
+  event: [{ emoji: '📅', text: "Added to your calendar. It's handled." }],
+  pomodoro: [{ emoji: '🍅', text: 'Focus session complete — take a real break.' }],
+  closeout: [{ emoji: '🌙', text: "That's a wrap." }],
+  invite: [{ emoji: '🤝', text: "Invite sent. They'll see it in their notifications." }],
+  permission: [{ emoji: '✅', text: 'Saved.' }],
 };
 function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
@@ -162,30 +302,22 @@ function showToast(category) {
   el.className = 'toast';
   el.innerHTML = `<span class="toast-emoji">${msg.emoji}</span><span>${escapeHtml(msg.text)}</span>`;
   toastContainer.appendChild(el);
-  setTimeout(() => {
-    el.classList.add('leaving');
-    setTimeout(() => el.remove(), 320);
-  }, 3200);
+  setTimeout(() => { el.classList.add('leaving'); setTimeout(() => el.remove(), 320); }, 3200);
 }
 
-// Surfaces any dbUpsert/dbFetchAll/dbDelete failure (from db.js) as a
-// visible toast instead of a silent console.error.
 window.onSyncError = function (table, action, message) {
   const el = document.createElement('div');
   el.className = 'toast notif';
   el.innerHTML = `<span class="toast-dot" style="background:var(--high)"></span><span><strong>Sync issue</strong><br>Couldn't ${action} ${table}: ${escapeHtml(message)}</span>`;
   toastContainer.appendChild(el);
-  setTimeout(() => {
-    el.classList.add('leaving');
-    setTimeout(() => el.remove(), 320);
-  }, 5000);
+  setTimeout(() => { el.classList.add('leaving'); setTimeout(() => el.remove(), 320); }, 5000);
 };
 
 document.getElementById('encouragement-enabled-input').addEventListener('change', (e) => {
   setEncouragementEnabled(e.target.checked);
 });
 
-// ===== Notifications (events & pomodoro) =====
+// ===== System notifications =====
 const NOTIF_ENABLED_KEY = 'notificationsEnabled';
 function isNotifEnabled() {
   const v = localStorage.getItem(NOTIF_ENABLED_KEY);
@@ -196,21 +328,19 @@ function setNotifEnabled(on) { localStorage.setItem(NOTIF_ENABLED_KEY, on ? 'tru
 const notifPermissionHintEl = document.getElementById('notif-permission-hint');
 function updateNotifPermissionHint() {
   if (!notifPermissionHintEl) return;
-  if (!('Notification' in window)) { notifPermissionHintEl.textContent = 'Not supported here — in-app alerts will show instead'; return; }
+  if (!('Notification' in window)) { notifPermissionHintEl.textContent = 'Not supported here'; return; }
   if (Notification.permission === 'granted') notifPermissionHintEl.textContent = 'System alerts allowed';
-  else if (Notification.permission === 'denied') notifPermissionHintEl.textContent = 'Blocked — using in-app alerts instead';
-  else notifPermissionHintEl.textContent = "We'll ask permission when needed";
+  else if (Notification.permission === 'denied') notifPermissionHintEl.textContent = 'Blocked — using in-app alerts';
+  else notifPermissionHintEl.textContent = "We'll ask when needed";
 }
-// ===== Notification sound =====
-// Web Audio API two-tone chime — no audio file needed. Browsers require a
-// user gesture before audio can play; the loading-screen click provides that.
+
 let audioCtx = null;
 function unlockAudioContext() {
   if (audioCtx) return;
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (Ctx) audioCtx = new Ctx();
-  } catch (err) { /* Web Audio unsupported — sound just won't play */ }
+  } catch (err) { /* ignore */ }
 }
 function playNotificationSound() {
   if (!audioCtx) unlockAudioContext();
@@ -244,16 +374,13 @@ function sendNotification(title, body) {
   if (!isNotifEnabled()) return;
   playNotificationSound();
   if ('Notification' in window && Notification.permission === 'granted') {
-    try { new Notification(title, { body }); return; } catch (err) { /* fall through to in-app */ }
+    try { new Notification(title, { body }); return; } catch (err) { /* fall through */ }
   }
   const el = document.createElement('div');
   el.className = 'toast notif';
   el.innerHTML = `<span class="toast-dot"></span><span><strong>${escapeHtml(title)}</strong><br>${escapeHtml(body)}</span>`;
   toastContainer.appendChild(el);
-  setTimeout(() => {
-    el.classList.add('leaving');
-    setTimeout(() => el.remove(), 320);
-  }, 4200);
+  setTimeout(() => { el.classList.add('leaving'); setTimeout(() => el.remove(), 320); }, 4200);
 }
 document.getElementById('notifications-enabled-input').addEventListener('change', (e) => {
   setNotifEnabled(e.target.checked);
@@ -287,23 +414,22 @@ function checkEventNotifications() {
 }
 setInterval(checkEventNotifications, 30 * 1000);
 
-// ===== Tips & tricks bar =====
+// ===== Tips bar =====
 const LOCAL_TIPS = [
   'Write tomorrow\'s top 3 tasks tonight — it quiets the mind before sleep.',
-  'A 4-7-8 breath (inhale 4, hold 7, exhale 8) can take the edge off a stressful moment.',
-  'Batch small tasks together; context-switching is more tiring than the tasks themselves.',
-  'Standing up and stretching for 60 seconds every hour keeps focus sharper for longer.',
-  'Try the two-minute rule: if it takes under two minutes, do it now instead of listing it.',
-  'A short walk outside resets attention better than scrolling during a break.',
-  'Naming what you\'re feeling ("I\'m anxious about X") tends to lower its intensity.',
-  'Single-tasking beats multitasking for both speed and quality on focused work.',
-  'Keep a "done" list next to your to-do list — it\'s good for morale on hard days.',
-  'Drink a glass of water before reaching for more coffee; mild dehydration mimics fatigue.',
-  'Progress, not perfection — a rough draft finished beats a perfect draft postponed.',
-  'Silence notifications during focus blocks; even a glance costs several minutes to recover from.',
-  'When overwhelmed, write everything down first, then sort — it moves the load out of your head.',
-  'A tidy desk for the next morning makes it easier to start work with a clear head.',
-  'Take real breaks: stepping away from the screen restores focus better than switching tabs.',
+  'A 4-7-8 breath can take the edge off a stressful moment.',
+  'Batch small tasks together; context-switching is tiring.',
+  'Standing up and stretching for 60 seconds every hour keeps focus sharper.',
+  'Try the two-minute rule: if it takes under two minutes, do it now.',
+  'A short walk outside resets attention better than scrolling.',
+  'Single-tasking beats multitasking for focused work.',
+  'Keep a "done" list next to your to-do list — good for morale.',
+  'Drink water before more coffee; mild dehydration mimics fatigue.',
+  'Progress, not perfection.',
+  'Silence notifications during focus blocks.',
+  'When overwhelmed, write everything down first, then sort.',
+  'A tidy desk for the next morning makes starting easier.',
+  'Take real breaks: stepping away restores focus.',
 ];
 let lastTipIndex = -1;
 function localTip() {
@@ -337,12 +463,8 @@ async function fetchOnlineTip() {
     const data = await res.json();
     if (data && data.content) return `${data.content}${data.author ? ' — ' + data.author : ''}`;
     return null;
-  } catch (err) {
-    clearTimeout(timeout);
-    return null;
-  }
+  } catch (err) { clearTimeout(timeout); return null; }
 }
-
 async function refreshTip() {
   if (!areTipsEnabled()) return;
   tipsTextEl.textContent = 'Finding a tip…';
@@ -396,10 +518,8 @@ function tickPomodoro() {
   pomodoro.remaining--;
   if (pomodoro.remaining === 60 && !pomodoroWarned) {
     pomodoroWarned = true;
-    sendNotification(
-      pomodoro.mode === 'work' ? 'Almost there' : 'Break ending soon',
-      pomodoro.mode === 'work' ? 'One minute left in your focus session.' : 'One minute left in your break.'
-    );
+    sendNotification(pomodoro.mode === 'work' ? 'Almost there' : 'Break ending soon',
+      pomodoro.mode === 'work' ? 'One minute left in your focus session.' : 'One minute left in your break.');
   }
   if (pomodoro.remaining <= 0) {
     clearInterval(pomodoroInterval); pomodoroInterval = null; pomodoro.running = false;
@@ -452,7 +572,7 @@ pomodoroBreakInput.addEventListener('change', (e) => {
   if (!pomodoro.running && pomodoro.mode === 'break') { pomodoro.remaining = v * 60; renderPomodoro(); }
 });
 
-// ===== Task state =====
+// ===== State =====
 let todos = JSON.parse(localStorage.getItem('todos') || '[]');
 let currentView = 'all';
 
@@ -471,11 +591,34 @@ const allChevron = document.getElementById('all-chevron');
 const allSubnav = document.getElementById('all-subnav');
 const navItems = document.querySelectorAll('.nav-item');
 
-// ===== Projects =====
-// A project just groups todos together (todo.projectId -> project.id).
-// Kept deliberately simple: no nesting, no per-project settings.
+// ===== Task add toggle =====
+const taskAddEl = document.getElementById('task-add');
+const taskAddToggle = document.getElementById('task-add-toggle');
+const taskAddCancel = document.getElementById('task-add-cancel');
+
+function openTaskAdd() {
+  taskAddEl.classList.add('open');
+  taskAddToggle.hidden = true;
+  form.hidden = false;
+  setTimeout(() => input.focus(), 50);
+}
+function closeTaskAdd() {
+  taskAddEl.classList.remove('open');
+  form.hidden = true;
+  taskAddToggle.hidden = false;
+  input.value = '';
+  descInput.value = '';
+  dueInput.value = '';
+  priorityInput.value = 'medium';
+}
+taskAddToggle.addEventListener('click', openTaskAdd);
+taskAddCancel.addEventListener('click', closeTaskAdd);
+
+// ===== Projects & collaborators =====
 let projects = JSON.parse(localStorage.getItem('projects') || '[]');
-let currentProjectId = null; // set when currentView === 'project'
+let currentProjectId = null;
+let projectMembers = [];
+let notifications = [];
 
 const projectNavListEl = document.getElementById('project-nav-list');
 const projectEmptyHintEl = document.getElementById('project-empty-hint');
@@ -484,6 +627,7 @@ const projectSelectEl = document.getElementById('todo-project-select');
 const projectHeaderActions = document.getElementById('project-header-actions');
 const projectRenameBtn = document.getElementById('project-rename-btn');
 const projectDeleteBtn = document.getElementById('project-delete-btn');
+const projectInviteBtn = document.getElementById('project-invite-btn');
 
 const projectModalOverlay = document.getElementById('project-modal-overlay');
 const projectModalTitle = document.getElementById('project-modal-title');
@@ -492,11 +636,57 @@ const projectModalSaveBtn = document.getElementById('project-modal-save-btn');
 const projectModalCancelBtn = document.getElementById('project-modal-cancel-btn');
 const projectModalCloseBtn = document.getElementById('project-modal-close-btn');
 
-let editingProjectId = null; // non-null => modal is renaming, not creating
+let editingProjectId = null;
 
 function saveProjects() { localStorage.setItem('projects', JSON.stringify(projects)); }
-function getProject(id) { return projects.find(p => p.id === id) || null; }
+function getProject(id) { return projects.find(p => String(p.id) === String(id)) || null; }
 
+// Permissions
+function membersForProject(projectId) {
+  const pid = String(projectId);
+  return projectMembers.filter(m => String(m.project_id) === pid);
+}
+function myMembership(projectId) {
+  if (!currentUser) return null;
+  const email = (currentUser.email || '').toLowerCase();
+  return membersForProject(projectId).find(m =>
+    m.status === 'accepted' &&
+    (m.member_id === currentUser.id || (m.member_email || '').toLowerCase() === email)
+  ) || null;
+}
+function isProjectOwner(projectId) {
+  const p = getProject(projectId);
+  return !!p && !!currentUser && p.userId === currentUser.id;
+}
+function canRenameProject(projectId) {
+  if (isProjectOwner(projectId)) return true;
+  const m = myMembership(projectId);
+  return !!(m && m.can_rename_project);
+}
+function canAddTaskTo(projectId) {
+  if (!projectId) return true;
+  if (isProjectOwner(projectId)) return true;
+  const m = myMembership(projectId);
+  return !!(m && m.can_add_task);
+}
+function canRemoveTaskFrom(projectId) {
+  if (!projectId) return true;
+  if (isProjectOwner(projectId)) return true;
+  const m = myMembership(projectId);
+  return !!(m && m.can_remove_task);
+}
+function canRenameTaskIn(projectId) {
+  if (!projectId) return true;
+  if (isProjectOwner(projectId)) return true;
+  const m = myMembership(projectId);
+  return !!(m && m.can_rename_task);
+}
+function canToggleTaskIn(projectId) {
+  if (!projectId) return true;
+  return isProjectOwner(projectId) || !!myMembership(projectId);
+}
+
+// Project modal
 function openProjectModal(existingProject = null) {
   editingProjectId = existingProject ? existingProject.id : null;
   projectModalTitle.textContent = existingProject ? 'Rename project' : 'New project';
@@ -522,7 +712,7 @@ projectModalSaveBtn.addEventListener('click', () => {
       if (currentUser) dbUpsert('projects', projectRemoteRow(p));
     }
   } else {
-    const p = { id: Date.now(), name };
+    const p = { id: Date.now(), name, userId: currentUser ? currentUser.id : null };
     projects.push(p);
     saveProjects();
     if (currentUser) dbUpsert('projects', projectRemoteRow(p));
@@ -530,14 +720,13 @@ projectModalSaveBtn.addEventListener('click', () => {
   closeProjectModal();
   renderProjectNav();
   renderProjectSelect();
-  if (currentView === 'project') { renderViewHeader(); renderTodos(); }
+  if (currentView === 'project') { renderViewHeader(); renderTodos(); renderCollabPanel(); }
 });
 
 function deleteProject(id) {
-  projects = projects.filter(p => p.id !== id);
-  // Unassign (not delete) any tasks that belonged to this project.
+  projects = projects.filter(p => String(p.id) !== String(id));
   let touched = [];
-  todos.forEach(t => { if (t.projectId === id) { t.projectId = null; touched.push(t); } });
+  todos.forEach(t => { if (String(t.projectId) === String(id)) { t.projectId = null; touched.push(t); } });
   saveProjects();
   saveTodos();
   if (currentUser) {
@@ -549,7 +738,7 @@ projectDeleteBtn.addEventListener('click', () => {
   if (!currentProjectId) return;
   const p = getProject(currentProjectId);
   if (!p) return;
-  if (!confirm(`Delete "${p.name}"? Tasks in it will be kept but unassigned from the project.`)) return;
+  if (!confirm(`Delete "${p.name}"? Tasks in it will be kept but unassigned.`)) return;
   deleteProject(currentProjectId);
   setView('all');
 });
@@ -562,35 +751,41 @@ function renderProjectNav() {
   projectNavListEl.innerHTML = '';
   projectEmptyHintEl.style.display = projects.length ? 'none' : 'block';
   projects.forEach(p => {
+    const isOwned = isProjectOwner(p.id);
     const btn = document.createElement('button');
-    btn.className = 'nav-item' + (currentView === 'project' && currentProjectId === p.id ? ' active' : '');
+    btn.className = 'nav-item' + (currentView === 'project' && String(currentProjectId) === String(p.id) ? ' active' : '') + (isOwned ? '' : ' shared');
     btn.dataset.view = 'project';
     btn.dataset.projectId = p.id;
+
     const dot = document.createElement('span');
     dot.className = 'project-nav-dot';
+    if (!isOwned) dot.classList.add('shared-dot');
+
     const label = document.createElement('span');
     label.className = 'nav-label';
     label.textContent = p.name;
+
     const count = document.createElement('span');
     count.className = 'nav-count';
-    count.textContent = todos.filter(t => t.projectId === p.id).length;
+    count.textContent = todos.filter(t => String(t.projectId) === String(p.id)).length;
+
     btn.append(dot, label, count);
     btn.addEventListener('click', () => { currentProjectId = p.id; setView('project'); });
     projectNavListEl.appendChild(btn);
   });
 }
+
 function renderProjectSelect() {
   if (!projectSelectEl) return;
   const prevValue = projectSelectEl.value;
   projectSelectEl.innerHTML = '<option value="">No project</option>';
   projects.forEach(p => {
+    if (!canAddTaskTo(p.id)) return;
     const opt = document.createElement('option');
     opt.value = p.id;
     opt.textContent = p.name;
     projectSelectEl.appendChild(opt);
   });
-  // Pre-select the project currently being viewed, so adding a task
-  // from inside a project drops it straight into that project.
   if (currentView === 'project' && currentProjectId && getProject(currentProjectId)) {
     projectSelectEl.value = String(currentProjectId);
   } else if (projects.some(p => String(p.id) === prevValue)) {
@@ -612,12 +807,22 @@ function escapeHtml(str) {
 }
 
 function todoRemoteRow(t) {
-  return { id: t.id, user_id: currentUser.id, text: t.text, desc: t.desc || '', done: t.done, due: t.due, priority: t.priority, project_id: t.projectId || null };
+  return {
+    id: t.id,
+    user_id: currentUser ? currentUser.id : null,
+    text: t.text,
+    desc: t.desc || '',
+    done: t.done,
+    due: t.due,
+    priority: t.priority,
+    project_id: t.projectId || null,
+  };
 }
 function projectRemoteRow(p) {
-  return { id: p.id, user_id: currentUser.id, name: p.name };
+  return { id: p.id, user_id: p.userId || (currentUser ? currentUser.id : null), name: p.name };
 }
 
+// View switching
 function showView(view) {
   document.getElementById('task-view').style.display = 'none';
   document.getElementById('pomodoro-view').style.display = 'none';
@@ -628,10 +833,20 @@ function showView(view) {
   else if (view === 'settings') document.getElementById('settings-view').style.display = 'block';
   else if (view === 'calendar') document.getElementById('calendar-view').style.display = 'block';
   else if (view === 'notes') document.getElementById('notes-view').style.display = 'block';
-  else document.getElementById('task-view').style.display = 'block'; // 'all' | 'today' | 'active' | 'completed' | 'project'
+  else document.getElementById('task-view').style.display = 'block';
 }
 
 function setView(view) {
+  // Close the collaborator sheet when leaving the project view.
+  const collabPanel = document.getElementById('project-collab-panel');
+  const collabFab = document.getElementById('collab-fab');
+  if (view !== 'project') {
+    if (collabPanel) collabPanel.classList.remove('open');
+    if (collabFab) collabFab.style.display = 'none';
+  }
+  // Reset the add-task form when changing views.
+  closeTaskAdd();
+
   currentView = view;
   if (view !== 'project') currentProjectId = null;
   navItems.forEach(b => b.classList.toggle('active', b.dataset.view === view));
@@ -644,6 +859,8 @@ function setView(view) {
     renderProjectSelect();
     renderTodos();
     renderViewHeader();
+    updateTaskFormForView();
+    renderCollabPanel();
   }
   renderProjectNav();
   closeSidebar();
@@ -665,7 +882,7 @@ function getFilteredTodos() {
   if (currentView === 'today') filtered = filtered.filter(t => t.due === todayStr());
   else if (currentView === 'active') filtered = filtered.filter(t => !t.done);
   else if (currentView === 'completed') filtered = filtered.filter(t => t.done);
-  else if (currentView === 'project') filtered = filtered.filter(t => t.projectId === currentProjectId);
+  else if (currentView === 'project') filtered = filtered.filter(t => String(t.projectId) === String(currentProjectId));
   const priorityRank = { high: 0, medium: 1, low: 2 };
   filtered.sort((a, b) => {
     if (a.done !== b.done) return a.done ? 1 : -1;
@@ -674,6 +891,7 @@ function getFilteredTodos() {
   });
   return filtered;
 }
+
 function renderTodos() {
   const filtered = getFilteredTodos();
   todoListEl.innerHTML = '';
@@ -681,6 +899,10 @@ function renderTodos() {
   const todayKey = todayStr();
 
   filtered.forEach(t => {
+    const canToggle = canToggleTaskIn(t.projectId);
+    const canRemove = canRemoveTaskFrom(t.projectId);
+    const canRename = canRenameTaskIn(t.projectId);
+
     const card = document.createElement('div');
     card.className = `task-card priority-${t.priority}` + (t.done ? ' completed' : '');
 
@@ -688,21 +910,33 @@ function renderTodos() {
     checkbox.type = 'checkbox';
     checkbox.className = 'task-check';
     checkbox.checked = t.done;
-    checkbox.setAttribute('aria-label', t.done ? 'Mark task as not done' : 'Mark task as done');
+    checkbox.disabled = !canToggle;
     checkbox.addEventListener('change', () => {
       t.done = checkbox.checked;
       saveTodos(); renderTodos(); renderCounts();
-      if (currentUser) dbUpsert('todos', todoRemoteRow(t));
+      if (currentUser) dbUpdate('todos', t.id, { done: t.done });
       if (t.done) showToast('complete');
     });
 
     const main = document.createElement('div');
     main.className = 'task-main';
 
+    const titleRow = document.createElement('div');
+    titleRow.className = 'task-title-row';
     const title = document.createElement('div');
     title.className = 'task-title';
     title.textContent = t.text;
-    main.appendChild(title);
+    titleRow.appendChild(title);
+    if (canRename) {
+      const pencil = document.createElement('button');
+      pencil.type = 'button';
+      pencil.className = 'task-inline-edit';
+      pencil.title = 'Rename task';
+      pencil.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>';
+      pencil.addEventListener('click', () => startInlineEdit(title, t));
+      titleRow.appendChild(pencil);
+    }
+    main.appendChild(titleRow);
 
     if (t.desc) {
       const desc = document.createElement('div');
@@ -713,19 +947,18 @@ function renderTodos() {
 
     const meta = document.createElement('div');
     meta.className = 'task-meta';
-
     if (t.due) {
       const overdue = !t.done && t.due < todayKey;
       const isToday = t.due === todayKey;
       const due = document.createElement('span');
       due.className = 'task-pill' + (overdue ? ' due-overdue' : '') + (isToday ? ' due-today' : '');
-      due.textContent = (overdue ? '⚠ ' : '📅 ') + t.due;
+      due.textContent = t.due;
       meta.appendChild(due);
     }
     if (t.priority === 'high' || t.priority === 'medium') {
       const pr = document.createElement('span');
       pr.className = `task-pill priority-tag priority-${t.priority}`;
-      pr.textContent = t.priority === 'high' ? 'High priority' : 'Medium';
+      pr.textContent = t.priority === 'high' ? 'High' : 'Medium';
       meta.appendChild(pr);
     }
     if (t.projectId && currentView !== 'project') {
@@ -734,7 +967,6 @@ function renderTodos() {
         const tag = document.createElement('span');
         tag.className = 'task-pill project-tag';
         tag.textContent = p.name;
-        tag.title = 'Go to project';
         tag.addEventListener('click', () => { currentProjectId = p.id; setView('project'); });
         meta.appendChild(tag);
       }
@@ -743,33 +975,67 @@ function renderTodos() {
 
     const actions = document.createElement('div');
     actions.className = 'task-card-actions';
-    const del = document.createElement('button');
-    del.className = 'delete-btn';
-    del.setAttribute('aria-label', 'Delete task');
-    del.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>';
-    del.addEventListener('click', () => {
-      todos = todos.filter(x => x.id !== t.id);
-      saveTodos(); renderTodos(); renderCounts(); renderProjectNav();
-      if (currentUser) dbDelete('todos', t.id, currentUser.id);
-    });
-    actions.appendChild(del);
+    if (canRemove) {
+      const del = document.createElement('button');
+      del.className = 'delete-btn';
+      del.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>';
+      del.addEventListener('click', () => {
+        todos = todos.filter(x => x.id !== t.id);
+        saveTodos(); renderTodos(); renderCounts(); renderProjectNav();
+        if (currentUser) dbDelete('todos', t.id);
+      });
+      actions.appendChild(del);
+    }
 
     card.append(checkbox, main, actions);
     todoListEl.appendChild(card);
   });
 }
+
+function startInlineEdit(titleEl, t) {
+  const editInput = document.createElement('input');
+  editInput.type = 'text';
+  editInput.className = 'task-title-edit';
+  editInput.value = t.text;
+  titleEl.replaceWith(editInput);
+  editInput.focus(); editInput.select();
+  let done = false;
+  const commit = () => {
+    if (done) return;
+    done = true;
+    const v = editInput.value.trim();
+    if (v && v !== t.text) {
+      t.text = v;
+      saveTodos();
+      if (currentUser) dbUpdate('todos', t.id, { text: v });
+    }
+    renderTodos();
+  };
+  editInput.addEventListener('blur', commit);
+  editInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); editInput.blur(); }
+    if (e.key === 'Escape') { editInput.value = t.text; editInput.blur(); }
+  });
+}
+
 function renderCounts() {
   document.getElementById('count-all').textContent = todos.length;
   document.getElementById('count-today').textContent = todos.filter(t => t.due === todayStr()).length;
   document.getElementById('count-active').textContent = todos.filter(t => !t.done).length;
   document.getElementById('count-completed').textContent = todos.filter(t => t.done).length;
 }
+
 function renderViewHeader() {
   const titles = { all: 'All Tasks', today: 'Today', active: 'Active', completed: 'Completed' };
   if (currentView === 'project') {
     const p = getProject(currentProjectId);
     viewTitle.textContent = p ? p.name : 'Project';
     projectHeaderActions.style.display = 'flex';
+    const owner = isProjectOwner(currentProjectId);
+    const mayRename = canRenameProject(currentProjectId);
+    projectRenameBtn.style.display = mayRename ? 'inline-block' : 'none';
+    projectDeleteBtn.style.display = owner ? 'inline-block' : 'none';
+    projectInviteBtn.style.display = owner ? 'inline-block' : 'none';
   } else {
     viewTitle.textContent = titles[currentView] || 'Tasks';
     projectHeaderActions.style.display = 'none';
@@ -777,25 +1043,475 @@ function renderViewHeader() {
   const remaining = getFilteredTodos().filter(t => !t.done).length;
   viewSubtitle.textContent = `${remaining} remaining`;
 }
+
+function updateTaskFormForView() {
+  const canAdd = currentView !== 'project' ? true : canAddTaskTo(currentProjectId);
+  document.getElementById('task-add').style.display = canAdd ? '' : 'none';
+  if (!canAdd) closeTaskAdd();
+}
+
 form.addEventListener('submit', (e) => {
   e.preventDefault();
   const text = input.value.trim();
   if (!text) return;
   const projectId = projectSelectEl.value ? Number(projectSelectEl.value) : null;
-  const newTodo = { id: Date.now(), text, desc: descInput.value.trim(), done: false, due: dueInput.value || null, priority: priorityInput.value, projectId };
+  if (!canAddTaskTo(projectId)) return;
+  const newTodo = {
+    id: Date.now(), text, desc: descInput.value.trim(), done: false,
+    due: dueInput.value || null, priority: priorityInput.value, projectId,
+  };
   todos.push(newTodo);
-  input.value = ''; descInput.value = ''; dueInput.value = '';
   saveTodos();
   renderTodos(); renderCounts(); renderViewHeader(); renderProjectNav();
   if (currentUser) dbUpsert('todos', todoRemoteRow(newTodo));
   showToast('add');
-  input.focus();
+  closeTaskAdd();
 });
+
 clearBtn.addEventListener('click', () => {
   todos = todos.filter(t => !t.done);
   saveTodos();
   renderTodos(); renderCounts(); renderViewHeader(); renderProjectNav();
   if (currentUser) dbDeleteWhere('todos', currentUser.id, { done: true });
+});
+
+// ===== Collaborator panel + FAB =====
+const collabPanel = document.getElementById('project-collab-panel');
+const collabBody = document.getElementById('collab-body');
+const collabEmpty = document.getElementById('collab-empty');
+const collabInviteBtn = document.getElementById('collab-invite-btn');
+const collabBackdrop = document.getElementById('collab-backdrop');
+const collabFab = document.getElementById('collab-fab');
+const collabFabCount = document.getElementById('collab-fab-count');
+const projectViewLayout = document.getElementById('project-view-layout');
+
+function isNarrowLayout() {
+  return window.matchMedia('(max-width: 1200px)').matches;
+}
+
+function updateCollabFabVisibility() {
+  if (!collabFab) return;
+  if (currentView !== 'project' || !currentProjectId || !currentUser || !isNarrowLayout()) {
+    collabFab.style.display = 'none';
+    return;
+  }
+  const members = membersForProject(currentProjectId).filter(m => m.status === 'accepted');
+  const n = members.length + 1; // + owner
+  collabFab.style.display = 'flex';
+  if (n > 1) {
+    collabFabCount.textContent = String(n);
+    collabFabCount.style.display = 'flex';
+  } else {
+    collabFabCount.style.display = 'none';
+  }
+}
+
+collabFab.addEventListener('click', () => {
+  collabPanel.classList.add('open');
+});
+collabBackdrop.addEventListener('click', () => {
+  collabPanel.classList.remove('open');
+});
+
+function renderCollabPanel() {
+  if (!collabPanel) return;
+  if (currentView !== 'project' || !currentProjectId || !currentUser) {
+    collabPanel.style.display = 'none';
+    projectViewLayout.classList.remove('with-collab');
+    updateCollabFabVisibility();
+    return;
+  }
+  const members = membersForProject(currentProjectId);
+  const ownerIsMe = isProjectOwner(currentProjectId);
+  const myMem = myMembership(currentProjectId);
+  if (!members.length && !ownerIsMe && !myMem) {
+    collabPanel.style.display = 'none';
+    projectViewLayout.classList.remove('with-collab');
+    updateCollabFabVisibility();
+    return;
+  }
+
+  collabPanel.style.display = '';
+  projectViewLayout.classList.add('with-collab');
+  collabInviteBtn.style.display = ownerIsMe ? 'flex' : 'none';
+
+  collabBody.innerHTML = '';
+
+  // Owner row
+  const ownerRow = document.createElement('div');
+  ownerRow.className = 'collab-member owner';
+  const ownerName = ownerIsMe ? profileDisplayName() + ' (you)' : 'Project owner';
+  const ownerInitial = ownerIsMe ? profileInitial() : 'O';
+  ownerRow.innerHTML = `
+    <div class="collab-avatar owner-avatar">${escapeHtml(ownerInitial)}</div>
+    <div class="collab-info">
+      <div class="collab-email">${escapeHtml(ownerName)}</div>
+      <div class="collab-role">Owner</div>
+    </div>
+  `;
+  collabBody.appendChild(ownerRow);
+
+  const accepted = members.filter(m => m.status === 'accepted');
+  const pending = members.filter(m => m.status === 'pending');
+
+  collabEmpty.style.display = members.length ? 'none' : 'block';
+
+  accepted.forEach(m => collabBody.appendChild(buildMemberRow(m, ownerIsMe)));
+  pending.forEach(m => collabBody.appendChild(buildMemberRow(m, ownerIsMe)));
+
+  updateCollabFabVisibility();
+}
+
+function buildMemberRow(m, ownerIsMe) {
+  const row = document.createElement('div');
+  row.className = 'collab-member';
+  const initial = (m.member_email || '?').charAt(0).toUpperCase();
+
+  const avatar = document.createElement('div');
+  avatar.className = 'collab-avatar';
+  avatar.textContent = initial;
+
+  const info = document.createElement('div');
+  info.className = 'collab-info';
+
+  const emailEl = document.createElement('div');
+  emailEl.className = 'collab-email';
+  emailEl.textContent = m.member_email;
+  info.appendChild(emailEl);
+
+  const roleEl = document.createElement('div');
+  roleEl.className = 'collab-role';
+
+  const perms = [];
+  if (m.can_add_task) perms.push('add');
+  if (m.can_rename_task) perms.push('rename');
+  if (m.can_remove_task) perms.push('remove');
+  if (m.can_rename_project) perms.push('rename project');
+
+  if (m.status === 'pending') {
+    roleEl.textContent = 'Pending';
+  } else if (perms.length) {
+    roleEl.textContent = 'Can ' + perms.join(', ');
+  } else {
+    roleEl.textContent = 'Check off only';
+  }
+  info.appendChild(roleEl);
+
+  row.append(avatar, info);
+
+  if (ownerIsMe) {
+    const actions = document.createElement('div');
+    actions.className = 'collab-actions';
+
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'collab-action-btn';
+    editBtn.title = 'Edit permissions';
+    editBtn.textContent = '✎';
+    editBtn.addEventListener('click', () => openInviteModal(m));
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'collab-action-btn danger';
+    removeBtn.title = 'Remove collaborator';
+    removeBtn.textContent = '×';
+    removeBtn.addEventListener('click', () => removeMember(m));
+
+    actions.append(editBtn, removeBtn);
+    row.appendChild(actions);
+  }
+
+  return row;
+}
+
+async function removeMember(member) {
+  if (!confirm(`Remove ${member.member_email} from this project?`)) return;
+  const { error } = await dbDeleteProjectMember(member.id);
+  if (error) return;
+  await refreshSharedData();
+}
+collabInviteBtn.addEventListener('click', () => openInviteModal());
+
+// ===== Invite modal =====
+const inviteOverlay = document.getElementById('invite-overlay');
+const inviteModalTitle = document.getElementById('invite-modal-title');
+const inviteEmailInput = document.getElementById('invite-email');
+const inviteErrorEl = document.getElementById('invite-error');
+const inviteSendBtn = document.getElementById('invite-send-btn');
+let editingMemberId = null;
+
+function showInviteError(msg) {
+  inviteErrorEl.textContent = msg;
+  inviteErrorEl.style.display = msg ? 'block' : 'none';
+}
+function openInviteModal(member = null) {
+  if (!currentUser || !supabaseReady) {
+    alert('Sign in with an account to invite collaborators.');
+    return;
+  }
+  if (!isProjectOwner(currentProjectId)) return;
+
+  editingMemberId = member ? member.id : null;
+  inviteModalTitle.textContent = member ? 'Edit collaborator' : 'Invite collaborator';
+  inviteEmailInput.value = member ? member.member_email : '';
+  inviteEmailInput.readOnly = !!member;
+  document.getElementById('invite-can-add-task').checked = member ? !!member.can_add_task : false;
+  document.getElementById('invite-can-rename-task').checked = member ? !!member.can_rename_task : false;
+  document.getElementById('invite-can-remove-task').checked = member ? !!member.can_remove_task : false;
+  document.getElementById('invite-can-rename-project').checked = member ? !!member.can_rename_project : false;
+  inviteSendBtn.textContent = member ? 'Save changes' : 'Send invite';
+  showInviteError('');
+  inviteOverlay.style.display = 'flex';
+  setTimeout(() => { if (!member) inviteEmailInput.focus(); }, 30);
+}
+function closeInviteModal() {
+  inviteOverlay.style.display = 'none';
+  editingMemberId = null;
+  showInviteError('');
+}
+
+document.getElementById('invite-close-btn').addEventListener('click', closeInviteModal);
+document.getElementById('invite-cancel-btn').addEventListener('click', closeInviteModal);
+inviteOverlay.addEventListener('click', (e) => { if (e.target === inviteOverlay) closeInviteModal(); });
+projectInviteBtn.addEventListener('click', () => openInviteModal());
+
+inviteSendBtn.addEventListener('click', async () => {
+  const email = inviteEmailInput.value.trim().toLowerCase();
+  const perms = {
+    can_add_task: document.getElementById('invite-can-add-task').checked,
+    can_rename_task: document.getElementById('invite-can-rename-task').checked,
+    can_remove_task: document.getElementById('invite-can-remove-task').checked,
+    can_rename_project: document.getElementById('invite-can-rename-project').checked,
+  };
+  showInviteError('');
+  if (!isPlausibleEmail(email)) { showInviteError('Enter a valid email address.'); return; }
+  if (email === (currentUser.email || '').toLowerCase()) { showInviteError("That's your own email address."); return; }
+
+  setButtonBusy(inviteSendBtn, 'Saving…');
+
+  if (editingMemberId) {
+    const { error } = await dbUpdateProjectMember(editingMemberId, perms);
+    clearButtonBusy(inviteSendBtn);
+    if (error) { showInviteError(error.message); return; }
+    showToast('permission');
+  } else {
+    const row = {
+      project_id: currentProjectId,
+      owner_id: currentUser.id,
+      member_email: email,
+      status: 'pending',
+      ...perms,
+    };
+    const { error } = await dbUpsertProjectMember(row);
+    clearButtonBusy(inviteSendBtn);
+    if (error) { showInviteError(error.message || 'Could not send invite.'); return; }
+    showToast('invite');
+  }
+
+  closeInviteModal();
+  await refreshSharedData();
+  await loadNotifications();
+});
+
+// ===== Notification inbox =====
+const notifBell = document.getElementById('notif-bell');
+const mobileNotifBell = document.getElementById('mobile-notif-bell');
+const notifCountEl = document.getElementById('notif-count');
+const mobileNotifCountEl = document.getElementById('mobile-notif-count');
+const notifOverlay = document.getElementById('notif-overlay');
+const notifListEl = document.getElementById('notif-list');
+
+function renderNotifBadge() {
+  if (!currentUser) {
+    notifBell.classList.add('hidden');
+    mobileNotifBell.style.display = 'none';
+    return;
+  }
+  notifBell.classList.remove('hidden');
+  mobileNotifBell.style.display = 'flex';
+  const unread = notifications.filter(n => !n.read).length;
+  const txt = unread > 9 ? '9+' : String(unread);
+  if (unread > 0) {
+    notifCountEl.textContent = txt; notifCountEl.style.display = 'flex';
+    mobileNotifCountEl.textContent = txt; mobileNotifCountEl.style.display = 'flex';
+  } else {
+    notifCountEl.style.display = 'none';
+    mobileNotifCountEl.style.display = 'none';
+  }
+}
+
+function formatNotifTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const diff = Date.now() - d.getTime();
+  if (diff < 60000) return 'Just now';
+  if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+  if (diff < 604800000) return Math.floor(diff / 86400000) + 'd ago';
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function renderNotifList() {
+  if (!notifListEl) return;
+  notifListEl.innerHTML = '';
+  if (!currentUser) {
+    notifListEl.innerHTML = '<div class="notif-empty">Sign in to receive notifications.</div>';
+    return;
+  }
+  if (!notifications.length) {
+    notifListEl.innerHTML = '<div class="notif-empty">You\'re all caught up.</div>';
+    return;
+  }
+  notifications.forEach(n => {
+    const item = document.createElement('div');
+    item.className = 'notif-item' + (n.read ? '' : ' unread');
+
+    const top = document.createElement('div');
+    top.className = 'notif-item-top';
+    const title = document.createElement('div');
+    title.className = 'notif-item-title';
+    title.textContent = n.title;
+    top.appendChild(title);
+    if (!n.read) {
+      const dot = document.createElement('span');
+      dot.className = 'notif-item-dot';
+      top.appendChild(dot);
+    }
+    item.appendChild(top);
+
+    if (n.body) {
+      const body = document.createElement('div');
+      body.className = 'notif-item-body';
+      body.textContent = n.body;
+      item.appendChild(body);
+    }
+    const time = document.createElement('div');
+    time.className = 'notif-item-time';
+    time.textContent = formatNotifTime(n.created_at);
+    item.appendChild(time);
+
+    if (n.type === 'invite' && n.member_row_id) {
+      const member = projectMembers.find(m => String(m.id) === String(n.member_row_id));
+      if (member && member.status === 'pending') {
+        const actions = document.createElement('div');
+        actions.className = 'notif-item-actions';
+        const accept = document.createElement('button');
+        accept.type = 'button';
+        accept.className = 'btn primary small';
+        accept.textContent = 'Accept';
+        accept.addEventListener('click', (ev) => { ev.stopPropagation(); respondToInvite(n, member.id, true); });
+        const decline = document.createElement('button');
+        decline.type = 'button';
+        decline.className = 'btn small';
+        decline.textContent = 'Decline';
+        decline.addEventListener('click', (ev) => { ev.stopPropagation(); respondToInvite(n, member.id, false); });
+        actions.append(accept, decline);
+        item.appendChild(actions);
+      } else if (member) {
+        const status = document.createElement('div');
+        status.className = 'notif-item-status';
+        status.textContent = member.status === 'accepted' ? 'Accepted' : 'Declined';
+        item.appendChild(status);
+      }
+    }
+
+    item.addEventListener('click', async () => {
+      if (n.read) return;
+      n.read = true;
+      renderNotifBadge();
+      item.classList.remove('unread');
+      await dbMarkNotificationRead(n.id);
+    });
+
+    notifListEl.appendChild(item);
+  });
+}
+
+async function respondToInvite(notif, memberRowId, accept) {
+  const { error } = await dbRespondToInvite(memberRowId, accept);
+  if (error) return;
+  notif.read = true;
+  await dbMarkNotificationRead(notif.id);
+  await refreshSharedData();
+  await loadNotifications();
+  showToast(accept ? 'invite' : 'permission');
+}
+
+function openNotifModal() {
+  notifOverlay.style.display = 'flex';
+  renderNotifList();
+  if (currentUser && supabaseReady) loadNotifications();
+}
+notifBell.addEventListener('click', openNotifModal);
+mobileNotifBell.addEventListener('click', openNotifModal);
+document.getElementById('notif-close-btn').addEventListener('click', () => { notifOverlay.style.display = 'none'; });
+notifOverlay.addEventListener('click', (e) => { if (e.target === notifOverlay) notifOverlay.style.display = 'none'; });
+
+document.getElementById('notif-mark-all-btn').addEventListener('click', async () => {
+  const unread = notifications.filter(n => !n.read);
+  for (const n of unread) { n.read = true; await dbMarkNotificationRead(n.id); }
+  renderNotifBadge(); renderNotifList();
+});
+
+async function loadNotifications() {
+  if (!supabaseReady || !currentUser) {
+    notifications = [];
+    renderNotifBadge();
+    renderNotifList();
+    return;
+  }
+  const data = await dbFetchNotifications();
+  if (data) notifications = data;
+  renderNotifBadge();
+  renderNotifList();
+}
+
+// ===== Refresh shared data =====
+async function refreshSharedData() {
+  if (!supabaseReady || !currentUser) return;
+  const [remoteProjects, remoteTodos, remoteMembers] = await Promise.all([
+    dbFetchProjects(),
+    dbFetchTodos(),
+    dbFetchProjectMembers(),
+  ]);
+  if (remoteProjects) {
+    projects = remoteProjects.map(p => ({ id: p.id, name: p.name, userId: p.user_id }));
+    saveProjects();
+  }
+  if (remoteTodos) {
+    todos = remoteTodos.map(t => ({
+      id: t.id, text: t.text, desc: t.desc, done: t.done,
+      due: t.due, priority: t.priority, projectId: t.project_id || null,
+    }));
+    saveTodos();
+  }
+  if (remoteMembers) projectMembers = remoteMembers;
+
+  if (currentView === 'project' && currentProjectId && !getProject(currentProjectId)) {
+    currentProjectId = null;
+    currentView = 'all';
+  }
+
+  renderProjectNav();
+  renderProjectSelect();
+  renderTodos();
+  renderCounts();
+  renderViewHeader();
+  updateTaskFormForView();
+  renderCollabPanel();
+}
+
+setInterval(() => { if (currentUser && supabaseReady) refreshSharedData(); }, 60000);
+setInterval(() => { if (currentUser && supabaseReady) loadNotifications(); }, 45000);
+window.addEventListener('focus', () => {
+  if (!currentUser || !supabaseReady) return;
+  refreshSharedData();
+  loadNotifications();
+});
+
+window.addEventListener('resize', () => {
+  updateCollabFabVisibility();
+  if (profilePopover.style.display === 'flex') positionProfilePopover();
 });
 
 // ===== Calendar =====
@@ -903,7 +1619,7 @@ function renderDayPanel() {
   if (!dayEvents.length) {
     const empty = document.createElement('div');
     empty.className = 'day-panel-empty';
-    empty.textContent = 'Nothing scheduled. Add an event to get started.';
+    empty.textContent = 'Nothing scheduled.';
     dayPanelList.appendChild(empty);
     return;
   }
@@ -1095,8 +1811,7 @@ noteForm.addEventListener('submit', (e) => {
   const title = noteTitleInput.value.trim();
   if (!title) return;
   const newNote = {
-    id: Date.now(),
-    title,
+    id: Date.now(), title,
     category: noteCategorySelect.value || noteCategories[0] || 'General',
     desc: noteDescInput.value.trim(),
     content: noteContentInput.value.trim(),
@@ -1111,7 +1826,7 @@ noteForm.addEventListener('submit', (e) => {
   noteTitleInput.focus();
 });
 
-// ===== Smart Rollover Triage (End-of-Day Closeout) =====
+// ===== Closeout =====
 const CLOSEOUT_TIME_KEY = 'closeoutTime';
 const CLOSEOUT_ENABLED_KEY = 'closeoutEnabled';
 const CLOSEOUT_LAST_SHOWN_KEY = 'closeoutLastShown';
@@ -1135,7 +1850,6 @@ function unfinishedForCloseout() {
   const today = todayStr();
   return todos.filter(t => !t.done && (!t.due || t.due <= today));
 }
-
 function openCloseout() {
   const pending = unfinishedForCloseout();
   closeoutList.innerHTML = '';
@@ -1174,7 +1888,7 @@ function openCloseout() {
 function closeCloseout() {
   closeoutOverlay.style.display = 'none';
   renderTodos(); renderCounts(); renderViewHeader();
-  if (currentView === 'calendar') { renderCalendar(); }
+  if (currentView === 'calendar') renderCalendar();
 }
 closeoutCloseBtn.addEventListener('click', closeCloseout);
 closeoutDoneBtn.addEventListener('click', () => { closeCloseout(); showToast('closeout'); });
@@ -1205,29 +1919,33 @@ function maybeAutoOpenCloseout() {
   const nowHM = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
   const target = getCloseoutTime();
   const already = localStorage.getItem(CLOSEOUT_LAST_SHOWN_KEY) === todayStr();
-  if (!already && nowHM >= target && unfinishedForCloseout().length > 0) {
-    openCloseout();
-  }
+  if (!already && nowHM >= target && unfinishedForCloseout().length > 0) openCloseout();
 }
 setInterval(maybeAutoOpenCloseout, 60 * 1000);
 
-// ===== App startup (called by auth.js once sign-in/guest state is known) =====
+// ===== Startup =====
 window.initApp = async function initApp(user) {
   currentUser = user || null;
 
   if (currentUser) {
-    const [remoteTodos, remoteNotes, remoteEvents, remoteProjects] = await Promise.all([
-      dbFetchAll('todos', currentUser.id),
+    const [remoteTodos, remoteNotes, remoteEvents, remoteProjects, remoteMembers, remoteNotifs] = await Promise.all([
+      dbFetchTodos(),
       dbFetchAll('notes', currentUser.id),
       dbFetchAll('events', currentUser.id),
-      dbFetchAll('projects', currentUser.id),
+      dbFetchProjects(),
+      dbFetchProjectMembers(),
+      dbFetchNotifications(),
     ]);
+
     if (remoteProjects) {
-      projects = remoteProjects.map(p => ({ id: p.id, name: p.name }));
+      projects = remoteProjects.map(p => ({ id: p.id, name: p.name, userId: p.user_id }));
       saveProjects();
     }
     if (remoteTodos) {
-      todos = remoteTodos.map(t => ({ id: t.id, text: t.text, desc: t.desc, done: t.done, due: t.due, priority: t.priority, projectId: t.project_id || null }));
+      todos = remoteTodos.map(t => ({
+        id: t.id, text: t.text, desc: t.desc, done: t.done,
+        due: t.due, priority: t.priority, projectId: t.project_id || null,
+      }));
       saveTodos();
     }
     if (remoteNotes) {
@@ -1238,7 +1956,15 @@ window.initApp = async function initApp(user) {
       events = remoteEvents.map(ev => ({ id: ev.id, date: ev.date, time: ev.time, title: ev.title, notes: ev.notes }));
       saveEvents();
     }
+    if (remoteMembers) projectMembers = remoteMembers;
+    if (remoteNotifs) notifications = remoteNotifs;
+  } else {
+    projectMembers = [];
+    notifications = [];
+    currentProfile = currentUser ? { id: currentUser.id, email: currentUser.email, display_name: null } : null;
   }
+
+  await loadProfile();
 
   applyTheme(getTheme());
   renderSettingsUI();
@@ -1247,6 +1973,11 @@ window.initApp = async function initApp(user) {
   renderTodos();
   renderCounts();
   renderViewHeader();
+  updateTaskFormForView();
+  renderCollabPanel();
+  updateCollabFabVisibility();
+  renderNotifBadge();
+  renderNotifList();
   renderPomodoro();
   renderCalendar();
   renderDayPanel();
@@ -1261,7 +1992,6 @@ window.initApp = async function initApp(user) {
 };
 
 // ===== Loading screen =====
-// This is just a start screen now: click anywhere (or the button) to enter the app.
 const loadingScreen = document.getElementById('loading-screen');
 const loadingContinueBtn = document.getElementById('loading-continue');
 const statusDotEl = document.getElementById('status-dot');
@@ -1277,10 +2007,6 @@ function dismissLoading() {
 loadingScreen.addEventListener('click', dismissLoading);
 loadingContinueBtn.addEventListener('click', (e) => { e.stopPropagation(); dismissLoading(); });
 
-// Connectivity check. navigator.onLine reflects whether the OS/network
-// interface reports a connection — it doesn't depend on any one external
-// site, so a single third-party outage (expired cert, downtime, etc.)
-// can't make this wrongly report "offline" while you're actually online.
 function updateConnectionStatus() {
   const online = typeof navigator !== 'undefined' ? navigator.onLine : true;
   statusDotEl.className = 'status-dot ' + (online ? 'online' : 'offline');

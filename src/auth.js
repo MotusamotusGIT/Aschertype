@@ -329,4 +329,16 @@ if (supabaseReady) {
   });
 }
 
-resolveInitialAuthState();
+// Wait until renderer.js has finished setting up before touching the app,
+// otherwise window.initApp might not exist yet on slow first paints.
+function whenRendererReady(fn) {
+  if (typeof window.initApp === 'function') { fn(); return; }
+  window.addEventListener('load', () => {
+    if (typeof window.initApp === 'function') fn();
+    else console.error('[Auth] renderer.js never defined window.initApp — app cannot start.');
+  }, { once: true });
+}
+
+whenRendererReady(() => {
+  resolveInitialAuthState();
+});
