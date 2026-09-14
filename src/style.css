@@ -1,9 +1,10 @@
 * { box-sizing: border-box; }
 
 :root {
-  --accent: #315142;
-  --accent-ink: #315142;
-  --accent-soft: rgba(49, 81, 66, 0.10);
+  --accent: #315142;                    /* brand green — solid fills, checkboxes, active items */
+  --accent-ink: #315142;                /* accent-colored text/icons on light backgrounds */
+  --accent-soft: rgba(49, 81, 66, 0.10);/* accent tint for hover states, soft pills */
+  --accent-contrast: #ffffff;           /* text/icons on top of a solid --accent fill */
   --ink: #0f172a;
   --ink-2: #334155;
   --ink-light: #64748b;
@@ -28,9 +29,15 @@
 }
 
 [data-theme="dark"] {
-  --accent: #315142;
+  /* Same hue family as #315142 but lifted for visibility on dark surfaces.
+     #315142 read as near-black against the dark panel — this is the same
+     green at a brightness where it actually functions as an accent. */
+  --accent: #529872;
+  /* Text/icon accent keeps the lighter tint it already had — that value
+     was already tuned for dark surfaces, no change needed. */
   --accent-ink: #8fbfa4;
   --accent-soft: rgba(143, 191, 164, 0.14);
+  --accent-contrast: #ffffff;
   --ink: #f1f5f9;
   --ink-2: #cbd5e1;
   --ink-light: #94a3b8;
@@ -141,7 +148,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   width: 26px; height: 26px;
   border-radius: 50%;
   background: var(--accent);
-  color: #ffffff;
+  color: var(--accent-contrast);
   font-weight: 700; font-size: 11px;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
@@ -398,10 +405,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .icon-btn.round:hover { border-color: var(--accent); color: var(--accent-ink); }
 .icon-btn.round.tiny { width: 24px; height: 24px; font-size: 14px; }
 
-/* Small circular "+" buttons. Kept visually compact (22px) on every
-   device — mobile and desktop alike — but each gets an invisible
-   enlarged hit-zone via ::before so it's still comfortable to tap on
-   touch screens without the circle itself looking bulky. */
 .icon-btn.plus {
   position: relative;
   width: 22px; height: 22px; padding: 0;
@@ -412,7 +415,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .icon-btn.plus::before {
   content: "";
   position: absolute;
-  inset: -7px; /* invisible tap-area padding, ~36px effective target */
+  inset: -7px;
 }
 .icon-btn.plus:hover { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft); }
 #menu-toggle { flex-direction: column; gap: 4px; width: 40px; height: 40px; }
@@ -453,15 +456,17 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   transition: background-color .15s ease, color .15s ease;
 }
 .nav-item:hover { background: var(--accent-soft); color: var(--ink); }
-.nav-item.active { background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; }
+/* Active/clicked state uses the solid accent with white text — the accent
+   color itself is the visual signal here, not a soft tint. */
+.nav-item.active { background: var(--accent); color: var(--accent-contrast); font-weight: 600; }
 .nav-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-count { background: var(--bg); border: 1px solid var(--border); border-radius: 9999px; padding: 1px 6px; font-size: 10px; min-width: 16px; text-align: center; color: var(--ink-light); font-weight: 600; }
-.nav-item.active .nav-count { background: var(--card); border-color: transparent; color: var(--accent-ink); }
+.nav-item.active .nav-count { background: rgba(255, 255, 255, 0.22); border-color: transparent; color: var(--accent-contrast); }
 .chevron {
   font-size: 10px; color: var(--ink-light); transition: transform 0.2s ease; flex-shrink: 0;
   padding: 4px 6px; margin: -4px -6px -4px 0; cursor: pointer;
 }
-.nav-item.active .chevron { color: var(--accent-ink); }
+.nav-item.active .chevron { color: rgba(255, 255, 255, 0.85); }
 .chevron.open { transform: rotate(180deg); }
 .sub-nav { display: none; flex-direction: column; gap: 2px; padding-left: 15px; margin-top: 2px; border-left: 1px solid var(--border); margin-left: 20px; }
 .sub-nav.open { display: flex; }
@@ -715,7 +720,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 }
 .task-check:checked { background: var(--accent); border-color: var(--accent); }
 .task-check:checked::after {
-  content: ""; width: 4.5px; height: 8px; border: solid #fff; border-width: 0 1.6px 1.6px 0;
+  content: ""; width: 4.5px; height: 8px; border: solid var(--accent-contrast); border-width: 0 1.6px 1.6px 0;
   transform: rotate(45deg) translate(-1px, -1px);
 }
 .task-check:disabled { opacity: .45; cursor: not-allowed; }
@@ -785,7 +790,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 }
 .btn:hover { transform: translateY(-1px); border-color: var(--accent); }
 .btn.small { padding: 8px 16px; font-size: 13px; border-radius: 10px; }
-.btn.primary { background: var(--accent); color: #ffffff; border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
 .btn.primary:hover { filter: brightness(1.08); }
 .btn.danger { background: none; color: var(--high); border-color: var(--high-bg); }
 .btn.danger:hover { background: var(--high-bg); border-color: var(--high); }
@@ -860,7 +865,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   padding: 7px 16px; border-radius: 9999px; border: 1px solid var(--border);
   background: var(--card); color: var(--ink-light); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
 }
-.category-tab.active { background: var(--accent); color: #ffffff; border-color: var(--accent); box-shadow: var(--shadow-sm); }
+.category-tab.active { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); box-shadow: var(--shadow-sm); }
 .note-form {
   background: var(--card); border: 1px solid var(--border); border-radius: 18px;
   padding: 20px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--shadow-sm); margin-bottom: 28px;
@@ -1048,9 +1053,9 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   color: var(--ink-light); vertical-align: middle;
 }
 .nav-item.shared.active .nav-label::after {
-  background: rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.22);
   border-color: transparent;
-  color: #fff;
+  color: var(--accent-contrast);
 }
 
 .project-collab-panel {
@@ -1117,7 +1122,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   justify-content: center;
   flex-shrink: 0;
 }
-.collab-avatar.owner-avatar { background: var(--accent); color: #fff; }
+.collab-avatar.owner-avatar { background: var(--accent); color: var(--accent-contrast); }
 
 .collab-info { flex: 1; min-width: 0; }
 .collab-email {
@@ -1203,7 +1208,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   padding: 0 5px;
   border-radius: 9999px;
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-contrast);
   font-size: 10px;
   font-weight: 700;
   display: flex;
@@ -1279,8 +1284,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   }
   .collab-title { font-size: 11px; }
 
-  /* Members are bigger tap targets in the sheet — make the action
-     icons always visible so they're easy to find on touch. */
   .collab-actions { opacity: 1; }
   .collab-action-btn { width: 26px; height: 26px; }
 }
@@ -1342,7 +1345,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 
   .project-view-main { padding-bottom: 8px; }
 
-  /* ----- Tips bar: allow wrapping up to 2 lines on narrow screens ----- */
   .tips-bar {
     align-items: flex-start;
     gap: 8px;
@@ -1369,11 +1371,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   }
   .tips-refresh { padding-top: 2px; }
 
-  /* ----- Sidebar nav on mobile -----
-     The chevron's visible glyph stays small and minimal, but its
-     tappable area is enlarged via padding (invisible) so it's easy
-     to hit with a thumb. The count pill uses the same compact size
-     as everywhere else — see the base .nav-count rule above. */
   .nav-item { padding: 8px 10px; gap: 9px; }
   .chevron {
     font-size: 11px;
@@ -1383,9 +1380,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   .sub-nav { margin-left: 16px; padding-left: 12px; }
   .nav-item.sub { padding: 6px 10px; font-size: 13px; }
 
-  /* Hover-to-reveal doesn't work on touchscreens, so edit/delete on a
-     task would otherwise be unreachable on mobile — keep them visible
-     and give them a slightly bigger, easier-to-hit tap target here. */
   .task-icon-btn {
     opacity: 1;
     transform: none;

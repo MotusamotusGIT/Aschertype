@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirming&hellip; &mdash; Aschertype</title>
+  <link rel="icon" type="image/png" href="./favicon.png">
+  <link rel="apple-touch-icon" href="./favicon.png">
+  <meta name="theme-color" content="#7c5cff">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Scoped only to this standalone page — the app's style.css
+       already gives us the variables, cards, and typography. */
+    body.confirm-body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      min-height: 100svh;
+      min-height: 100dvh;
+      padding: 24px;
+      overflow: auto;
+    }
+    .confirm-card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow-lg);
+      padding: 36px 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 16px;
+    }
+    .confirm-mark {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--accent-soft);
+      color: var(--accent-ink);
+    }
+    .confirm-mark.ok { background: rgba(16, 185, 129, 0.14); color: #10b981; }
+    .confirm-mark.err { background: var(--high-bg); color: var(--high); }
+    .confirm-mark svg { width: 30px; height: 30px; }
+    .confirm-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+      color: var(--ink);
+      margin: 0;
+    }
+    .confirm-text {
+      font-size: 14px;
+      color: var(--ink-light);
+      line-height: 1.55;
+      margin: 0;
+      max-width: 320px;
+    }
+    .confirm-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      margin-top: 8px;
+    }
+    .confirm-link {
+      font-size: 13px;
+      color: var(--ink-light);
+      text-decoration: none;
+    }
+    .confirm-link:hover { color: var(--accent-ink); text-decoration: underline; }
+    .confirm-spinner {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      border: 3px solid var(--accent-soft);
+      border-top-color: var(--accent-ink);
+      animation: confirmSpin .8s linear infinite;
+    }
+    @keyframes confirmSpin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="confirm-body">
+
+  <div class="confirm-card">
+    <div id="confirm-mark" class="confirm-mark">
+      <div class="confirm-spinner" id="confirm-spinner"></div>
+      <svg id="confirm-icon-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+        <polyline points="4 12 10 18 20 6"></polyline>
+      </svg>
+      <svg id="confirm-icon-err" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+      </svg>
+    </div>
+
+    <h1 id="confirm-title" class="confirm-title">Confirming your email&hellip;</h1>
+    <p id="confirm-text" class="confirm-text">Just a moment.</p>
+
+    <div class="confirm-actions" id="confirm-actions" style="display:none">
+      <a id="confirm-primary" class="btn primary" href="./index.html">Continue to Aschertype</a>
+      <a id="confirm-secondary" class="confirm-link" href="./index.html">Back to sign in</a>
+    </div>
+  </div>
+
+  <script src="./confirm.js"></script>
+</body>
+</html>
