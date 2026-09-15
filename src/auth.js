@@ -16,15 +16,34 @@ const authNoticeEl = document.getElementById('auth-notice');
 const authGuestLink = document.getElementById('auth-guest-link');
 const forgotPasswordBtn = document.getElementById('forgot-password-btn');
 
+// ----- Password visibility toggle -----
+// Each password field in the auth card is wrapped in a <span class="password-field">
+// with an adjacent eye / eye-off button. Clicking it flips the input between
+// type="password" and type="text" and swaps which icon is visible via a
+// `.showing` class on the wrapper. Deliberately delegated on the whole card
+// so it works for all three fields (login, register, confirm) with one listener.
+document.querySelectorAll('.password-toggle').forEach((btn) => {
+  btn.addEventListener('mousedown', (e) => {
+    // Prevent the parent <label> from forwarding focus to the input when
+    // the user is just tapping the icon.
+    e.preventDefault();
+  });
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const field = btn.closest('.password-field');
+    if (!field) return;
+    const input = field.querySelector('input');
+    if (!input) return;
+    const isShowing = input.type === 'text';
+    input.type = isShowing ? 'password' : 'text';
+    field.classList.toggle('showing', !isShowing);
+    btn.setAttribute('aria-label', isShowing ? 'Show password' : 'Hide password');
+    btn.setAttribute('aria-pressed', String(!isShowing));
+  });
+});
+
 // ----- Rate limiter -----
-// Persisted in localStorage (not a plain in-memory Map) so a page
-// refresh — trivial for anyone to do — can't reset the counters. This
-// is still a client-side speed bump, not real protection (a determined
-// attacker calls the API directly), so Supabase's own server-side rate
-// limits are the actual backstop; this just keeps a normal user from
-// hammering the button and slows down casual credential-stuffing from
-// this UI. Failed attempts use exponential backoff on top of the
-// rolling window so repeated failures get progressively slower.
 const RL_KEY = 'aschertypeRateLimits';
 
 function loadRateLimitState() {
@@ -38,8 +57,6 @@ function pruneHistory(history, windowMs) {
   const now = Date.now();
   return history.filter((ts) => now - ts < windowMs);
 }
-// Returns { limited: bool, waitMs: number } — call recordAttempt() only
-// once you actually proceed with the action.
 function checkRateLimit(actionKey, limit, windowMs) {
   const state = loadRateLimitState();
   const entry = state[actionKey] || { history: [], failStreak: 0, lockUntil: 0 };
@@ -61,8 +78,6 @@ function recordAttempt(actionKey, windowMs) {
   state[actionKey] = entry;
   saveRateLimitState(state);
 }
-// Exponential backoff lockout on consecutive failures (30s, 60s, 120s...
-// capped at 10 min), separate from the rolling-window limit above.
 function recordFailure(actionKey) {
   const state = loadRateLimitState();
   const entry = state[actionKey] || { history: [], failStreak: 0, lockUntil: 0 };
@@ -118,9 +133,6 @@ function clearButtonBusy(btn) {
   if (btn.dataset.originalText) btn.textContent = btn.dataset.originalText;
 }
 
-// A very simple, deliberately non-strict format check — real validation
-// (does this address exist, is it verified) is Supabase's job. This just
-// stops obviously-malformed input from wasting a rate-limited attempt.
 function isPlausibleEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
 
 loginForm.addEventListener('submit', async (e) => {
@@ -148,10 +160,6 @@ loginForm.addEventListener('submit', async (e) => {
   setButtonBusy(submitBtn, 'Signing in…');
   recordAttempt('login', 60000);
 
-  // Decide where the session token will live BEFORE signing in, so the
-  // Supabase client's storage adapter writes it to the right place from
-  // the very first token write. See db.js for why this replaces the old
-  // beforeunload-based "forget session" approach.
   setRememberPreference(!forgetSession);
 
   const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
@@ -159,7 +167,6 @@ loginForm.addEventListener('submit', async (e) => {
 
   if (error) {
     recordFailure('login');
-    // Generic message: don't reveal whether the email exists at all.
     showAuthError('Incorrect email or password.');
     return;
   }
@@ -202,9 +209,14 @@ registerForm.addEventListener('submit', async (e) => {
   const submitBtn = registerForm.querySelector('.auth-submit');
   setButtonBusy(submitBtn, 'Creating account…');
   recordAttempt('register', 60000);
-  // New accounts should default to "remembered" like a normal sign-in.
   setRememberPreference(true);
-  const { data, error } = await supabaseClient.auth.signUp({ email, password });
+  const { data, error } = await supabaseClient.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: `${window.location.origin}/confirm.html`,
+    },
+  });
   clearButtonBusy(submitBtn);
 
   if (error) { recordFailure('register'); showAuthError(error.message); return; }
@@ -237,8 +249,9 @@ forgotPasswordBtn.addEventListener('click', async () => {
   if (!supabaseReady) { showAuthError('Accounts are not set up yet on this deployment.'); return; }
 
   recordAttempt('forgot_password', 60000);
-  const { error } = await supabaseClient.auth.resetPasswordForEmail(email);
-  // Same message whether or not the account exists — don't leak that.
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/confirm.html`,
+  });
   if (error) console.error('[Auth] Password reset request failed:', error.message);
   showAuthNotice('If that email has an account, a reset link is on its way.');
 });
@@ -260,17 +273,6 @@ async function signOutAndReset() {
   location.reload();
 }
 
-// ----- Initial auth state on load -----
-// getSession() reads the persisted token synchronously from storage,
-// but supabase-js may also need a network round-trip to refresh it if
-// it's close to expiry. On a phone that's just woken up (or has a slow
-// / momentarily-absent connection), that refresh call can fail even
-// though a perfectly good session is sitting in storage — the old code
-// treated ANY error here as "not logged in" and showed the login
-// screen, which is the mobile bug that was reported. Now we only force
-// a re-login when Supabase says the session/credentials are actually
-// invalid; a transient network failure falls back to trusting the
-// locally stored session and retries in the background.
 function isAuthInvalidError(error) {
   if (!error) return false;
   const msg = (error.message || '').toLowerCase();
@@ -306,8 +308,6 @@ async function resolveInitialAuthState() {
     }
   } catch (err) {
     console.warn('[Supabase] Session check hit a network error — retrying once:', err && err.message);
-    // One retry after a short delay covers "phone just woke up, wifi
-    // isn't back yet" without leaving the user stuck on a spinner.
     setTimeout(async () => {
       try {
         const { data, error } = await supabaseClient.auth.getSession();
@@ -329,8 +329,6 @@ if (supabaseReady) {
   });
 }
 
-// Wait until renderer.js has finished setting up before touching the app,
-// otherwise window.initApp might not exist yet on slow first paints.
 function whenRendererReady(fn) {
   if (typeof window.initApp === 'function') { fn(); return; }
   window.addEventListener('load', () => {

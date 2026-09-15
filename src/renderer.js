@@ -722,17 +722,12 @@ projectModalSaveBtn.addEventListener('click', () => {
 });
 
 function deleteProject(id) {
-  // Optimistically remove locally first so the UI responds instantly.
   projects = projects.filter(p => String(p.id) !== String(id));
   let touched = [];
   todos.forEach(t => { if (String(t.projectId) === String(id)) { t.projectId = null; touched.push(t); } });
   saveProjects();
   saveTodos();
   if (currentUser) {
-    // Update touched todos first (clear project_id), then delete the
-    // project. The order matters — the trigger on todos allows the
-    // "just clearing project_id" path, but only if the project still
-    // exists at the moment of the UPDATE.
     touched.forEach(t => dbUpdate('todos', t.id, { project_id: null }));
     dbDelete('projects', id, currentUser.id);
   }
@@ -2159,15 +2154,12 @@ function handleRealtimeProject(payload) {
       renderViewHeader();
     }
 
-    if (existed) {
-      renderProjectNav();
-      renderProjectSelect();
-      debouncedSharedRender();
-    } else {
-      renderProjectNav();
-      renderProjectSelect();
-    }
+    renderProjectNav();
+    renderProjectSelect();
     renderCollabPanel();
+    if (existed) debouncedSharedRender();
+
+    setTimeout(refreshSharedData, 400);
     return;
   }
 
@@ -2188,16 +2180,17 @@ function handleRealtimeMember(payload) {
   const row = payload.new || payload.old;
   if (!row || row.id == null) return;
 
-  const pid = String(row.project_id);
+  const pid = row.project_id != null ? String(row.project_id) : null;
 
   if (eventType === 'DELETE') {
     projectMembers = projectMembers.filter(m => String(m.id) !== String(row.id));
 
-    const wasMine =
-      (row.member_id && currentUser && String(row.member_id) === String(currentUser.id)) ||
-      (row.member_email && currentUser && String(row.member_email).toLowerCase() === String(currentUser.email || '').toLowerCase());
+    const mineById = row.member_id && currentUser && String(row.member_id) === String(currentUser.id);
+    const mineByEmail = row.member_email && currentUser &&
+      String(row.member_email).toLowerCase() === String(currentUser.email || '').toLowerCase();
+    const wasMine = !!(mineById || mineByEmail);
 
-    if (wasMine) {
+    if (wasMine && pid) {
       const existed = projects.some(p => String(p.id) === pid);
       projects = projects.filter(p => String(p.id) !== pid);
       saveProjects();
@@ -2215,6 +2208,10 @@ function handleRealtimeMember(payload) {
 
     renderCollabPanel();
     renderProjectNav();
+
+    if (!wasMine || !pid) {
+      setTimeout(refreshSharedData, 400);
+    }
     return;
   }
 
@@ -2226,7 +2223,7 @@ function handleRealtimeMember(payload) {
     (row.member_id && currentUser && String(row.member_id) === String(currentUser.id)) ||
     (row.member_email && currentUser && String(row.member_email).toLowerCase() === String(currentUser.email || '').toLowerCase());
 
-  if (isMine && row.status === 'accepted') {
+  if (isMine && row.status === 'accepted' && pid) {
     const haveProject = projects.some(p => String(p.id) === pid);
     if (!haveProject) {
       dbFetchProjects().then((data) => {
@@ -2351,9 +2348,105 @@ function detachRealtimeSubscriptions() {
   if (typeof teardownRealtime === 'function') teardownRealtime();
 }
 
+// ===== Loading screen (staged) =====
+const loadingScreen = document.getElementById('loading-screen');
+const loadingContinueBtn = document.getElementById('loading-continue');
+const statusDotEl = document.getElementById('status-dot');
+const statusTextEl = document.getElementById('status-text');
+
+let loadingDismissed = false;
+let loadingReady = false;
+
+function setLoadingStage(text) {
+  if (!statusTextEl) return;
+  if (statusTextEl.textContent === text) return;
+  statusTextEl.style.opacity = '0';
+  setTimeout(() => {
+    statusTextEl.textContent = text;
+    statusTextEl.style.opacity = '1';
+  }, 140);
+}
+
+function markLoadingReady() {
+  if (loadingReady) return;
+  loadingReady = true;
+  setLoadingStage('Ready');
+  loadingContinueBtn.classList.add('ready');
+  // Auto-dismiss shortly after ready so the user doesn't have to tap.
+  setTimeout(() => {
+    if (!loadingDismissed) dismissLoading();
+  }, 800);
+}
+
+function dismissLoading() {
+  if (loadingDismissed) return;
+  loadingDismissed = true;
+  unlockAudioContext();
+  loadingScreen.classList.add('hidden');
+}
+loadingScreen.addEventListener('click', dismissLoading);
+loadingContinueBtn.addEventListener('click', (e) => { e.stopPropagation(); dismissLoading(); });
+
+function updateConnectionStatus() {
+  const online = typeof navigator !== 'undefined' ? navigator.onLine : true;
+  statusDotEl.className = 'status-dot ' + (online ? 'online' : 'offline');
+  return online;
+}
+updateConnectionStatus();
+window.addEventListener('online', updateConnectionStatus);
+window.addEventListener('offline', updateConnectionStatus);
+
+// ===== Welcome modal (first login only) =====
+const WELCOME_KEY = 'aschertypeWelcomeSeen';
+const welcomeOverlay = document.getElementById('welcome-overlay');
+const welcomeDismissBtn = document.getElementById('welcome-dismiss-btn');
+
+function maybeShowWelcome() {
+  if (!welcomeOverlay) return;
+  if (localStorage.getItem(WELCOME_KEY) === 'true') return;
+  setTimeout(() => {
+    welcomeOverlay.style.display = 'flex';
+  }, 900);
+}
+function dismissWelcome() {
+  try { localStorage.setItem(WELCOME_KEY, 'true'); } catch (err) { /* ignore */ }
+  welcomeOverlay.style.display = 'none';
+}
+if (welcomeDismissBtn) welcomeDismissBtn.addEventListener('click', dismissWelcome);
+if (welcomeOverlay) {
+  welcomeOverlay.addEventListener('click', (e) => {
+    if (e.target === welcomeOverlay) dismissWelcome();
+  });
+}
+
+// ===== Tips intro modal (first time the tips bar is shown) =====
+const TIPS_INTRO_KEY = 'aschertypeTipsIntroSeen';
+const tipsIntroOverlay = document.getElementById('tips-intro-overlay');
+const tipsIntroDismissBtn = document.getElementById('tips-intro-dismiss-btn');
+
+function maybeShowTipsIntro() {
+  if (!tipsIntroOverlay) return;
+  if (!areTipsEnabled()) return;
+  if (localStorage.getItem(TIPS_INTRO_KEY) === 'true') return;
+  if (welcomeOverlay && welcomeOverlay.style.display === 'flex') return;
+  tipsIntroOverlay.style.display = 'flex';
+}
+function dismissTipsIntro() {
+  try { localStorage.setItem(TIPS_INTRO_KEY, 'true'); } catch (err) { /* ignore */ }
+  tipsIntroOverlay.style.display = 'none';
+}
+if (tipsIntroDismissBtn) tipsIntroDismissBtn.addEventListener('click', dismissTipsIntro);
+if (tipsIntroOverlay) {
+  tipsIntroOverlay.addEventListener('click', (e) => {
+    if (e.target === tipsIntroOverlay) dismissTipsIntro();
+  });
+}
+
 // ===== Startup =====
 window.initApp = async function initApp(user) {
   currentUser = user || null;
+
+  setLoadingStage(supabaseReady ? 'Loading your data…' : 'Starting locally…');
 
   if (currentUser) {
     const [remoteTodos, remoteNotes, remoteEvents, remoteProjects, remoteMembers, remoteNotifs] = await Promise.all([
@@ -2418,30 +2511,22 @@ window.initApp = async function initApp(user) {
   requestNotifPermissionIfNeeded();
   checkEventNotifications();
   attachRealtimeSubscriptions();
+
+  markLoadingReady();
+
+  // After the loading overlay fades, show the welcome modal (first time only),
+  // then the tips intro modal (first time tips are shown).
+  maybeShowWelcome();
+
+  let waited = 0;
+  const tipsCheck = setInterval(() => {
+    waited += 400;
+    const welcomeOpen = welcomeOverlay && welcomeOverlay.style.display === 'flex';
+    if (!welcomeOpen) {
+      clearInterval(tipsCheck);
+      maybeShowTipsIntro();
+    } else if (waited > 20000) {
+      clearInterval(tipsCheck);
+    }
+  }, 400);
 };
-
-// ===== Loading screen =====
-const loadingScreen = document.getElementById('loading-screen');
-const loadingContinueBtn = document.getElementById('loading-continue');
-const statusDotEl = document.getElementById('status-dot');
-const statusTextEl = document.getElementById('status-text');
-
-let loadingDismissed = false;
-function dismissLoading() {
-  if (loadingDismissed) return;
-  loadingDismissed = true;
-  unlockAudioContext();
-  loadingScreen.classList.add('hidden');
-}
-loadingScreen.addEventListener('click', dismissLoading);
-loadingContinueBtn.addEventListener('click', (e) => { e.stopPropagation(); dismissLoading(); });
-
-function updateConnectionStatus() {
-  const online = typeof navigator !== 'undefined' ? navigator.onLine : true;
-  statusDotEl.className = 'status-dot ' + (online ? 'online' : 'offline');
-  statusTextEl.textContent = online ? 'Online' : 'Offline';
-  return online;
-}
-updateConnectionStatus();
-window.addEventListener('online', updateConnectionStatus);
-window.addEventListener('offline', updateConnectionStatus);
