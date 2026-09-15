@@ -121,7 +121,30 @@ authTabLogin.addEventListener('click', () => setAuthTab('login'));
 authTabRegister.addEventListener('click', () => setAuthTab('register'));
 
 function hideAuthScreen() { authScreen.classList.add('hidden'); }
-function showAuthScreen() { authScreen.classList.remove('hidden'); }
+
+// When we're about to reveal the auth card, the loading overlay MUST
+// also come down — otherwise (because loading-screen has z-index 999
+// and auth-screen has z-index 500) the auth card renders behind an
+// overlay that never auto-dismisses, and the user gets stuck on
+// "Connecting…" forever. This happens on the "no session" path,
+// where window.initApp() never runs, so renderer's own
+// markLoadingReady() / dismissLoading() never fire.
+function dismissLoadingOverlay() {
+  if (typeof window.dismissLoading === 'function') {
+    window.dismissLoading();
+    return;
+  }
+  // Fallback: manipulate the DOM directly if renderer's helper isn't
+  // exposed yet (or some earlier script failed).
+  const el = document.getElementById('loading-screen');
+  if (el) el.classList.add('hidden');
+  const btn = document.getElementById('loading-continue');
+  if (btn) btn.classList.remove('ready');
+}
+function showAuthScreen() {
+  dismissLoadingOverlay();
+  authScreen.classList.remove('hidden');
+}
 
 function setButtonBusy(btn, busyText) {
   btn.dataset.originalText = btn.dataset.originalText || btn.textContent;

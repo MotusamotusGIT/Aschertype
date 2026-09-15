@@ -2384,6 +2384,11 @@ function dismissLoading() {
   unlockAudioContext();
   loadingScreen.classList.add('hidden');
 }
+// Exposed so auth.js can dismiss the loading overlay on the
+// "no session -> show sign-in card" path, where window.initApp()
+// never runs. Without this the overlay sits on top of the auth
+// screen forever and the app looks stuck on "Connecting…".
+window.dismissLoading = dismissLoading;
 loadingScreen.addEventListener('click', dismissLoading);
 loadingContinueBtn.addEventListener('click', (e) => { e.stopPropagation(); dismissLoading(); });
 
