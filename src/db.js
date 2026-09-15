@@ -43,7 +43,7 @@ const rememberAwareStorage = {
 
   if (!configured) return;
   if (typeof window.supabase === 'undefined') {
-    console.warn('[Supabase] SDK did not load from the CDN — falling back to local-only mode. Check your network connection or any script/ad blockers.');
+    console.warn('[Supabase] SDK did not load from the CDN — falling back to local-only mode.');
     return;
   }
 
@@ -64,7 +64,6 @@ function reportSyncError(table, action, message) {
   }
 }
 
-// ----- Personal -----
 async function dbFetchAll(table, userId) {
   if (!supabaseReady) return null;
   const { data, error } = await supabaseClient.from(table).select('*').eq('user_id', userId);
@@ -72,7 +71,6 @@ async function dbFetchAll(table, userId) {
   return data;
 }
 
-// ----- Shared -----
 async function dbFetchProjects() {
   if (!supabaseReady) return null;
   const { data, error } = await supabaseClient.from('projects').select('*').order('id', { ascending: true });
@@ -142,7 +140,6 @@ async function dbRespondToInvite(memberRowId, accept) {
   return { error };
 }
 
-// ----- Profile -----
 async function dbFetchMyProfile() {
   if (!supabaseReady) return null;
   const { data: { user } } = await supabaseClient.auth.getUser();
@@ -159,7 +156,6 @@ async function dbUpsertMyProfile(row) {
   return { error };
 }
 
-// ----- Generic writes -----
 async function dbUpsert(table, row) {
   if (!supabaseReady) return;
   const { error } = await supabaseClient.from(table).upsert(row);
@@ -189,11 +185,6 @@ async function dbDeleteWhere(table, userId, matchExtra) {
 }
 
 // ===== Realtime channel =====
-// Single shared channel that listens to Postgres changes on the tables
-// we care about. RLS is enforced on the subscription, so each client
-// only receives events for rows they're allowed to SELECT — that's why
-// no client-side filtering is needed for notifications (the policy
-// already scopes them to the recipient's email or user_id).
 let realtimeChannel = null;
 
 function setupRealtime(handlers) {
@@ -219,6 +210,12 @@ function setupRealtime(handlers) {
     .on('postgres_changes',
         { event: '*', schema: 'public', table: 'notifications' },
         wrap('notifications', handlers.onNotification))
+    .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'notes' },
+        wrap('notes', handlers.onNote))
+    .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'events' },
+        wrap('events', handlers.onEvent))
     .subscribe((status) => {
       if (status === 'SUBSCRIBED') console.log('[Realtime] connected');
       else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {

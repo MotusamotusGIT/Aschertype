@@ -456,24 +456,9 @@ function setTipsEnabled(on) {
 const tipsTextEl = document.getElementById('tips-text');
 const tipsBarEl = document.getElementById('tips-bar');
 
-async function fetchOnlineTip() {
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) return null;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 3500);
-  try {
-    const res = await fetch('https://api.quotable.io/random?tags=inspirational|wisdom', { signal: controller.signal });
-    clearTimeout(timeout);
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data && data.content) return `${data.content}${data.author ? ' — ' + data.author : ''}`;
-    return null;
-  } catch (err) { clearTimeout(timeout); return null; }
-}
 async function refreshTip() {
   if (!areTipsEnabled()) return;
-  tipsTextEl.textContent = 'Finding a tip…';
-  const online = await fetchOnlineTip();
-  tipsTextEl.textContent = online || localTip();
+  tipsTextEl.textContent = localTip();
 }
 document.getElementById('tips-refresh-btn').addEventListener('click', refreshTip);
 document.getElementById('tips-enabled-input').addEventListener('change', (e) => {
@@ -646,7 +631,6 @@ let editingProjectId = null;
 function saveProjects() { localStorage.setItem('projects', JSON.stringify(projects)); }
 function getProject(id) { return projects.find(p => String(p.id) === String(id)) || null; }
 
-// Permissions
 function membersForProject(projectId) {
   const pid = String(projectId);
   return projectMembers.filter(m => String(m.project_id) === pid);
@@ -691,7 +675,6 @@ function canToggleTaskIn(projectId) {
   return isProjectOwner(projectId) || !!myMembership(projectId);
 }
 
-// Project modal
 let previewTileColor = null;
 function updateProjectPreviewLetter() {
   const name = projectNameInput.value.trim();
@@ -724,7 +707,7 @@ projectModalSaveBtn.addEventListener('click', () => {
     if (p) {
       p.name = name;
       saveProjects();
-      if (currentUser) dbUpsert('projects', projectRemoteRow(p));
+      if (currentUser) dbUpdate('projects', p.id, { name });
     }
   } else {
     const p = { id: Date.now(), name, userId: currentUser ? currentUser.id : null };
@@ -739,14 +722,19 @@ projectModalSaveBtn.addEventListener('click', () => {
 });
 
 function deleteProject(id) {
+  // Optimistically remove locally first so the UI responds instantly.
   projects = projects.filter(p => String(p.id) !== String(id));
   let touched = [];
   todos.forEach(t => { if (String(t.projectId) === String(id)) { t.projectId = null; touched.push(t); } });
   saveProjects();
   saveTodos();
   if (currentUser) {
+    // Update touched todos first (clear project_id), then delete the
+    // project. The order matters — the trigger on todos allows the
+    // "just clearing project_id" path, but only if the project still
+    // exists at the moment of the UPDATE.
+    touched.forEach(t => dbUpdate('todos', t.id, { project_id: null }));
     dbDelete('projects', id, currentUser.id);
-    touched.forEach(t => dbUpsert('todos', todoRemoteRow(t)));
   }
 }
 projectDeleteBtn.addEventListener('click', () => {
@@ -846,7 +834,6 @@ function projectRemoteRow(p) {
   return { id: p.id, user_id: p.userId || (currentUser ? currentUser.id : null), name: p.name };
 }
 
-// View switching
 function showView(view) {
   document.getElementById('task-view').style.display = 'none';
   document.getElementById('pomodoro-view').style.display = 'none';
@@ -1102,7 +1089,6 @@ function renderViewHeader() {
   renderHomeSummary();
 }
 
-// ----- Home dashboard -----
 const COMPLETION_LOG_KEY = 'aschertypeCompletionLog';
 function loadCompletionLog() {
   try { return JSON.parse(localStorage.getItem(COMPLETION_LOG_KEY) || '[]'); }
@@ -1427,7 +1413,7 @@ async function removeMember(member) {
 }
 collabInviteBtn.addEventListener('click', () => openInviteModal());
 
-// ===== Invite modal (add new collaborators only) =====
+// ===== Invite modal =====
 const inviteOverlay = document.getElementById('invite-overlay');
 const inviteEmailInput = document.getElementById('invite-email');
 const inviteErrorEl = document.getElementById('invite-error');
@@ -2105,11 +2091,6 @@ function maybeAutoOpenCloseout() {
 setInterval(maybeAutoOpenCloseout, 60 * 1000);
 
 // ===== Realtime: live sync across devices =====
-// When another device changes a todo, project, membership, note, event,
-// or creates a notification, the corresponding handler below runs on
-// THIS device and updates local state + re-renders — no polling, no
-// refresh needed.
-
 let realtimeRenderTimer = null;
 function debouncedSharedRender() {
   if (realtimeRenderTimer) clearTimeout(realtimeRenderTimer);
@@ -2160,21 +2141,32 @@ function handleRealtimeProject(payload) {
   if (!row || row.id == null) return;
 
   if (eventType === 'DELETE') {
+    const existed = projects.some(p => String(p.id) === String(row.id));
     projects = projects.filter(p => String(p.id) !== String(row.id));
+
     let touched = false;
     todos.forEach(t => {
       if (String(t.projectId) === String(row.id)) { t.projectId = null; touched = true; }
     });
     if (touched) saveTodos();
     saveProjects();
-    if (currentView === 'project' && String(currentProjectId) === String(row.id)) {
+
+    if (String(currentProjectId) === String(row.id)) {
       currentProjectId = null;
       currentView = 'all';
       showView('all');
+      updateTaskFormForView();
+      renderViewHeader();
     }
-    renderProjectNav();
-    renderProjectSelect();
-    debouncedSharedRender();
+
+    if (existed) {
+      renderProjectNav();
+      renderProjectSelect();
+      debouncedSharedRender();
+    } else {
+      renderProjectNav();
+      renderProjectSelect();
+    }
     renderCollabPanel();
     return;
   }
@@ -2186,7 +2178,7 @@ function handleRealtimeProject(payload) {
   saveProjects();
   renderProjectNav();
   renderProjectSelect();
-  if (currentView === 'project' && String(currentProjectId) === String(mapped.id)) {
+  if (String(currentProjectId) === String(mapped.id)) {
     renderViewHeader();
   }
 }
@@ -2196,13 +2188,57 @@ function handleRealtimeMember(payload) {
   const row = payload.new || payload.old;
   if (!row || row.id == null) return;
 
+  const pid = String(row.project_id);
+
   if (eventType === 'DELETE') {
     projectMembers = projectMembers.filter(m => String(m.id) !== String(row.id));
-  } else {
-    const idx = projectMembers.findIndex(m => String(m.id) === String(row.id));
-    if (idx >= 0) projectMembers[idx] = row;
-    else projectMembers.push(row);
+
+    const wasMine =
+      (row.member_id && currentUser && String(row.member_id) === String(currentUser.id)) ||
+      (row.member_email && currentUser && String(row.member_email).toLowerCase() === String(currentUser.email || '').toLowerCase());
+
+    if (wasMine) {
+      const existed = projects.some(p => String(p.id) === pid);
+      projects = projects.filter(p => String(p.id) !== pid);
+      saveProjects();
+      if (String(currentProjectId) === pid) {
+        currentProjectId = null;
+        currentView = 'all';
+        showView('all');
+        updateTaskFormForView();
+        renderViewHeader();
+      }
+      if (existed) renderProjectNav();
+      renderProjectSelect();
+      debouncedSharedRender();
+    }
+
+    renderCollabPanel();
+    renderProjectNav();
+    return;
   }
+
+  const idx = projectMembers.findIndex(m => String(m.id) === String(row.id));
+  if (idx >= 0) projectMembers[idx] = row;
+  else projectMembers.push(row);
+
+  const isMine =
+    (row.member_id && currentUser && String(row.member_id) === String(currentUser.id)) ||
+    (row.member_email && currentUser && String(row.member_email).toLowerCase() === String(currentUser.email || '').toLowerCase());
+
+  if (isMine && row.status === 'accepted') {
+    const haveProject = projects.some(p => String(p.id) === pid);
+    if (!haveProject) {
+      dbFetchProjects().then((data) => {
+        if (!data) return;
+        projects = data.map(p => ({ id: p.id, name: p.name, userId: p.user_id }));
+        saveProjects();
+        renderProjectNav();
+        renderProjectSelect();
+      });
+    }
+  }
+
   renderCollabPanel();
   renderProjectNav();
 }
@@ -2233,8 +2269,6 @@ function handleRealtimeNote(payload) {
   const row = payload.new || payload.old;
   if (!row || row.id == null) return;
 
-  // Personal-only table — RLS already restricts events to our own rows,
-  // but skip writes we just made locally so we don't double-render.
   if (row.user_id && currentUser && String(row.user_id) !== String(currentUser.id)) return;
 
   if (eventType === 'DELETE') {
