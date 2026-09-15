@@ -10,7 +10,7 @@
     'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js',
     'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js',
   ];
-  const APP_SCRIPTS = ['./supabase-config.js', './db.js', './renderer.js', './auth.js'];
+  const APP_SCRIPTS = ['./supabase-config.js', './utils.js', './db.js', './renderer.js', './auth.js'];
 
   function loadScript(src, timeoutMs) {
     return new Promise((resolve, reject) => {

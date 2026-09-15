@@ -1530,7 +1530,13 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   input, select, textarea { font-size: 16px; }
 
   .top-header-bar { display: none; }
-  .profile-popover { left: 12px; right: 12px; width: auto; }
+  .profile-popover {
+  left: 12px;
+  right: 12px;
+  top: calc(env(safe-area-inset-top, 0px) + 64px);
+  width: auto;
+  max-width: none;
+}
 
   .project-view-main { padding-bottom: 8px; }
 

@@ -2,6 +2,9 @@
 // Supabase Auth handles password hashing, storage, and session
 // tokens entirely server-side — this file only ever sends email +
 // password over HTTPS to Supabase and reacts to the result.
+//
+// The rate limiter, isPlausibleEmail, formatWait, and remember-session
+// helpers now live in utils.js (loaded before this file by loader.js).
 
 let currentUser = null;
 let isGuest = false;
@@ -17,15 +20,8 @@ const authGuestLink = document.getElementById('auth-guest-link');
 const forgotPasswordBtn = document.getElementById('forgot-password-btn');
 
 // ----- Password visibility toggle -----
-// Each password field in the auth card is wrapped in a <span class="password-field">
-// with an adjacent eye / eye-off button. Clicking it flips the input between
-// type="password" and type="text" and swaps which icon is visible via a
-// `.showing` class on the wrapper. Deliberately delegated on the whole card
-// so it works for all three fields (login, register, confirm) with one listener.
 document.querySelectorAll('.password-toggle').forEach((btn) => {
   btn.addEventListener('mousedown', (e) => {
-    // Prevent the parent <label> from forwarding focus to the input when
-    // the user is just tapping the icon.
     e.preventDefault();
   });
   btn.addEventListener('click', (e) => {
@@ -42,63 +38,6 @@ document.querySelectorAll('.password-toggle').forEach((btn) => {
     btn.setAttribute('aria-pressed', String(!isShowing));
   });
 });
-
-// ----- Rate limiter -----
-const RL_KEY = 'aschertypeRateLimits';
-
-function loadRateLimitState() {
-  try { return JSON.parse(localStorage.getItem(RL_KEY) || '{}'); }
-  catch (err) { return {}; }
-}
-function saveRateLimitState(state) {
-  try { localStorage.setItem(RL_KEY, JSON.stringify(state)); } catch (err) { /* ignore */ }
-}
-function pruneHistory(history, windowMs) {
-  const now = Date.now();
-  return history.filter((ts) => now - ts < windowMs);
-}
-function checkRateLimit(actionKey, limit, windowMs) {
-  const state = loadRateLimitState();
-  const entry = state[actionKey] || { history: [], failStreak: 0, lockUntil: 0 };
-  const now = Date.now();
-  if (entry.lockUntil && now < entry.lockUntil) {
-    return { limited: true, waitMs: entry.lockUntil - now };
-  }
-  entry.history = pruneHistory(entry.history, windowMs);
-  if (entry.history.length >= limit) {
-    return { limited: true, waitMs: windowMs - (now - entry.history[0]) };
-  }
-  return { limited: false, waitMs: 0 };
-}
-function recordAttempt(actionKey, windowMs) {
-  const state = loadRateLimitState();
-  const entry = state[actionKey] || { history: [], failStreak: 0, lockUntil: 0 };
-  entry.history = pruneHistory(entry.history, windowMs);
-  entry.history.push(Date.now());
-  state[actionKey] = entry;
-  saveRateLimitState(state);
-}
-function recordFailure(actionKey) {
-  const state = loadRateLimitState();
-  const entry = state[actionKey] || { history: [], failStreak: 0, lockUntil: 0 };
-  entry.failStreak = (entry.failStreak || 0) + 1;
-  if (entry.failStreak >= 3) {
-    const backoffSec = Math.min(30 * Math.pow(2, entry.failStreak - 3), 600);
-    entry.lockUntil = Date.now() + backoffSec * 1000;
-  }
-  state[actionKey] = entry;
-  saveRateLimitState(state);
-}
-function recordSuccess(actionKey) {
-  const state = loadRateLimitState();
-  state[actionKey] = { history: [], failStreak: 0, lockUntil: 0 };
-  saveRateLimitState(state);
-}
-function formatWait(ms) {
-  const s = Math.ceil(ms / 1000);
-  if (s < 60) return `${s} second${s === 1 ? '' : 's'}`;
-  return `${Math.ceil(s / 60)} minute${Math.ceil(s / 60) === 1 ? '' : 's'}`;
-}
 
 function showAuthError(msg) {
   authErrorEl.textContent = msg;
@@ -134,8 +73,6 @@ function dismissLoadingOverlay() {
     window.dismissLoading();
     return;
   }
-  // Fallback: manipulate the DOM directly if renderer's helper isn't
-  // exposed yet (or some earlier script failed).
   const el = document.getElementById('loading-screen');
   if (el) el.classList.add('hidden');
   const btn = document.getElementById('loading-continue');
@@ -155,8 +92,6 @@ function clearButtonBusy(btn) {
   btn.disabled = false;
   if (btn.dataset.originalText) btn.textContent = btn.dataset.originalText;
 }
-
-function isPlausibleEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
 
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();

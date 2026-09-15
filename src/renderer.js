@@ -173,10 +173,35 @@ const profileOverlay = document.getElementById('profile-overlay');
 const profilePopover = document.getElementById('profile-popover');
 const profilePopNameEdit = document.getElementById('profile-pop-name-edit');
 
+// Track which chip was tapped so the desktop popover anchors to the
+// right element. On mobile, CSS positions the popover under the
+// mobile topbar and we skip JS positioning entirely.
+let activeProfileAnchor = null;
+
+function isMobileViewport() {
+  return window.matchMedia('(max-width: 860px)').matches;
+}
+
 function positionProfilePopover() {
-  const chip = document.getElementById('profile-chip');
+  // Mobile: CSS pins the popover under the mobile topbar. Clear any
+  // inline top/right/left left over from a desktop session so the CSS
+  // rule can take over.
+  if (isMobileViewport()) {
+    profilePopover.style.top = '';
+    profilePopover.style.right = '';
+    profilePopover.style.left = '';
+    return;
+  }
+
+  // Desktop: anchor the popover under whichever chip is visible.
+  // Prefer the one that was just clicked; fall back to the desktop
+  // chip. If that chip has no size (i.e. it's hidden), bail so we
+  // don't reposition to (0,0).
+  const chip = activeProfileAnchor || document.getElementById('profile-chip');
   if (!chip) return;
   const rect = chip.getBoundingClientRect();
+  if (!rect.width && !rect.height) return;
+
   const popRect = profilePopover.getBoundingClientRect();
   const top = Math.min(rect.bottom + 8, window.innerHeight - popRect.height - 12);
   const right = Math.max(12, window.innerWidth - rect.right);
@@ -185,7 +210,8 @@ function positionProfilePopover() {
   profilePopover.style.left = 'auto';
 }
 
-function openProfilePopover() {
+function openProfilePopover(anchorEl) {
+  activeProfileAnchor = anchorEl || document.getElementById('profile-chip');
   profileOverlay.style.display = 'block';
   profilePopover.style.display = 'flex';
   renderProfilePopover();
@@ -225,10 +251,11 @@ function renderProfilePopover() {
 }
 
 function bindProfileChip(el) {
+  if (!el) return;
   el.addEventListener('click', (e) => {
     e.stopPropagation();
     if (profilePopover.style.display === 'flex') closeProfilePopover();
-    else openProfilePopover();
+    else openProfilePopover(el);
   });
 }
 bindProfileChip(document.getElementById('profile-chip'));

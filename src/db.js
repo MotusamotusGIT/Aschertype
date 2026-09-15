@@ -1,38 +1,9 @@
 // ===== Supabase client & data-access helpers =====
+// getRememberPreference / setRememberPreference / rememberAwareStorage
+// now live in utils.js (loaded before this file by loader.js).
+
 let supabaseClient = null;
 let supabaseReady = false;
-
-const REMEMBER_KEY = 'aschertypeRememberSession';
-
-function getRememberPreference() {
-  const v = localStorage.getItem(REMEMBER_KEY);
-  return v === null ? true : v === 'true';
-}
-function setRememberPreference(remember) {
-  localStorage.setItem(REMEMBER_KEY, remember ? 'true' : 'false');
-}
-
-const rememberAwareStorage = {
-  getItem(key) {
-    try {
-      const store = getRememberPreference() ? localStorage : sessionStorage;
-      const val = store.getItem(key);
-      if (val !== null) return val;
-      const other = getRememberPreference() ? sessionStorage : localStorage;
-      return other.getItem(key);
-    } catch (err) { return null; }
-  },
-  setItem(key, value) {
-    try {
-      const store = getRememberPreference() ? localStorage : sessionStorage;
-      store.setItem(key, value);
-    } catch (err) { /* ignore */ }
-  },
-  removeItem(key) {
-    try { localStorage.removeItem(key); } catch (err) { /* ignore */ }
-    try { sessionStorage.removeItem(key); } catch (err) { /* ignore */ }
-  },
-};
 
 (function initSupabaseClient() {
   const configured =
