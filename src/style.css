@@ -1,10 +1,10 @@
 * { box-sizing: border-box; }
 
 :root {
-  --accent: #315142;                    /* brand green — solid fills, checkboxes, active items */
-  --accent-ink: #315142;                /* accent-colored text/icons on light backgrounds */
-  --accent-soft: rgba(49, 81, 66, 0.10);/* accent tint for hover states, soft pills */
-  --accent-contrast: #ffffff;           /* text/icons on top of a solid --accent fill */
+  --accent: #315142;
+  --accent-ink: #315142;
+  --accent-soft: rgba(49, 81, 66, 0.10);
+  --accent-contrast: #ffffff;
   --ink: #0f172a;
   --ink-2: #334155;
   --ink-light: #64748b;
@@ -29,12 +29,7 @@
 }
 
 [data-theme="dark"] {
-  /* Same hue family as #315142 but lifted for visibility on dark surfaces.
-     #315142 read as near-black against the dark panel — this is the same
-     green at a brightness where it actually functions as an accent. */
   --accent: #529872;
-  /* Text/icon accent keeps the lighter tint it already had — that value
-     was already tuned for dark surfaces, no change needed. */
   --accent-ink: #8fbfa4;
   --accent-soft: rgba(143, 191, 164, 0.14);
   --accent-contrast: #ffffff;
@@ -444,7 +439,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .sidebar-header { display: flex; align-items: center; gap: 12px; padding: 0 8px 28px; }
 .logo-img { width: 32px; height: 32px; border-radius: 10px; }
 .logo-text { font-size: 18px; font-weight: 700; color: var(--ink); letter-spacing: -0.02em; }
-.sidebar-section { margin-bottom: 24px; display: flex; flex-direction: column; gap: 4px; }
+.sidebar-section { margin-bottom: 26px; display: flex; flex-direction: column; gap: 5px; }
 .sidebar-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-light); padding: 0 10px 10px; font-weight: 600; }
 .sidebar-title-row { display: flex; align-items: center; justify-content: space-between; padding-right: 6px; }
 .sidebar-title-row .sidebar-title { padding-bottom: 0; }
@@ -452,12 +447,10 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 
 .nav-item {
   display: flex; align-items: center; gap: 11px; width: 100%; background: none; border: 1px solid transparent;
-  color: var(--ink-2); padding: 9px 11px; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500; text-align: left; font-family: inherit;
+  color: var(--ink-2); padding: 10px 12px; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500; text-align: left; font-family: inherit;
   transition: background-color .15s ease, color .15s ease;
 }
 .nav-item:hover { background: var(--accent-soft); color: var(--ink); }
-/* Active/clicked state uses the solid accent with white text — the accent
-   color itself is the visual signal here, not a soft tint. */
 .nav-item.active { background: var(--accent); color: var(--accent-contrast); font-weight: 600; }
 .nav-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-count { background: var(--bg); border: 1px solid var(--border); border-radius: 9999px; padding: 1px 6px; font-size: 10px; min-width: 16px; text-align: center; color: var(--ink-light); font-weight: 600; }
@@ -468,11 +461,11 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 }
 .nav-item.active .chevron { color: rgba(255, 255, 255, 0.85); }
 .chevron.open { transform: rotate(180deg); }
-.sub-nav { display: none; flex-direction: column; gap: 2px; padding-left: 15px; margin-top: 2px; border-left: 1px solid var(--border); margin-left: 20px; }
+.sub-nav { display: none; flex-direction: column; gap: 3px; padding-left: 15px; margin-top: 4px; border-left: 1px solid var(--border); margin-left: 20px; }
 .sub-nav.open { display: flex; }
-.nav-item.sub { font-size: 13.5px; padding: 7px 11px; }
+.nav-item.sub { font-size: 13.5px; padding: 8px 12px; }
 
-#project-nav-list { display: flex; flex-direction: column; gap: 2px; }
+#project-nav-list { display: flex; flex-direction: column; gap: 3px; }
 .project-nav-tile {
   width: 21px; height: 21px; border-radius: 7px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
@@ -485,11 +478,11 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   filter: brightness(1.4) saturate(1.15);
 }
 
-.sidebar-footer { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; }
+.sidebar-footer { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 5px; }
 #clear-completed, #closeout-btn {
   display: flex; align-items: center; gap: 11px;
   width: 100%; background: none; border: 1px solid transparent;
-  color: var(--ink-2); padding: 9px 11px; border-radius: 10px; cursor: pointer; font-size: 13.5px; font-weight: 500; font-family: inherit; text-align: left;
+  color: var(--ink-2); padding: 10px 12px; border-radius: 10px; cursor: pointer; font-size: 13.5px; font-weight: 500; font-family: inherit; text-align: left;
   transition: background-color .15s ease, color .15s ease;
 }
 #clear-completed:hover, #closeout-btn:hover { background: var(--accent-soft); color: var(--accent-ink); }
@@ -577,7 +570,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .header-icon-btn:hover { background: var(--accent-soft); color: var(--accent-ink); }
 .header-icon-btn.danger:hover { background: var(--high-bg); color: var(--high); }
 
-/* Home dashboard */
 .home-summary { margin: 4px 0 34px; text-align: center; }
 .home-greeting {
   margin: 0 0 16px;
@@ -966,12 +958,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .toast-emoji { font-size: 16px; }
 .toast-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
 
-/* ===== Tips Bar =====
-   Desktop: single line, capped width, ellipsis on overflow.
-   Mobile (<=860px): allows wrapping to a max of two lines so long
-   tips don't get cut off mid-sentence. Uses -webkit-line-clamp
-   which is widely supported (Safari, Chrome, Firefox via -webkit
-   prefix). */
+/* ===== Tips Bar ===== */
 .tips-bar {
   flex-shrink: 0;
   min-height: 34px;
@@ -1340,9 +1327,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   .top-header-bar { display: none; }
   .profile-popover { left: 12px; right: 12px; width: auto; }
 
-  .notif-modal-card .notif-list { max-height: 55vh; }
-  .notif-item-actions { flex-wrap: wrap; }
-
   .project-view-main { padding-bottom: 8px; }
 
   .tips-bar {
@@ -1371,14 +1355,14 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   }
   .tips-refresh { padding-top: 2px; }
 
-  .nav-item { padding: 8px 10px; gap: 9px; }
+  .nav-item { padding: 9px 11px; gap: 10px; }
   .chevron {
     font-size: 11px;
     padding: 11px;
     margin: -11px -11px -11px -2px;
   }
   .sub-nav { margin-left: 16px; padding-left: 12px; }
-  .nav-item.sub { padding: 6px 10px; font-size: 13px; }
+  .nav-item.sub { padding: 7px 11px; font-size: 13px; }
 
   .task-icon-btn {
     opacity: 1;
@@ -1386,6 +1370,57 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
     width: 28px;
     height: 28px;
   }
+
+  /* ----- Notification modal — full mobile treatment ----- */
+  .notif-modal-card {
+    padding: 18px 16px;
+    border-radius: 16px;
+    max-height: calc(100dvh - 32px);
+    gap: 14px;
+    width: 100%;
+  }
+  .notif-modal-card .modal-header { gap: 12px; }
+  .notif-modal-card .modal-title { font-size: 16px; }
+  .notif-modal-card .modal-sub { font-size: 12px; }
+
+  .notif-modal-card .notif-list {
+    max-height: calc(100dvh - 210px);
+    padding-right: 0;
+    gap: 8px;
+  }
+
+  .notif-item {
+    padding: 12px 13px;
+    border-radius: 10px;
+  }
+  .notif-item-title { font-size: 12.5px; line-height: 1.35; }
+  .notif-item-body {
+    font-size: 11.5px;
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .notif-item-time { font-size: 10px; margin-top: 5px; }
+
+  .notif-item-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: nowrap;
+  }
+  .notif-item-actions .btn {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+    padding: 10px 12px;
+    font-size: 13px;
+    min-height: 40px;
+  }
+
+  .notif-modal-card .modal-actions { margin-top: 4px; }
+  .notif-modal-card .modal-actions .btn { width: 100%; justify-content: center; }
 }
 
 @media (max-width: 480px) {
@@ -1400,4 +1435,11 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   .profile-name { max-width: 80px; }
 
   .nav-count { padding: 1px 5px; font-size: 9.5px; }
+}
+
+@media (max-width: 400px) {
+  .notif-modal-card { padding: 16px 12px; }
+  .notif-item { padding: 11px 12px; }
+  .notif-item-title { font-size: 12px; }
+  .notif-item-body { font-size: 11px; -webkit-line-clamp: 3; }
 }

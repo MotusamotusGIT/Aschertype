@@ -43,13 +43,6 @@ const rememberAwareStorage = {
 
   if (!configured) return;
   if (typeof window.supabase === 'undefined') {
-    // Your SUPABASE_URL / SUPABASE_ANON_KEY look real, so this isn't a
-    // config problem — the Supabase SDK script tag
-    // (cdn.jsdelivr.net/npm/@supabase/supabase-js) just never loaded
-    // before this ran. Usually offline testing, an ad/script blocker,
-    // or a network hiccup. The app falls back to local-only mode
-    // silently otherwise, which is why the "not configured" message
-    // is misleading — nothing to fix in schema.sql for this.
     console.warn('[Supabase] SDK did not load from the CDN — falling back to local-only mode. Check your network connection or any script/ad blockers.');
     return;
   }
@@ -193,4 +186,52 @@ async function dbDeleteWhere(table, userId, matchExtra) {
   Object.entries(matchExtra || {}).forEach(([key, value]) => { query = query.eq(key, value); });
   const { error } = await query;
   if (error) reportSyncError(table, 'bulk delete', error.message);
+}
+
+// ===== Realtime channel =====
+// Single shared channel that listens to Postgres changes on the tables
+// we care about. RLS is enforced on the subscription, so each client
+// only receives events for rows they're allowed to SELECT — that's why
+// no client-side filtering is needed for notifications (the policy
+// already scopes them to the recipient's email or user_id).
+let realtimeChannel = null;
+
+function setupRealtime(handlers) {
+  if (!supabaseReady || !supabaseClient) return null;
+  teardownRealtime();
+
+  const wrap = (name, fn) => (payload) => {
+    try { if (typeof fn === 'function') fn(payload); }
+    catch (err) { console.warn(`[Realtime] ${name} handler threw:`, err); }
+  };
+
+  realtimeChannel = supabaseClient
+    .channel('aschertype-realtime')
+    .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'todos' },
+        wrap('todos', handlers.onTodo))
+    .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'projects' },
+        wrap('projects', handlers.onProject))
+    .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'project_members' },
+        wrap('project_members', handlers.onMember))
+    .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'notifications' },
+        wrap('notifications', handlers.onNotification))
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') console.log('[Realtime] connected');
+      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.warn('[Realtime] subscription problem:', status);
+      }
+    });
+
+  return realtimeChannel;
+}
+
+function teardownRealtime() {
+  if (realtimeChannel && supabaseClient) {
+    try { supabaseClient.removeChannel(realtimeChannel); } catch (e) { /* ignore */ }
+  }
+  realtimeChannel = null;
 }

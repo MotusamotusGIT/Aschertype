@@ -703,8 +703,6 @@ function openProjectModal(existingProject = null) {
   editingProjectId = existingProject ? existingProject.id : null;
   projectModalTitle.textContent = existingProject ? 'Rename project' : 'New project';
   projectNameInput.value = existingProject ? existingProject.name : '';
-  // Color is decided once per time the modal opens (not per keystroke) so
-  // it doesn't flicker while typing — only the letter updates live.
   previewTileColor = projectTileColor(existingProject || { id: 'preview-' + Date.now(), name: '' });
   projectPreviewTile.style.background = previewTileColor;
   updateProjectPreviewLetter();
@@ -891,9 +889,6 @@ function setView(view) {
   closeSidebar();
 }
 
-// Home dropdown chevron: toggling the sub-nav should NOT navigate or
-// close the sidebar. Detect whether the click landed on the chevron and,
-// if so, return early after the toggle.
 allTasksBtn.addEventListener('click', (e) => {
   const isChevronClick = e.target === allChevron || allChevron.contains(e.target);
   const isOpen = allSubnav.classList.contains('open');
@@ -1216,7 +1211,6 @@ function positionPermPopover(anchorEl) {
   const popRect = permPopover.getBoundingClientRect();
   let top = rect.bottom + 6;
   let left = rect.left + rect.width - popRect.width;
-  // Flip above if it would overflow the bottom.
   if (top + popRect.height > window.innerHeight - 12) {
     top = rect.top - popRect.height - 6;
   }
@@ -1245,25 +1239,21 @@ permPopover.querySelectorAll('input[data-perm]').forEach(cb => {
       permPopoverMember[key] = value;
     }
     renderCollabPanel();
-    // Re-position against the freshly-rendered shield button.
     const newAnchor = document.querySelector(`.collab-member[data-member-id="${permPopoverMember.id}"] .collab-perm-btn`);
     if (newAnchor) positionPermPopover(newAnchor);
     showToast('permission');
   });
 });
 
-// Click outside → close
 document.addEventListener('click', (e) => {
   if (!isPermPopoverOpen()) return;
   if (permPopover.contains(e.target)) return;
   if (e.target.closest('.collab-perm-btn')) return;
   closePermPopover();
 });
-// Escape → close
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && isPermPopoverOpen()) closePermPopover();
 });
-// Resize → close (positions get stale fast)
 window.addEventListener('resize', () => {
   if (isPermPopoverOpen()) closePermPopover();
 });
@@ -2114,6 +2104,219 @@ function maybeAutoOpenCloseout() {
 }
 setInterval(maybeAutoOpenCloseout, 60 * 1000);
 
+// ===== Realtime: live sync across devices =====
+// When another device changes a todo, project, membership, note, event,
+// or creates a notification, the corresponding handler below runs on
+// THIS device and updates local state + re-renders — no polling, no
+// refresh needed.
+
+let realtimeRenderTimer = null;
+function debouncedSharedRender() {
+  if (realtimeRenderTimer) clearTimeout(realtimeRenderTimer);
+  realtimeRenderTimer = setTimeout(() => {
+    realtimeRenderTimer = null;
+    renderTodos();
+    renderCounts();
+    renderViewHeader();
+    renderProjectNav();
+    renderProjectSelect();
+  }, 120);
+}
+
+function handleRealtimeTodo(payload) {
+  const eventType = payload.eventType;
+  const row = payload.new || payload.old;
+  if (!row || row.id == null) return;
+
+  if (eventType === 'DELETE') {
+    const before = todos.length;
+    todos = todos.filter(t => String(t.id) !== String(row.id));
+    if (todos.length !== before) {
+      saveTodos();
+      debouncedSharedRender();
+    }
+    return;
+  }
+
+  const mapped = {
+    id: row.id,
+    text: row.text,
+    desc: row.desc,
+    done: row.done,
+    due: row.due,
+    priority: row.priority,
+    projectId: row.project_id || null,
+  };
+  const idx = todos.findIndex(t => String(t.id) === String(mapped.id));
+  if (idx >= 0) todos[idx] = mapped;
+  else todos.push(mapped);
+  saveTodos();
+  debouncedSharedRender();
+}
+
+function handleRealtimeProject(payload) {
+  const eventType = payload.eventType;
+  const row = payload.new || payload.old;
+  if (!row || row.id == null) return;
+
+  if (eventType === 'DELETE') {
+    projects = projects.filter(p => String(p.id) !== String(row.id));
+    let touched = false;
+    todos.forEach(t => {
+      if (String(t.projectId) === String(row.id)) { t.projectId = null; touched = true; }
+    });
+    if (touched) saveTodos();
+    saveProjects();
+    if (currentView === 'project' && String(currentProjectId) === String(row.id)) {
+      currentProjectId = null;
+      currentView = 'all';
+      showView('all');
+    }
+    renderProjectNav();
+    renderProjectSelect();
+    debouncedSharedRender();
+    renderCollabPanel();
+    return;
+  }
+
+  const mapped = { id: row.id, name: row.name, userId: row.user_id };
+  const idx = projects.findIndex(p => String(p.id) === String(mapped.id));
+  if (idx >= 0) projects[idx] = mapped;
+  else projects.push(mapped);
+  saveProjects();
+  renderProjectNav();
+  renderProjectSelect();
+  if (currentView === 'project' && String(currentProjectId) === String(mapped.id)) {
+    renderViewHeader();
+  }
+}
+
+function handleRealtimeMember(payload) {
+  const eventType = payload.eventType;
+  const row = payload.new || payload.old;
+  if (!row || row.id == null) return;
+
+  if (eventType === 'DELETE') {
+    projectMembers = projectMembers.filter(m => String(m.id) !== String(row.id));
+  } else {
+    const idx = projectMembers.findIndex(m => String(m.id) === String(row.id));
+    if (idx >= 0) projectMembers[idx] = row;
+    else projectMembers.push(row);
+  }
+  renderCollabPanel();
+  renderProjectNav();
+}
+
+function handleRealtimeNotification(payload) {
+  const eventType = payload.eventType;
+  const row = payload.new || payload.old;
+  if (!row || row.id == null) return;
+
+  if (eventType === 'DELETE') {
+    notifications = notifications.filter(n => String(n.id) !== String(row.id));
+  } else {
+    const idx = notifications.findIndex(n => String(n.id) === String(row.id));
+    if (idx >= 0) {
+      notifications[idx] = row;
+    } else {
+      notifications.unshift(row);
+      if (notifications.length > 60) notifications.pop();
+      playNotificationSound();
+    }
+  }
+  renderNotifBadge();
+  renderNotifList();
+}
+
+function handleRealtimeNote(payload) {
+  const eventType = payload.eventType;
+  const row = payload.new || payload.old;
+  if (!row || row.id == null) return;
+
+  // Personal-only table — RLS already restricts events to our own rows,
+  // but skip writes we just made locally so we don't double-render.
+  if (row.user_id && currentUser && String(row.user_id) !== String(currentUser.id)) return;
+
+  if (eventType === 'DELETE') {
+    const before = notes.length;
+    notes = notes.filter(n => String(n.id) !== String(row.id));
+    if (notes.length !== before) {
+      saveNotes();
+      renderNotes();
+    }
+    return;
+  }
+
+  const mapped = {
+    id: row.id,
+    title: row.title,
+    category: row.category,
+    desc: row.desc || '',
+    content: row.content || '',
+    createdAt: row.created_at || new Date().toISOString(),
+  };
+  const idx = notes.findIndex(n => String(n.id) === String(mapped.id));
+  if (idx >= 0) notes[idx] = mapped;
+  else notes.push(mapped);
+  saveNotes();
+  renderNotes();
+  if (mapped.category && !noteCategories.includes(mapped.category)) {
+    noteCategories.push(mapped.category);
+    saveNoteCategories();
+    renderCategoryTabs();
+    renderNoteCategorySelect();
+  }
+}
+
+function handleRealtimeEvent(payload) {
+  const eventType = payload.eventType;
+  const row = payload.new || payload.old;
+  if (!row || row.id == null) return;
+
+  if (row.user_id && currentUser && String(row.user_id) !== String(currentUser.id)) return;
+
+  if (eventType === 'DELETE') {
+    const before = events.length;
+    events = events.filter(e => String(e.id) !== String(row.id));
+    if (events.length !== before) {
+      saveEvents();
+      renderCalendar();
+      renderDayPanel();
+    }
+    return;
+  }
+
+  const mapped = {
+    id: row.id,
+    date: row.date,
+    time: row.time,
+    title: row.title,
+    notes: row.notes || '',
+  };
+  const idx = events.findIndex(e => String(e.id) === String(mapped.id));
+  if (idx >= 0) events[idx] = mapped;
+  else events.push(mapped);
+  saveEvents();
+  renderCalendar();
+  renderDayPanel();
+}
+
+function attachRealtimeSubscriptions() {
+  if (!supabaseReady || !currentUser) return;
+  setupRealtime({
+    onTodo: handleRealtimeTodo,
+    onProject: handleRealtimeProject,
+    onMember: handleRealtimeMember,
+    onNotification: handleRealtimeNotification,
+    onNote: handleRealtimeNote,
+    onEvent: handleRealtimeEvent,
+  });
+}
+
+function detachRealtimeSubscriptions() {
+  if (typeof teardownRealtime === 'function') teardownRealtime();
+}
+
 // ===== Startup =====
 window.initApp = async function initApp(user) {
   currentUser = user || null;
@@ -2180,6 +2383,7 @@ window.initApp = async function initApp(user) {
   setTimeout(maybeAutoOpenCloseout, 4000);
   requestNotifPermissionIfNeeded();
   checkEventNotifications();
+  attachRealtimeSubscriptions();
 };
 
 // ===== Loading screen =====
