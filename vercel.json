@@ -2,10 +2,7 @@
   "outputDirectory": "src",
   "cleanUrls": true,
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/confirm", "destination": "/confirmation.html" }
   ],
   "headers": [
     {
