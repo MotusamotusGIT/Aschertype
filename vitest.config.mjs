@@ -8,8 +8,15 @@ export default defineConfig({
     setupFiles: ['./tests/setup.js'],
     coverage: {
       provider: 'v8',
+      reporter: ['text', 'html'],
       include: ['src/**/*.js'],
-      exclude: ['src/loader.js', 'src/sw.js'],
+      exclude: [
+        'src/loader.js',
+        'src/sw.js',
+        'src/confirm.js',
+        'src/auth.js',
+        'src/db.js',
+      ],
     },
   },
 });

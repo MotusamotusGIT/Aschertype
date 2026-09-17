@@ -7,16 +7,61 @@ if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.p
   });
 }
 
+// ===== Safe localStorage helpers =====
+// A corrupted key (crash mid-write, disk full, extension interference,
+// schema drift across versions) must never brick the app on boot.
+// On parse failure we drop the bad key and return the fallback, so the
+// next write replaces it with a valid value.
+
+// Some browsers throw on localStorage access (private mode, blocked
+// storage, disabled cookies). Every read must go through this so a
+// throw never bubbles up and kills the app.
+function safeGetItem(key) {
+  try { return localStorage.getItem(key); }
+  catch (err) { return null; }
+}
+
+function safeParse(key, fallback) {
+  const raw = safeGetItem(key);
+  if (raw === null) return fallback;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed === null || parsed === undefined) return fallback;
+    return parsed;
+  } catch (err) {
+    console.warn(`[Aschertype] Corrupted localStorage key "${key}", clearing it.`, err);
+    try { localStorage.removeItem(key); } catch (e) { /* ignore */ }
+    return fallback;
+  }
+}
+
+// localStorage.setItem throws on quota exceeded. Swallow the error so a
+// full disk doesn't crash the app mid-save; the user keeps their session,
+// loses the current write, and sees the console warning.
+function safeSetItem(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (err) {
+    console.warn(`[Aschertype] Could not write "${key}" to localStorage.`, err);
+    return false;
+  }
+}
+
+function safeRemoveItem(key) {
+  try { localStorage.removeItem(key); } catch (err) { /* ignore */ }
+}
+
 // ===== Theme =====
 const THEME_KEY = 'theme';
 function getTheme() {
-  const stored = localStorage.getItem(THEME_KEY);
+  const stored = safeGetItem(THEME_KEY);
   if (stored === 'light' || stored === 'dark') return stored;
   return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
 }
 function applyTheme(mode) {
   document.documentElement.setAttribute('data-theme', mode === 'dark' ? 'dark' : 'light');
-  localStorage.setItem(THEME_KEY, mode);
+  safeSetItem(THEME_KEY, mode);
   const lightBtn = document.getElementById('theme-light-btn');
   const darkBtn = document.getElementById('theme-dark-btn');
   if (lightBtn && darkBtn) {
@@ -307,10 +352,10 @@ document.getElementById('profile-name-save').addEventListener('click', async () 
 // ===== Encouragement toasts =====
 const ENCOURAGEMENT_KEY = 'encouragementEnabled';
 function isEncouragementEnabled() {
-  const v = localStorage.getItem(ENCOURAGEMENT_KEY);
+  const v = safeGetItem(ENCOURAGEMENT_KEY);
   return v === null ? true : v === 'true';
 }
-function setEncouragementEnabled(on) { localStorage.setItem(ENCOURAGEMENT_KEY, on ? 'true' : 'false'); }
+function setEncouragementEnabled(on) { safeSetItem(ENCOURAGEMENT_KEY, on ? 'true' : 'false'); }
 
 const ENCOURAGEMENT_MESSAGES = {
   add: [{ emoji: '📝', text: 'Added. One less thing to hold in your head.' }],
@@ -351,10 +396,10 @@ document.getElementById('encouragement-enabled-input').addEventListener('change'
 // ===== System notifications =====
 const NOTIF_ENABLED_KEY = 'notificationsEnabled';
 function isNotifEnabled() {
-  const v = localStorage.getItem(NOTIF_ENABLED_KEY);
+  const v = safeGetItem(NOTIF_ENABLED_KEY);
   return v === null ? true : v === 'true';
 }
-function setNotifEnabled(on) { localStorage.setItem(NOTIF_ENABLED_KEY, on ? 'true' : 'false'); }
+function setNotifEnabled(on) { safeSetItem(NOTIF_ENABLED_KEY, on ? 'true' : 'false'); }
 
 const notifPermissionHintEl = document.getElementById('notif-permission-hint');
 function updateNotifPermissionHint() {
@@ -472,11 +517,11 @@ function localTip() {
 
 const TIPS_KEY = 'tipsEnabled';
 function areTipsEnabled() {
-  const v = localStorage.getItem(TIPS_KEY);
+  const v = safeGetItem(TIPS_KEY);
   return v === null ? true : v === 'true';
 }
 function setTipsEnabled(on) {
-  localStorage.setItem(TIPS_KEY, on ? 'true' : 'false');
+  safeSetItem(TIPS_KEY, on ? 'true' : 'false');
   document.getElementById('tips-bar').style.display = on ? 'flex' : 'none';
 }
 
@@ -495,11 +540,11 @@ document.getElementById('tips-enabled-input').addEventListener('change', (e) => 
 
 // ===== Pomodoro =====
 const pomodoro = {
-  task: localStorage.getItem('pomodoroTask') || '',
-  workMin: parseInt(localStorage.getItem('pomodoroWorkMin')) || 25,
-  breakMin: parseInt(localStorage.getItem('pomodoroBreakMin')) || 5,
+  task: safeGetItem('pomodoroTask') || '',
+  workMin: parseInt(safeGetItem('pomodoroWorkMin')) || 25,
+  breakMin: parseInt(safeGetItem('pomodoroBreakMin')) || 5,
   mode: 'work', remaining: 0, running: false,
-  sessions: parseInt(localStorage.getItem('pomodoroSessions')) || 0,
+  sessions: parseInt(safeGetItem('pomodoroSessions')) || 0,
 };
 pomodoro.remaining = pomodoro.workMin * 60;
 let pomodoroInterval = null;
@@ -542,7 +587,7 @@ function tickPomodoro() {
     pomodoroWarned = false;
     if (pomodoro.mode === 'work') {
       pomodoro.sessions++;
-      localStorage.setItem('pomodoroSessions', pomodoro.sessions);
+      safeSetItem('pomodoroSessions', pomodoro.sessions);
       pomodoro.mode = 'break'; pomodoro.remaining = pomodoro.breakMin * 60;
       sendNotification('Focus session complete', `Nice work. Time for a ${pomodoro.breakMin}-minute break.`);
       showToast('pomodoro');
@@ -575,21 +620,22 @@ pomodoroResetBtn.addEventListener('click', () => {
 });
 pomodoroTaskInput.addEventListener('input', (e) => {
   pomodoro.task = e.target.value;
-  localStorage.setItem('pomodoroTask', pomodoro.task);
+  safeSetItem('pomodoroTask', pomodoro.task);
 });
 pomodoroWorkInput.addEventListener('change', (e) => {
   const v = Math.min(Math.max(parseInt(e.target.value) || 25, 1), 120);
-  pomodoro.workMin = v; localStorage.setItem('pomodoroWorkMin', v);
+  pomodoro.workMin = v; safeSetItem('pomodoroWorkMin', v);
   if (!pomodoro.running && pomodoro.mode === 'work') { pomodoro.remaining = v * 60; renderPomodoro(); }
 });
 pomodoroBreakInput.addEventListener('change', (e) => {
   const v = Math.min(Math.max(parseInt(e.target.value) || 5, 1), 60);
-  pomodoro.breakMin = v; localStorage.setItem('pomodoroBreakMin', v);
+  pomodoro.breakMin = v; safeSetItem('pomodoroBreakMin', v);
   if (!pomodoro.running && pomodoro.mode === 'break') { pomodoro.remaining = v * 60; renderPomodoro(); }
 });
 
 // ===== State =====
-let todos = JSON.parse(localStorage.getItem('todos') || '[]');
+let todos = safeParse('todos', []);
+let taskCategories = safeParse('taskCategories', []);
 let currentView = 'all';
 
 const form = document.getElementById('todo-form');
@@ -597,6 +643,8 @@ const input = document.getElementById('todo-input');
 const descInput = document.getElementById('desc-input');
 const dueInput = document.getElementById('due-input');
 const priorityInput = document.getElementById('priority-input');
+const todoCategorySelect = document.getElementById('todo-category-select');
+const todoAddCategoryBtn = document.getElementById('todo-add-category-btn');
 const todoListEl = document.getElementById('todo-list');
 const emptyState = document.getElementById('empty-state');
 const viewTitle = document.getElementById('view-title');
@@ -627,12 +675,41 @@ function closeTaskAdd() {
   descInput.value = '';
   dueInput.value = '';
   priorityInput.value = 'medium';
+  todoCategorySelect.value = '';
 }
 taskAddToggle.addEventListener('click', openTaskAdd);
 taskAddCancel.addEventListener('click', closeTaskAdd);
 
+// ===== Task categories (user-defined, remembered across tasks) =====
+function saveTaskCategories() { safeSetItem('taskCategories', JSON.stringify(taskCategories)); }
+function renderTaskCategorySelects(selectedForAdd, selectedForDetail) {
+  [todoCategorySelect, taskDetailCategory].forEach((sel, idx) => {
+    if (!sel) return;
+    const keep = idx === 0 ? (selectedForAdd !== undefined ? selectedForAdd : sel.value) : (selectedForDetail !== undefined ? selectedForDetail : sel.value);
+    sel.innerHTML = '<option value="">No category</option>';
+    taskCategories.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = cat;
+      sel.appendChild(opt);
+    });
+    sel.value = taskCategories.includes(keep) ? keep : '';
+  });
+}
+function addTaskCategory(targetSelect) {
+  const name = prompt('New category name:');
+  if (!name || !name.trim()) return;
+  const trimmed = name.trim();
+  const exists = taskCategories.some(c => c.toLowerCase() === trimmed.toLowerCase());
+  if (!exists) { taskCategories.push(trimmed); saveTaskCategories(); }
+  const finalValue = exists ? taskCategories.find(c => c.toLowerCase() === trimmed.toLowerCase()) : trimmed;
+  renderTaskCategorySelects();
+  if (targetSelect) targetSelect.value = finalValue;
+}
+todoAddCategoryBtn.addEventListener('click', () => addTaskCategory(todoCategorySelect));
+
 // ===== Projects & collaborators =====
-let projects = JSON.parse(localStorage.getItem('projects') || '[]');
+let projects = safeParse('projects', []);
 let currentProjectId = null;
 let projectMembers = [];
 let notifications = [];
@@ -655,7 +732,7 @@ const projectModalCloseBtn = document.getElementById('project-modal-close-btn');
 
 let editingProjectId = null;
 
-function saveProjects() { localStorage.setItem('projects', JSON.stringify(projects)); }
+function saveProjects() { safeSetItem('projects', JSON.stringify(projects)); }
 function getProject(id) { return projects.find(p => String(p.id) === String(id)) || null; }
 
 function membersForProject(projectId) {
@@ -786,7 +863,7 @@ function renderProjectNav() {
   projects.forEach(p => {
     const isOwned = isProjectOwner(p.id);
     const btn = document.createElement('button');
-    btn.className = 'nav-item' + (currentView === 'project' && String(currentProjectId) === String(p.id) ? ' active' : '') + (isOwned ? '' : ' shared');
+    btn.className = 'nav-item project-item' + (currentView === 'project' && String(currentProjectId) === String(p.id) ? ' active' : '') + (isOwned ? '' : ' shared');
     btn.dataset.view = 'project';
     btn.dataset.projectId = p.id;
 
@@ -827,7 +904,7 @@ function renderProjectSelect() {
   }
 }
 
-function saveTodos() { localStorage.setItem('todos', JSON.stringify(todos)); }
+function saveTodos() { safeSetItem('todos', JSON.stringify(todos)); }
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 function tomorrowStr() {
   const d = new Date();
@@ -954,12 +1031,31 @@ function renderTodos() {
 
     const card = document.createElement('div');
     card.className = `task-card priority-${t.priority}` + (t.done ? ' completed' : '');
+    card.draggable = true;
+    card.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', String(t.id));
+      e.dataTransfer.effectAllowed = 'move';
+      card.classList.add('dragging');
+    });
+    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.task-check, .task-card-actions, .task-title-edit')) return;
+      openTaskDetail(t.id);
+    });
+
+    // ---- top row: checkbox + title (left), category badge (right) ----
+    const top = document.createElement('div');
+    top.className = 'task-card-top';
+
+    const topLeft = document.createElement('div');
+    topLeft.className = 'task-card-top-left';
 
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.className = 'task-check';
     checkbox.checked = t.done;
     checkbox.disabled = !canToggle;
+    checkbox.title = t.priority === 'high' ? 'High priority' : t.priority === 'medium' ? 'Medium priority' : 'Low priority';
     checkbox.addEventListener('change', () => {
       const wasDone = t.done;
       t.done = checkbox.checked;
@@ -971,27 +1067,58 @@ function renderTodos() {
 
     const main = document.createElement('div');
     main.className = 'task-main';
-
-    const titleRow = document.createElement('div');
-    titleRow.className = 'task-title-row';
-    if (t.priority === 'high' || t.priority === 'medium') {
-      const dot = document.createElement('span');
-      dot.className = `task-priority-dot priority-${t.priority}`;
-      dot.title = t.priority === 'high' ? 'High priority' : 'Medium priority';
-      titleRow.appendChild(dot);
-    }
     const title = document.createElement('div');
     title.className = 'task-title';
     title.textContent = t.text;
-    titleRow.appendChild(title);
-    main.appendChild(titleRow);
+    main.appendChild(title);
+
+    topLeft.append(checkbox, main);
+    top.appendChild(topLeft);
+
+    if (t.category) {
+      const cat = document.createElement('span');
+      cat.className = 'task-card-category';
+      cat.textContent = t.category;
+      top.appendChild(cat);
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'task-card-actions';
+    if (canRename) {
+      const pencil = document.createElement('button');
+      pencil.type = 'button';
+      pencil.className = 'task-icon-btn';
+      pencil.title = 'Rename task';
+      pencil.innerHTML = ICON_PENCIL;
+      pencil.addEventListener('click', () => startInlineEdit(title, t));
+      actions.appendChild(pencil);
+    }
+    if (canRemove) {
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'task-icon-btn delete-btn';
+      del.title = 'Delete task';
+      del.innerHTML = ICON_TRASH;
+      del.addEventListener('click', () => {
+        todos = todos.filter(x => x.id !== t.id);
+        saveTodos(); renderTodos(); renderCounts(); renderProjectNav();
+        if (currentUser) dbDelete('todos', t.id);
+      });
+      actions.appendChild(del);
+    }
+
+    card.append(top);
 
     if (t.desc) {
       const desc = document.createElement('div');
       desc.className = 'task-desc';
       desc.textContent = t.desc;
-      main.appendChild(desc);
+      card.appendChild(desc);
     }
+
+    // ---- footer: due / project pills (left), actions (right, on hover) ----
+    const footer = document.createElement('div');
+    footer.className = 'task-card-footer';
 
     const meta = document.createElement('div');
     meta.className = 'task-meta';
@@ -1016,39 +1143,14 @@ function renderTodos() {
         const tagText = document.createElement('span');
         tagText.textContent = p.name;
         tag.appendChild(tagText);
-        tag.addEventListener('click', () => { currentProjectId = p.id; setView('project'); });
+        tag.addEventListener('click', (e) => { e.stopPropagation(); currentProjectId = p.id; setView('project'); });
         meta.appendChild(tag);
       }
     }
-    if (meta.children.length) main.appendChild(meta);
+    footer.appendChild(meta);
+    footer.appendChild(actions);
+    card.appendChild(footer);
 
-    const actions = document.createElement('div');
-    actions.className = 'task-card-actions';
-
-    if (canRename) {
-      const pencil = document.createElement('button');
-      pencil.type = 'button';
-      pencil.className = 'task-icon-btn';
-      pencil.title = 'Rename task';
-      pencil.innerHTML = ICON_PENCIL;
-      pencil.addEventListener('click', () => startInlineEdit(title, t));
-      actions.appendChild(pencil);
-    }
-    if (canRemove) {
-      const del = document.createElement('button');
-      del.type = 'button';
-      del.className = 'task-icon-btn delete-btn';
-      del.title = 'Delete task';
-      del.innerHTML = ICON_TRASH;
-      del.addEventListener('click', () => {
-        todos = todos.filter(x => x.id !== t.id);
-        saveTodos(); renderTodos(); renderCounts(); renderProjectNav();
-        if (currentUser) dbDelete('todos', t.id);
-      });
-      actions.appendChild(del);
-    }
-
-    card.append(checkbox, main, actions);
     todoListEl.appendChild(card);
   });
 }
@@ -1078,6 +1180,231 @@ function startInlineEdit(titleEl, t) {
     if (e.key === 'Escape') { editInput.value = t.text; editInput.blur(); }
   });
 }
+
+// ===== Task detail side panel =====
+const taskDetailOverlay = document.getElementById('task-detail-overlay');
+const taskDetailCheck = document.getElementById('task-detail-check');
+const taskDetailTitle = document.getElementById('task-detail-title');
+const taskDetailDesc = document.getElementById('task-detail-desc');
+const taskDetailDue = document.getElementById('task-detail-due');
+const taskDetailPriority = document.getElementById('task-detail-priority');
+const taskDetailProject = document.getElementById('task-detail-project');
+const taskDetailCategory = document.getElementById('task-detail-category');
+const taskDetailAddCategoryBtn = document.getElementById('task-detail-add-category-btn');
+const taskDetailClose = document.getElementById('task-detail-close');
+const taskDetailSaveBtn = document.getElementById('task-detail-save-btn');
+const taskDetailDeleteBtn = document.getElementById('task-detail-delete-btn');
+let activeDetailTaskId = null;
+
+function fillTaskDetailProjectOptions(selectedId) {
+  taskDetailProject.innerHTML = '<option value="">No project</option>';
+  projects.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.name;
+    taskDetailProject.appendChild(opt);
+  });
+  taskDetailProject.value = selectedId != null ? String(selectedId) : '';
+}
+
+function openTaskDetail(taskId) {
+  const t = todos.find(x => x.id === taskId);
+  if (!t) return;
+  activeDetailTaskId = taskId;
+  const canToggle = canToggleTaskIn(t.projectId);
+  const canRename = canRenameTaskIn(t.projectId);
+  const canRemove = canRemoveTaskFrom(t.projectId);
+
+  taskDetailCheck.checked = t.done;
+  taskDetailCheck.disabled = !canToggle;
+  taskDetailTitle.value = t.text;
+  taskDetailTitle.disabled = !canRename;
+  taskDetailTitle.classList.toggle('completed', t.done);
+  taskDetailDesc.value = t.desc || '';
+  taskDetailDesc.disabled = !canRename;
+  taskDetailDue.value = t.due || '';
+  taskDetailDue.disabled = !canRename;
+  taskDetailPriority.value = t.priority || 'medium';
+  taskDetailPriority.disabled = !canRename;
+  fillTaskDetailProjectOptions(t.projectId);
+  taskDetailProject.disabled = !canRename;
+  renderTaskCategorySelects(undefined, t.category || '');
+  taskDetailCategory.disabled = !canRename;
+  taskDetailAddCategoryBtn.style.display = canRename ? '' : 'none';
+  taskDetailDeleteBtn.style.display = canRemove ? '' : 'none';
+  taskDetailSaveBtn.style.display = canRename ? '' : 'none';
+
+  taskDetailOverlay.classList.add('open');
+}
+
+function closeTaskDetail() {
+  taskDetailOverlay.classList.remove('open');
+  activeDetailTaskId = null;
+}
+
+taskDetailClose.addEventListener('click', closeTaskDetail);
+taskDetailOverlay.addEventListener('click', (e) => { if (e.target === taskDetailOverlay) closeTaskDetail(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && taskDetailOverlay.classList.contains('open')) closeTaskDetail();
+});
+
+taskDetailCheck.addEventListener('change', () => {
+  const t = todos.find(x => x.id === activeDetailTaskId);
+  if (!t) return;
+  const wasDone = t.done;
+  t.done = taskDetailCheck.checked;
+  if (!wasDone && t.done) recordCompletion();
+  taskDetailTitle.classList.toggle('completed', t.done);
+  saveTodos(); renderTodos(); renderCounts();
+  if (currentUser) dbUpdate('todos', t.id, { done: t.done });
+});
+
+taskDetailAddCategoryBtn.addEventListener('click', () => addTaskCategory(taskDetailCategory));
+
+taskDetailSaveBtn.addEventListener('click', () => {
+  const t = todos.find(x => x.id === activeDetailTaskId);
+  if (!t) return;
+  const newText = taskDetailTitle.value.trim();
+  if (newText) t.text = newText;
+  t.desc = taskDetailDesc.value.trim();
+  t.due = taskDetailDue.value || null;
+  t.priority = taskDetailPriority.value;
+  t.projectId = taskDetailProject.value || null;
+  t.category = taskDetailCategory.value || null;
+  saveTodos(); renderTodos(); renderCounts(); renderProjectNav();
+  if (currentUser) dbUpdate('todos', t.id, { text: t.text, desc: t.desc, due: t.due, priority: t.priority, projectId: t.projectId });
+  closeTaskDetail();
+});
+
+taskDetailDeleteBtn.addEventListener('click', () => {
+  if (!activeDetailTaskId) return;
+  const id = activeDetailTaskId;
+  todos = todos.filter(x => x.id !== id);
+  saveTodos(); renderTodos(); renderCounts(); renderProjectNav();
+  if (currentUser) dbDelete('todos', id);
+  closeTaskDetail();
+});
+
+// ===== Drag a task onto the Pomodoro nav item to focus it there =====
+const pomodoroNavItem = document.querySelector('.nav-item[data-view="pomodoro"]');
+if (pomodoroNavItem) {
+  pomodoroNavItem.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    pomodoroNavItem.classList.add('drop-target');
+  });
+  pomodoroNavItem.addEventListener('dragleave', () => pomodoroNavItem.classList.remove('drop-target'));
+  pomodoroNavItem.addEventListener('drop', (e) => {
+    e.preventDefault();
+    pomodoroNavItem.classList.remove('drop-target');
+    const idRaw = e.dataTransfer.getData('text/plain');
+    if (!idRaw) return;
+    const t = todos.find(x => String(x.id) === idRaw);
+    if (!t) return;
+    sendTaskToPomodoro(t);
+  });
+}
+
+function sendTaskToPomodoro(t) {
+  pomodoro.task = t.text;
+  safeSetItem('pomodoroTask', pomodoro.task);
+  setView('pomodoro');
+  renderPomodoro();
+  showToast('pomodoro');
+}
+
+// ===== Touch drag: same "send to Pomodoro" gesture, working on mobile =====
+// Native HTML5 drag events don't fire on touch devices, and the Pomodoro nav item
+// lives in the off-canvas sidebar on mobile, so dragging a task card onto it isn't
+// reachable there. Instead, a long-press + drag on a task card raises a floating
+// "Focus in Pomodoro" dropzone the finger can be released over, from anywhere.
+const mobileDropzone = document.createElement('div');
+mobileDropzone.id = 'mobile-pomodoro-dropzone';
+mobileDropzone.className = 'mobile-pomodoro-dropzone';
+mobileDropzone.innerHTML = '<span class="mobile-pomodoro-dropzone-icon">🍅</span><span>Drop to focus in Pomodoro</span>';
+document.body.appendChild(mobileDropzone);
+
+(function setupTouchDragToPomodoro() {
+  const LONG_PRESS_MS = 260;
+  const MOVE_CANCEL_PX = 10;
+  let pressTimer = null;
+  let dragging = false;
+  let startX = 0, startY = 0;
+  let ghost = null;
+  let activeTask = null;
+  let activeCard = null;
+
+  function cleanup() {
+    clearTimeout(pressTimer);
+    pressTimer = null;
+    dragging = false;
+    activeTask = null;
+    if (activeCard) activeCard.classList.remove('touch-dragging');
+    activeCard = null;
+    if (ghost) { ghost.remove(); ghost = null; }
+    mobileDropzone.classList.remove('show', 'drop-target');
+  }
+
+  function startDrag(card, touch) {
+    dragging = true;
+    activeCard = card;
+    card.classList.add('touch-dragging');
+    ghost = document.createElement('div');
+    ghost.className = 'touch-drag-ghost';
+    ghost.textContent = activeTask.text;
+    document.body.appendChild(ghost);
+    positionGhost(touch);
+    mobileDropzone.classList.add('show');
+    if (navigator.vibrate) navigator.vibrate(12);
+  }
+
+  function positionGhost(touch) {
+    if (!ghost) return;
+    ghost.style.left = touch.clientX + 'px';
+    ghost.style.top = touch.clientY + 'px';
+  }
+
+  function isOverDropzone(touch) {
+    const r = mobileDropzone.getBoundingClientRect();
+    return touch.clientX >= r.left && touch.clientX <= r.right && touch.clientY >= r.top && touch.clientY <= r.bottom;
+  }
+
+  todoListEl.addEventListener('touchstart', (e) => {
+    if (window.innerWidth > 760) return; // desktop keeps native HTML5 drag
+    const card = e.target.closest('.task-card');
+    if (!card || e.target.closest('.task-check, .task-card-actions, .task-title-edit')) return;
+    const filtered = getFilteredTodos();
+    const idx = Array.from(todoListEl.children).indexOf(card);
+    activeTask = filtered[idx];
+    if (!activeTask) return;
+    const touch = e.touches[0];
+    startX = touch.clientX; startY = touch.clientY;
+    pressTimer = setTimeout(() => startDrag(card, touch), LONG_PRESS_MS);
+  }, { passive: true });
+
+  todoListEl.addEventListener('touchmove', (e) => {
+    const touch = e.touches[0];
+    if (!dragging) {
+      if (pressTimer && (Math.abs(touch.clientX - startX) > MOVE_CANCEL_PX || Math.abs(touch.clientY - startY) > MOVE_CANCEL_PX)) {
+        cleanup();
+      }
+      return;
+    }
+    e.preventDefault();
+    positionGhost(touch);
+    mobileDropzone.classList.toggle('drop-target', isOverDropzone(touch));
+  }, { passive: false });
+
+  todoListEl.addEventListener('touchend', (e) => {
+    if (dragging) {
+      const touch = e.changedTouches[0];
+      if (isOverDropzone(touch) && activeTask) sendTaskToPomodoro(activeTask);
+    }
+    cleanup();
+  });
+
+  todoListEl.addEventListener('touchcancel', cleanup);
+})();
 
 function renderCounts() {
   document.getElementById('count-all').textContent = todos.length;
@@ -1113,14 +1440,13 @@ function renderViewHeader() {
 
 const COMPLETION_LOG_KEY = 'aschertypeCompletionLog';
 function loadCompletionLog() {
-  try { return JSON.parse(localStorage.getItem(COMPLETION_LOG_KEY) || '[]'); }
-  catch (err) { return []; }
+  return safeParse(COMPLETION_LOG_KEY, []);
 }
 function recordCompletion() {
   const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const log = loadCompletionLog().filter((ts) => ts > cutoff);
   log.push(Date.now());
-  try { localStorage.setItem(COMPLETION_LOG_KEY, JSON.stringify(log)); } catch (err) { /* ignore */ }
+  safeSetItem(COMPLETION_LOG_KEY, JSON.stringify(log));
 }
 function startOfWeek(date) {
   const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -1173,6 +1499,7 @@ form.addEventListener('submit', (e) => {
   const newTodo = {
     id: Date.now(), text, desc: descInput.value.trim(), done: false,
     due: dueInput.value || null, priority: priorityInput.value, projectId,
+    category: todoCategorySelect.value || null,
   };
   todos.push(newTodo);
   saveTodos();
@@ -1668,9 +1995,11 @@ async function refreshSharedData() {
     saveProjects();
   }
   if (remoteTodos) {
+    const localCategoryById = new Map(todos.map(t => [String(t.id), t.category || null]));
     todos = remoteTodos.map(t => ({
       id: t.id, text: t.text, desc: t.desc, done: t.done,
       due: t.due, priority: t.priority, projectId: t.project_id || null,
+      category: localCategoryById.get(String(t.id)) || null,
     }));
     saveTodos();
   }
@@ -1704,7 +2033,7 @@ window.addEventListener('resize', () => {
 });
 
 // ===== Calendar =====
-let events = JSON.parse(localStorage.getItem('events') || '[]');
+let events = safeParse('events', []);
 let calViewDate = new Date();
 calViewDate.setDate(1);
 let selectedDateKey = todayStr();
@@ -1729,7 +2058,7 @@ const eventSaveBtn = document.getElementById('event-save-btn');
 const eventBackBtn = document.getElementById('event-back-btn');
 const eventDeleteBtn = document.getElementById('event-delete-btn');
 
-function saveEvents() { localStorage.setItem('events', JSON.stringify(events)); }
+function saveEvents() { safeSetItem('events', JSON.stringify(events)); }
 function pad2(n) { return n.toString().padStart(2, '0'); }
 function dateKey(y, m, d) { return `${y}-${pad2(m + 1)}-${pad2(d)}`; }
 function eventsForDate(dateStr) {
@@ -1887,8 +2216,8 @@ eventDeleteBtn.addEventListener('click', () => {
 });
 
 // ===== Notes =====
-let notes = JSON.parse(localStorage.getItem('notes') || '[]');
-let noteCategories = JSON.parse(localStorage.getItem('noteCategories') || 'null') || ['General'];
+let notes = safeParse('notes', []);
+let noteCategories = safeParse('noteCategories', null) || ['General'];
 let activeCategory = 'All';
 
 const categoryTabsEl = document.getElementById('category-tabs');
@@ -1901,8 +2230,8 @@ const noteContentInput = document.getElementById('note-content-input');
 const notesListEl = document.getElementById('notes-list');
 const notesEmptyState = document.getElementById('notes-empty-state');
 
-function saveNotes() { localStorage.setItem('notes', JSON.stringify(notes)); }
-function saveNoteCategories() { localStorage.setItem('noteCategories', JSON.stringify(noteCategories)); }
+function saveNotes() { safeSetItem('notes', JSON.stringify(notes)); }
+function saveNoteCategories() { safeSetItem('noteCategories', JSON.stringify(noteCategories)); }
 function noteRemoteRow(n) {
   return { id: n.id, user_id: currentUser.id, title: n.title, category: n.category, desc: n.desc || '', content: n.content || '', created_at: n.createdAt };
 }
@@ -2021,9 +2350,9 @@ const CLOSEOUT_ENABLED_KEY = 'closeoutEnabled';
 const CLOSEOUT_LAST_SHOWN_KEY = 'closeoutLastShown';
 const DEFAULT_CLOSEOUT_TIME = '17:00';
 
-function getCloseoutTime() { return localStorage.getItem(CLOSEOUT_TIME_KEY) || DEFAULT_CLOSEOUT_TIME; }
+function getCloseoutTime() { return safeGetItem(CLOSEOUT_TIME_KEY) || DEFAULT_CLOSEOUT_TIME; }
 function isCloseoutEnabled() {
-  const v = localStorage.getItem(CLOSEOUT_ENABLED_KEY);
+  const v = safeGetItem(CLOSEOUT_ENABLED_KEY);
   return v === null ? true : v === 'true';
 }
 
@@ -2072,7 +2401,7 @@ function openCloseout() {
     closeoutList.appendChild(row);
   });
   closeoutOverlay.style.display = 'flex';
-  localStorage.setItem(CLOSEOUT_LAST_SHOWN_KEY, todayStr());
+  safeSetItem(CLOSEOUT_LAST_SHOWN_KEY, todayStr());
 }
 function closeCloseout() {
   closeoutOverlay.style.display = 'none';
@@ -2095,10 +2424,10 @@ closeoutMoveAllBtn.addEventListener('click', () => {
 closeoutBtn.addEventListener('click', openCloseout);
 
 document.getElementById('closeout-time-input').addEventListener('change', (e) => {
-  localStorage.setItem(CLOSEOUT_TIME_KEY, e.target.value || DEFAULT_CLOSEOUT_TIME);
+  safeSetItem(CLOSEOUT_TIME_KEY, e.target.value || DEFAULT_CLOSEOUT_TIME);
 });
 document.getElementById('closeout-enabled-input').addEventListener('change', (e) => {
-  localStorage.setItem(CLOSEOUT_ENABLED_KEY, e.target.checked ? 'true' : 'false');
+  safeSetItem(CLOSEOUT_ENABLED_KEY, e.target.checked ? 'true' : 'false');
 });
 
 function maybeAutoOpenCloseout() {
@@ -2107,7 +2436,7 @@ function maybeAutoOpenCloseout() {
   const now = new Date();
   const nowHM = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
   const target = getCloseoutTime();
-  const already = localStorage.getItem(CLOSEOUT_LAST_SHOWN_KEY) === todayStr();
+  const already = safeGetItem(CLOSEOUT_LAST_SHOWN_KEY) === todayStr();
   if (!already && nowHM >= target && unfinishedForCloseout().length > 0) openCloseout();
 }
 setInterval(maybeAutoOpenCloseout, 60 * 1000);
@@ -2435,13 +2764,13 @@ const welcomeDismissBtn = document.getElementById('welcome-dismiss-btn');
 
 function maybeShowWelcome() {
   if (!welcomeOverlay) return;
-  if (localStorage.getItem(WELCOME_KEY) === 'true') return;
+  if (safeGetItem(WELCOME_KEY) === 'true') return;
   setTimeout(() => {
     welcomeOverlay.style.display = 'flex';
   }, 900);
 }
 function dismissWelcome() {
-  try { localStorage.setItem(WELCOME_KEY, 'true'); } catch (err) { /* ignore */ }
+  safeSetItem(WELCOME_KEY, 'true');
   welcomeOverlay.style.display = 'none';
 }
 if (welcomeDismissBtn) welcomeDismissBtn.addEventListener('click', dismissWelcome);
@@ -2459,12 +2788,12 @@ const tipsIntroDismissBtn = document.getElementById('tips-intro-dismiss-btn');
 function maybeShowTipsIntro() {
   if (!tipsIntroOverlay) return;
   if (!areTipsEnabled()) return;
-  if (localStorage.getItem(TIPS_INTRO_KEY) === 'true') return;
+  if (safeGetItem(TIPS_INTRO_KEY) === 'true') return;
   if (welcomeOverlay && welcomeOverlay.style.display === 'flex') return;
   tipsIntroOverlay.style.display = 'flex';
 }
 function dismissTipsIntro() {
-  try { localStorage.setItem(TIPS_INTRO_KEY, 'true'); } catch (err) { /* ignore */ }
+  safeSetItem(TIPS_INTRO_KEY, 'true');
   tipsIntroOverlay.style.display = 'none';
 }
 if (tipsIntroDismissBtn) tipsIntroDismissBtn.addEventListener('click', dismissTipsIntro);
@@ -2495,9 +2824,11 @@ window.initApp = async function initApp(user) {
       saveProjects();
     }
     if (remoteTodos) {
+      const localCategoryById = new Map(todos.map(t => [String(t.id), t.category || null]));
       todos = remoteTodos.map(t => ({
         id: t.id, text: t.text, desc: t.desc, done: t.done,
         due: t.due, priority: t.priority, projectId: t.project_id || null,
+        category: localCategoryById.get(String(t.id)) || null,
       }));
       saveTodos();
     }
@@ -2537,6 +2868,7 @@ window.initApp = async function initApp(user) {
   renderCategoryTabs();
   renderNoteCategorySelect();
   renderNotes();
+  renderTaskCategorySelects();
   tipsBarEl.style.display = areTipsEnabled() ? 'flex' : 'none';
   refreshTip();
   setTimeout(maybeAutoOpenCloseout, 4000);

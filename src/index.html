@@ -320,6 +320,12 @@
                     <option value="">No project</option>
                   </select>
                 </div>
+                <div class="task-add-category-row">
+                  <select id="todo-category-select" title="Category">
+                    <option value="">No category</option>
+                  </select>
+                  <button type="button" id="todo-add-category-btn" class="icon-btn plus" title="New category" aria-label="New category">+</button>
+                </div>
                 <div class="task-add-actions">
                   <button type="button" id="task-add-cancel" class="btn small">Cancel</button>
                   <button type="submit" class="btn primary small">Add task</button>
@@ -799,6 +805,58 @@
       </div>
       <div class="modal-actions">
         <button type="button" id="tips-intro-dismiss-btn" class="btn primary">Nice — thanks</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Task detail side panel -->
+  <div id="task-detail-overlay" class="task-detail-overlay">
+    <div class="task-detail-panel" id="task-detail-panel" role="dialog" aria-label="Task details">
+      <div class="task-detail-head">
+        <div class="task-detail-title-row" style="flex:1">
+          <input type="checkbox" id="task-detail-check" class="task-check">
+          <input type="text" id="task-detail-title" class="task-detail-title" placeholder="Task title">
+        </div>
+        <button type="button" id="task-detail-close" class="task-detail-close" aria-label="Close">&times;</button>
+      </div>
+      <div class="task-detail-body">
+        <div class="task-detail-field">
+          <span class="task-detail-label">Description</span>
+          <textarea id="task-detail-desc" class="task-detail-desc" placeholder="Add a description..."></textarea>
+        </div>
+        <div class="task-detail-row">
+          <div class="task-detail-field">
+            <span class="task-detail-label">Due date</span>
+            <input type="date" id="task-detail-due">
+          </div>
+          <div class="task-detail-field">
+            <span class="task-detail-label">Priority</span>
+            <select id="task-detail-priority">
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+        </div>
+        <div class="task-detail-field task-detail-project-field">
+          <span class="task-detail-label">Project</span>
+          <select id="task-detail-project">
+            <option value="">No project</option>
+          </select>
+        </div>
+        <div class="task-detail-field task-detail-centered-field">
+          <span class="task-detail-label">Category</span>
+          <div class="task-detail-category-row">
+            <select id="task-detail-category">
+              <option value="">No category</option>
+            </select>
+            <button type="button" id="task-detail-add-category-btn" class="icon-btn plus" title="New category" aria-label="New category">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="task-detail-footer">
+        <button type="button" id="task-detail-delete-btn" class="btn danger small">Delete task</button>
+        <button type="button" id="task-detail-save-btn" class="btn primary small">Save</button>
       </div>
     </div>
   </div>

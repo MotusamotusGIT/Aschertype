@@ -1,8 +1,8 @@
+// src/utils.js — full file
 // ===== Shared pure helpers =====
 // Extracted from auth.js and db.js so tests can import them without
 // booting the whole app. Loaded as a classic <script>, so everything
 // lives in global scope and auth.js / db.js call these directly.
-// The module.exports block at the bottom lets Vitest require() them.
 
 // ----- Email sanity check -----
 function isPlausibleEmail(email) {
@@ -98,6 +98,20 @@ const rememberAwareStorage = {
     try { sessionStorage.removeItem(key); } catch (err) { /* ignore */ }
   },
 };
+
+// ----- Expose helpers on window for classic scripts + tests -----
+if (typeof window !== 'undefined') {
+  window.isPlausibleEmail = isPlausibleEmail;
+  window.formatWait = formatWait;
+  window.checkRateLimit = checkRateLimit;
+  window.recordAttempt = recordAttempt;
+  window.recordFailure = recordFailure;
+  window.recordSuccess = recordSuccess;
+  window.loadRateLimitState = loadRateLimitState;
+  window.getRememberPreference = getRememberPreference;
+  window.setRememberPreference = setRememberPreference;
+  window.rememberAwareStorage = rememberAwareStorage;
+}
 
 // ----- Dual-mode export for tests -----
 if (typeof module !== 'undefined' && module.exports) {

@@ -187,8 +187,8 @@ registerForm.addEventListener('submit', async (e) => {
     hideAuthScreen();
     window.initApp(currentUser);
   } else {
-    showAuthNotice('Account created — check your email to confirm it, then sign in.');
     setAuthTab('login');
+    showAuthNotice('Account created — check your email to confirm it, then sign in.');
   }
 });
 
@@ -294,6 +294,8 @@ function whenRendererReady(fn) {
     else console.error('[Auth] renderer.js never defined window.initApp — app cannot start.');
   }, { once: true });
 }
+
+window.signOutAndReset = signOutAndReset;
 
 whenRendererReady(() => {
   resolveInitialAuthState();
