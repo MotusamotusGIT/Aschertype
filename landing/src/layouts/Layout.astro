@@ -1,0 +1,222 @@
+---
+export interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = 'Aschertype — Productivity, all in one',
+  description = 'A modern, privacy-first productivity suite featuring tasks, calendar, notes, projects, and Pomodoro focus timers. Free to start, no account required.',
+} = Astro.props;
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+const ogImage = new URL('/og-image.png', Astro.site);
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>{title}</title>
+  <meta name="title" content={title} />
+  <meta name="description" content={description} />
+  <link rel="canonical" href={canonicalURL} />
+  <meta name="robots" content="index, follow" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content={canonicalURL} />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:image" content={ogImage} />
+  <meta property="og:site_name" content="Aschertype" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content={canonicalURL} />
+  <meta name="twitter:title" content={title} />
+  <meta name="twitter:description" content={description} />
+  <meta name="twitter:image" content={ogImage} />
+
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/favicon.png" />
+  <meta name="theme-color" content="#3c6350" />
+
+  <script type="application/ld+json" set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'Aschertype',
+    applicationCategory: 'ProductivityApplication',
+    operatingSystem: 'Web, Windows, macOS, Linux',
+    description,
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+    },
+    url: canonicalURL,
+  })} />
+
+  <link rel="sitemap" href="/sitemap.xml" />
+
+  <!-- Applied before paint so there's no flash of the wrong theme.
+       Same 3-way logic as the app: explicit choice in localStorage
+       wins, otherwise follow the OS/browser preference. -->
+  <script is:inline>
+    (function () {
+      try {
+        var stored = localStorage.getItem('landing-theme');
+        var theme = stored === 'light' || stored === 'dark'
+          ? stored
+          : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+</head>
+<body>
+  <slot />
+</body>
+</html>
+
+<style is:global>
+  /* ===== Light (default) — same palette as the app's :root ===== */
+  :root {
+    --accent: #3c6350;
+    --accent-ink: #3c6350;
+    --accent-soft: rgba(60, 99, 80, 0.09);
+    --accent-contrast: #ffffff;
+    --ink: #23303f;
+    --ink-2: #47566a;
+    --ink-light: #7c8a9c;
+    --bg: #f6f7fa;
+    --bg-elev: #fffffe;
+    --card: #fffffe;
+    --border: #e7eaf0;
+    --border-hover: #d5dae3;
+    --shadow-sm: 0 1px 2px 0 rgba(30, 41, 59, 0.04);
+    --shadow: 0 4px 10px -2px rgba(30, 41, 59, 0.06), 0 2px 4px -2px rgba(30, 41, 59, 0.04);
+    --shadow-lg: 0 12px 28px -6px rgba(30, 41, 59, 0.10), 0 8px 10px -6px rgba(30, 41, 59, 0.04);
+    --radius: 14px;
+  }
+
+  /* ===== Dark — same palette as the app's [data-theme="dark"] ===== */
+  :root[data-theme="dark"] {
+    --accent: #529872;
+    --accent-ink: #8fbfa4;
+    --accent-soft: rgba(143, 191, 164, 0.14);
+    --accent-contrast: #ffffff;
+    --ink: #f1f5f9;
+    --ink-2: #cbd5e1;
+    --ink-light: #94a3b8;
+    --bg: #090d16;
+    --bg-elev: #111827;
+    --card: #1f2937;
+    --border: #374151;
+    --border-hover: #4b5563;
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    --shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  }
+
+  * { box-sizing: border-box; }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.5;
+    transition: background-color .25s ease, color .25s ease;
+  }
+
+  img { max-width: 100%; display: block; }
+
+  a { color: inherit; }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 22px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); }
+
+  .btn.primary {
+    background: var(--accent);
+    color: var(--accent-contrast);
+  }
+  .btn.primary:hover { filter: brightness(1.08); }
+
+  .btn.ghost {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--ink);
+  }
+  .btn.ghost:hover { border-color: var(--accent); color: var(--accent-ink); }
+
+  /* ===== Theme toggle (mirrors the app's settings toggle) ===== */
+  .theme-toggle {
+    display: inline-flex;
+    gap: 4px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 3px;
+  }
+  .theme-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    border: none;
+    background: none;
+    color: var(--ink-light);
+    cursor: pointer;
+  }
+  .theme-toggle-btn svg { width: 15px; height: 15px; }
+  .theme-toggle-btn.active { background: var(--card); color: var(--accent-ink); box-shadow: var(--shadow-sm); }
+</style>
+
+<script is:inline>
+  // Wires up any `.theme-toggle` present on the page — safe to include
+  // globally since pages without one simply won't find the elements.
+  (function () {
+    function apply(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      try { localStorage.setItem('landing-theme', theme); } catch (e) {}
+      document.querySelectorAll('.theme-toggle-btn').forEach(function (btn) {
+        btn.classList.toggle('active', btn.dataset.theme === theme);
+      });
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+      var current = document.documentElement.getAttribute('data-theme') || 'light';
+      document.querySelectorAll('.theme-toggle-btn').forEach(function (btn) {
+        btn.classList.toggle('active', btn.dataset.theme === current);
+        btn.addEventListener('click', function () { apply(btn.dataset.theme); });
+      });
+    });
+  })();
+</script>

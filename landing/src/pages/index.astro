@@ -1,0 +1,244 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+// Point these at wherever the actual app is deployed.
+const APP_URL = 'https://aschertype.vercel.app';
+
+const features = [
+  {
+    icon: '📝',
+    title: 'Tasks',
+    desc: 'Add tasks in seconds with due dates, priorities, and projects. Nothing slips through the cracks.',
+  },
+  {
+    icon: '📁',
+    title: 'Projects',
+    desc: 'Group related tasks together and keep every project organized in one place.',
+  },
+  {
+    icon: '🤝',
+    title: 'Collaboration',
+    desc: 'Invite people to a project by email and work together — everyone can view and check off tasks.',
+  },
+  {
+    icon: '📅',
+    title: 'Calendar & Notes',
+    desc: 'Keep dates and quick thoughts right alongside your tasks, synced to your account.',
+  },
+  {
+    icon: '🍅',
+    title: 'Pomodoro focus timer',
+    desc: '25-minute focus blocks with a soft chime, so deep work stays deep.',
+  },
+  {
+    icon: '🔒',
+    title: 'Privacy-first',
+    desc: 'Use it fully signed out — your data stays on your device. Sign up only if you want sync and sharing.',
+  },
+];
+---
+
+<Layout>
+  <header class="nav">
+    <div class="container nav-inner">
+      <div class="brand">
+        <img src="/favicon.png" alt="Aschertype logo" width="28" height="28" />
+        <span>Aschertype</span>
+      </div>
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#privacy">Privacy</a>
+        <div class="theme-toggle" role="group" aria-label="Theme">
+          <button type="button" class="theme-toggle-btn" data-theme="light" aria-label="Light theme">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg>
+          </button>
+          <button type="button" class="theme-toggle-btn" data-theme="dark" aria-label="Dark theme">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+          </button>
+        </div>
+        <a href={APP_URL} class="btn ghost">Sign in</a>
+        <a href={APP_URL} class="btn primary">Get started</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container hero-inner">
+        <h1>Productivity, all in one place.</h1>
+        <p class="hero-sub">
+          Tasks, projects, calendar, notes, and a Pomodoro timer — in one modern,
+          privacy-first app. No account required to start.
+        </p>
+        <div class="hero-actions">
+          <a href={APP_URL} class="btn primary">Start for free</a>
+          <a href="#features" class="btn ghost">See what's inside</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="features">
+      <div class="container">
+        <h2>Everything you need. Nothing you don't.</h2>
+        <div class="feature-grid">
+          {features.map((f) => (
+            <div class="feature-card">
+              <div class="feature-icon" aria-hidden="true">{f.icon}</div>
+              <h3>{f.title}</h3>
+              <p>{f.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section id="privacy" class="privacy">
+      <div class="container privacy-inner">
+        <h2>Your data, your device — by default.</h2>
+        <p>
+          Aschertype works fully offline and signed out, storing everything locally
+          on your device. Create a free account only when you want your tasks,
+          notes, and calendar to sync across devices or when you want to
+          collaborate with someone else on a project.
+        </p>
+      </div>
+    </section>
+
+    <section class="cta">
+      <div class="container cta-inner">
+        <h2>Ready to get organized?</h2>
+        <a href={APP_URL} class="btn primary">Open Aschertype</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span>&copy; {new Date().getFullYear()} Aschertype</span>
+      <a href={APP_URL}>Sign in</a>
+    </div>
+  </footer>
+</Layout>
+
+<style>
+  .nav {
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    backdrop-filter: blur(8px);
+    z-index: 10;
+  }
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-block: 14px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 1.05rem;
+  }
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .nav-links a:not(.btn) {
+    text-decoration: none;
+    color: var(--ink-light);
+    font-size: 0.92rem;
+  }
+  .nav-links a:not(.btn):hover { color: var(--ink); }
+
+  .hero {
+    padding: 96px 0 80px;
+    text-align: center;
+    background:
+      radial-gradient(600px 300px at 50% -10%, var(--accent-soft), transparent);
+  }
+  .hero-inner { max-width: 720px; margin: 0 auto; }
+  .hero h1 {
+    font-size: clamp(2.2rem, 5vw, 3.4rem);
+    line-height: 1.1;
+    margin: 0 0 18px;
+  }
+  .hero-sub {
+    font-size: 1.15rem;
+    color: var(--ink-light);
+    margin: 0 0 32px;
+  }
+  .hero-actions {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .features { padding: 80px 0; }
+  .features h2 {
+    text-align: center;
+    font-size: 2rem;
+    margin-bottom: 48px;
+    color: var(--ink);
+  }
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+  }
+  .feature-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: var(--shadow-sm);
+  }
+  .feature-icon {
+    font-size: 1.4rem;
+    margin-bottom: 12px;
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    background: var(--accent-soft);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .feature-card h3 { margin: 0 0 8px; font-size: 1.1rem; color: var(--ink); }
+  .feature-card p { margin: 0; color: var(--ink-light); font-size: 0.95rem; }
+
+  .privacy {
+    padding: 72px 0;
+    background: var(--bg-elev);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .privacy-inner {
+    max-width: 640px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .privacy h2 { font-size: 1.8rem; margin-bottom: 16px; color: var(--ink); }
+  .privacy p { color: var(--ink-light); }
+
+  .cta { padding: 80px 0; text-align: center; }
+  .cta h2 { font-size: 1.8rem; margin-bottom: 24px; }
+
+  .site-footer {
+    border-top: 1px solid var(--border);
+    padding-block: 24px;
+  }
+  .footer-inner {
+    display: flex;
+    justify-content: space-between;
+    color: var(--ink-light);
+    font-size: 0.9rem;
+  }
+  .footer-inner a { color: var(--ink-light); text-decoration: none; }
+  .footer-inner a:hover { color: var(--ink); }
+
+  @media (max-width: 640px) {
+    .nav-links a:not(.btn) { display: none; }
+  }
+</style>
