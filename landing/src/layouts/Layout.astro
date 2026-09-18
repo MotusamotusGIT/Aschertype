@@ -38,6 +38,10 @@ const ogImage = new URL('/og-image.png', Astro.site);
   <meta name="twitter:description" content={description} />
   <meta name="twitter:image" content={ogImage} />
 
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet" />
+
   <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="apple-touch-icon" href="/favicon.png" />
   <meta name="theme-color" content="#3c6350" />
@@ -82,23 +86,23 @@ const ogImage = new URL('/og-image.png', Astro.site);
 </html>
 
 <style is:global>
-  /* ===== Light (default) — same palette as the app's :root ===== */
+  /* ===== Light (default) — same palette as the app's :root, softened ===== */
   :root {
     --accent: #3c6350;
     --accent-ink: #3c6350;
     --accent-soft: rgba(60, 99, 80, 0.09);
     --accent-contrast: #ffffff;
-    --ink: #23303f;
-    --ink-2: #47566a;
-    --ink-light: #7c8a9c;
-    --bg: #f6f7fa;
-    --bg-elev: #fffffe;
-    --card: #fffffe;
-    --border: #e7eaf0;
-    --border-hover: #d5dae3;
-    --shadow-sm: 0 1px 2px 0 rgba(30, 41, 59, 0.04);
-    --shadow: 0 4px 10px -2px rgba(30, 41, 59, 0.06), 0 2px 4px -2px rgba(30, 41, 59, 0.04);
-    --shadow-lg: 0 12px 28px -6px rgba(30, 41, 59, 0.10), 0 8px 10px -6px rgba(30, 41, 59, 0.04);
+    --ink: #2b3542;
+    --ink-2: #4c596b;
+    --ink-light: #808d9e;
+    --bg: #ecedf1;
+    --bg-elev: #f2f3f0;
+    --card: #f5f5f2;
+    --border: #dfe2e7;
+    --border-hover: #c9ced6;
+    --shadow-sm: 0 1px 2px 0 rgba(30, 41, 59, 0.05);
+    --shadow: 0 4px 10px -2px rgba(30, 41, 59, 0.07), 0 2px 4px -2px rgba(30, 41, 59, 0.05);
+    --shadow-lg: 0 12px 28px -6px rgba(30, 41, 59, 0.12), 0 8px 10px -6px rgba(30, 41, 59, 0.05);
     --radius: 14px;
   }
 
@@ -134,6 +138,11 @@ const ogImage = new URL('/og-image.png', Astro.site);
     color: var(--ink);
     line-height: 1.5;
     transition: background-color .25s ease, color .25s ease;
+  }
+
+  .display {
+    font-family: "Fraunces", Georgia, serif;
+    font-optical-sizing: auto;
   }
 
   img { max-width: 100%; display: block; }
