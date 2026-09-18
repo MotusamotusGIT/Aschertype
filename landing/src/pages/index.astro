@@ -6,40 +6,126 @@ const APP_URL = 'https://aschertype.vercel.app';
 const features = [
   {
     title: 'Tasks',
-    desc: 'Add tasks in seconds with due dates, priorities, and projects. Nothing slips through the cracks.',
+    desc: 'Add a task in under five seconds. No forms, no required fields, nothing in your way.',
     icon: 'check-square',
   },
   {
     title: 'Projects',
-    desc: 'Group related tasks together and keep every project organized in one place.',
+    desc: 'Group work by project. See everything at a glance without opening five tools.',
     icon: 'folder',
   },
   {
     title: 'Collaboration',
-    desc: 'Invite people to a project by email and work together — everyone can view and check off tasks.',
+    desc: 'Invite someone to a project with their email. No team plan, no seat pricing.',
     icon: 'users',
   },
   {
-    title: 'Calendar & notes',
-    desc: 'Keep dates and quick thoughts right alongside your tasks, synced to your account.',
+    title: 'Calendar & reminders',
+    desc: 'Add events to any day. Get a notification when it\u2019s time — no more missed appointments.',
     icon: 'calendar',
   },
   {
-    title: 'Pomodoro timer',
-    desc: '25-minute focus blocks with a soft chime, so deep work stays deep.',
-    icon: 'timer',
+    title: 'Notes',
+    desc: 'Quick thoughts and longer notes, right next to the tasks they belong to.',
+    icon: 'file-text',
   },
   {
-    title: 'Privacy-first',
-    desc: 'Use it fully signed out — your data stays on your device. Sign up only if you want sync and sharing.',
-    icon: 'lock',
+    title: 'Pomodoro timer',
+    desc: 'Focus in 25-minute blocks. One click to start, a soft chime to rest.',
+    icon: 'timer',
   },
+];
+
+const principles = [
+  {
+    title: 'Less, but better',
+    desc: 'Every screen has one job. No badges, no upsells, no notifications you didn\u2019t ask for.',
+    icon: 'feather',
+  },
+  {
+    title: 'Local-first',
+    desc: 'Your data lives on your device until you tell it to sync. No hidden telemetry, no ad profiles.',
+    icon: 'hard-drive',
+  },
+  {
+    title: 'No lock-in',
+    desc: 'Export anytime. Nothing about Aschertype is designed to keep you trapped.',
+    icon: 'unlock',
+  },
+];
+
+const forYou = [
+  'You want to start working in seconds, not minutes',
+  'Notion, Todoist, or TickTick felt like too much',
+  'You want one place for tasks, notes, and focus',
+  'You care about where your data lives',
+];
+
+const notForYou = [
+  'You need Gantt charts, dependencies, or capacity planning',
+  'You want AI-generated task suggestions',
+  'You need enterprise SSO and audit logs',
+  'You enjoy configuring your tools more than using them',
+];
+
+const steps = [
+  {
+    n: '01',
+    title: 'Open it',
+    desc: 'No account. No email. No signup wall. Open the app and you are already in.',
+    icon: 'zap',
+  },
+  {
+    n: '02',
+    title: 'Add what matters',
+    desc: 'Tasks, projects, dates, notes, focus sessions — everything in one window.',
+    icon: 'plus-circle',
+  },
+  {
+    n: '03',
+    title: 'Sync when you want',
+    desc: 'Create a free account only when you want your work to follow you across devices.',
+    icon: 'cloud',
+  },
+];
+
+const calendarPoints = [
+  'Add events to any day — time is optional, all-day works too',
+  'Get a notification when an event is starting, so nothing slips',
+  'Task due dates appear on the same calendar automatically',
+  'Month view designed to stay readable, not crowded',
+];
+
+const compareRows = [
+  { feature: 'Free to start, no account', aschertype: true, others: 'Mostly false' },
+  { feature: 'Works fully offline', aschertype: true, others: 'Rarely' },
+  { feature: 'Your data stays on your device by default', aschertype: true, others: 'No' },
+  { feature: 'Tasks + calendar + notes + focus in one app', aschertype: true, others: 'Rarely' },
+  { feature: 'Event reminders without an account', aschertype: true, others: 'Rarely' },
+  { feature: 'Real-time collaboration without a team plan', aschertype: true, others: 'Paid only' },
+  { feature: 'Open, portable, no lock-in', aschertype: true, others: 'Proprietary' },
+];
+
+const platforms = [
+  { name: 'Web', icon: 'globe' },
+  { name: 'Windows', icon: 'monitor' },
+  { name: 'macOS', icon: 'apple' },
+  { name: 'Linux', icon: 'terminal' },
 ];
 
 const privacyPoints = [
   'Works fully offline, no account needed to start',
   'Local data never leaves your device unless you choose to sync',
   'No trackers, no ad profiles, no data resale',
+];
+
+const privacyDonts = [
+  'Sell your data',
+  'Run ads',
+  'Track you across the web',
+  'Require an account to use the app',
+  'Sync anything until you ask us to',
+  'Train AI models on your tasks',
 ];
 
 const faqs = [
@@ -55,11 +141,46 @@ const faqs = [
     q: 'Can other people see my tasks?',
     a: 'Only if you invite them to a specific project by email. Everything outside a shared project stays private to your account.',
   },
+  {
+    q: 'Will I get reminded about calendar events?',
+    a: 'Yes. Add a time to any event and Aschertype will notify you when it\u2019s starting. Events without a time still appear on the calendar, they just don\u2019t trigger a reminder.',
+  },
+  {
+    q: 'Do task due dates show on the calendar?',
+    a: 'Yes. Any task with a due date appears on the calendar automatically — no separate entry needed. That way your tasks and your schedule always agree.',
+  },
+  {
+    q: 'Is Aschertype good for teams?',
+    a: 'It\u2019s good for small groups working on shared projects. Not a replacement for enterprise project management. If you need Gantt charts, dependencies, and capacity planning, this isn\u2019t the tool.',
+  },
+  {
+    q: 'Will Aschertype stay simple?',
+    a: 'Yes. That\u2019s the whole point. Every feature we say yes to has to pass one test: does it make the app more useful without making it more complicated? If it fails, we don\u2019t ship it.',
+  },
+  {
+    q: 'Is Aschertype really free?',
+    a: 'Yes. Use it offline, signed out, forever, for free. An account and sync are also free — they exist for people who want their work to follow them across devices or collaborate with someone.',
+  },
+  {
+    q: 'Which platforms does it run on?',
+    a: 'Aschertype runs as a web app in any modern browser, and as a native desktop app on Windows, macOS, and Linux.',
+  },
+  {
+    q: 'Does it work on my phone?',
+    a: 'Yes. Open it in your phone browser and add it to your home screen like an app. Sync across devices when you want your tasks to follow you.',
+  },
+  {
+    q: 'What happens if I lose my device?',
+    a: 'If you were using it fully signed out, that local copy is gone. If you had an account, sign in on a new device and your tasks, notes, and calendar sync back.',
+  },
+  {
+    q: 'Can I export or move my data?',
+    a: 'Yes. Your data lives in a plain, portable format. Nothing is locked in, and you can take it with you any time.',
+  },
 ];
 
 // Minimal inline icon set, stroke-based to match the app's own icon
-// style (see auth-screen eye icons in style.css) — no icon package
-// or external font needed.
+// style — no icon package or external font needed.
 const icons: Record<string, string> = {
   'check-square': '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
   folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>',
@@ -67,6 +188,23 @@ const icons: Record<string, string> = {
   calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
   timer: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/>',
   lock: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  'plus-circle': '<circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/>',
+  cloud: '<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>',
+  check: '<path d="M20 6L9 17l-5-5"/>',
+  x: '<path d="M18 6L6 18M6 6l12 12"/>',
+  globe: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+  monitor: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  apple: '<path d="M12 20.94c1.5 0 2.75-.34 3.75-1 1.5-1 2.25-2.44 2.25-4.31 0-1.13-.25-2.13-.75-3-1.5-2.5-3.5-4.13-6-4.13-2.5 0-5 1.5-6 4-.25.75-.25 1.5-.25 2.25 0 2.13 1.25 4.5 3 5.63 1.13.75 2.25 1.06 3.5 1.06z"/><path d="M9.5 6.5c0-2 1.5-3.5 3.5-3.5s3.5 1.5 3.5 3.5"/>',
+  terminal: '<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>',
+  'arrow-right': '<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>',
+  sparkles: '<path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M19 15l.75 2.25L22 18l-2.25.75L19 21l-.75-2.25L16 18l2.25-.75L19 15z"/><path d="M5 15l.75 2.25L8 18l-2.25.75L5 21l-.75-2.25L2 18l2.25-.75L5 15z"/>',
+  feather: '<path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/>',
+  'hard-drive': '<line x1="22" y1="12" x2="2" y2="12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/>',
+  unlock: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>',
+  'file-text': '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>',
+  bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+  'message-circle': '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>',
 };
 
 function icon(name: string) {
@@ -84,7 +222,9 @@ function icon(name: string) {
 
       <nav class="nav-links" aria-label="Primary">
         <a href="#features">Features</a>
-        <a href="#privacy">Privacy</a>
+        <a href="#calendar">Calendar</a>
+        <a href="#how">How it works</a>
+        <a href="#who">Who it's for</a>
         <a href="#faq">FAQ</a>
       </nav>
 
@@ -107,7 +247,9 @@ function icon(name: string) {
 
     <div class="mobile-menu" id="mobile-menu">
       <a href="#features">Features</a>
-      <a href="#privacy">Privacy</a>
+      <a href="#calendar">Calendar</a>
+      <a href="#how">How it works</a>
+      <a href="#who">Who it's for</a>
       <a href="#faq">FAQ</a>
       <div class="mobile-menu-actions">
         <a href={APP_URL} class="btn ghost">Sign in</a>
@@ -120,38 +262,71 @@ function icon(name: string) {
     <section class="hero">
       <div class="container hero-inner">
         <div class="hero-copy">
-          <h1 class="display">Productivity, all in one place.</h1>
+          <span class="eyebrow">Calm by design</span>
+          <h1 class="display">Productivity without the noise.</h1>
           <p class="hero-sub">
-            Tasks, projects, calendar, notes, and a Pomodoro timer — in one
-            calm, privacy-first app. No account required to start.
+            Tasks, projects, calendar, notes, and focus timers — in one calm
+            app that gets out of your way. No signup, no clutter, no guilt.
+          </p>
+          <p class="hero-emphasis">
+            Most productivity apps get in your way. Aschertype gets out of it.
           </p>
           <div class="hero-actions">
-            <a href={APP_URL} class="btn primary">Start for free</a>
+            <a href={APP_URL} class="btn primary">
+              Start for free
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </a>
             <a href="#features" class="btn ghost">See what's inside</a>
           </div>
+          <ul class="hero-points">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+              No signup wall
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+              Works offline
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+              Free forever
+            </li>
+          </ul>
         </div>
 
-        <div class="hero-visual" aria-hidden="true">
-          <div class="mock-card">
-            <div class="mock-row">
-              <span class="mock-check done"></span>
-              <span class="mock-line long done"></span>
-            </div>
-            <div class="mock-row">
-              <span class="mock-check"></span>
-              <span class="mock-line medium"></span>
-              <span class="mock-tag">Design</span>
-            </div>
-            <div class="mock-row">
-              <span class="mock-check"></span>
-              <span class="mock-line long"></span>
-            </div>
-            <div class="mock-row">
-              <span class="mock-check done"></span>
-              <span class="mock-line medium done"></span>
-              <span class="mock-tag alt">Marketing</span>
-            </div>
-            <div class="mock-progress"><span></span></div>
+        <div class="hero-visual">
+          <img
+            src="/project.png"
+            alt="Aschertype showing a project with tasks, due dates, and a completion progress bar."
+            width="1600"
+            height="900"
+            loading="eager"
+            decoding="async"
+            class="hero-shot"
+          />
+        </div>
+      </div>
+
+      <div class="trust-bar">
+        <div class="container trust-inner">
+          <span class="trust-label">Built for the way you actually work</span>
+          <div class="trust-items">
+            <span class="trust-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              Runs in your browser
+            </span>
+            <span class="trust-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+              Native on desktop
+            </span>
+            <span class="trust-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Private by default
+            </span>
+            <span class="trust-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              Event reminders
+            </span>
           </div>
         </div>
       </div>
@@ -159,7 +334,13 @@ function icon(name: string) {
 
     <section id="features" class="features">
       <div class="container">
-        <h2 class="display">Everything you need. Nothing you don't.</h2>
+        <div class="section-head">
+          <span class="eyebrow">Features</span>
+          <h2 class="display">Built to stay out of your way.</h2>
+          <p class="section-sub">
+            Everything you need to organize your day. Nothing you'll need to configure.
+          </p>
+        </div>
         <div class="feature-grid">
           {features.map((f) => (
             <div class="feature-card">
@@ -172,9 +353,239 @@ function icon(name: string) {
       </div>
     </section>
 
+    <section id="calendar" class="calendar">
+      <div class="container calendar-inner">
+        <div class="calendar-copy">
+          <span class="eyebrow">Calendar</span>
+          <h2 class="display">A calendar that reminds you. Not one you forget.</h2>
+          <p>
+            Add events to any day. Set a time and Aschertype will notify you when
+            it\u2019s starting — no more missed meetings, deadlines, or calls. Leave
+            the time blank and it lives as an all-day event, exactly where it
+            belongs.
+          </p>
+          <ul class="calendar-points">
+            {calendarPoints.map((point) => (
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                <span>{point}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div class="calendar-visual">
+          <img
+            src="/calendar.png"
+            alt="Aschertype calendar month view with events on different days."
+            width="1400"
+            height="1000"
+            loading="lazy"
+            decoding="async"
+            class="calendar-shot"
+          />
+        </div>
+      </div>
+
+      <div class="container reminder-strip">
+        <div class="reminder-card">
+          <div class="reminder-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </div>
+          <div class="reminder-copy">
+            <h3>Reminders that actually arrive</h3>
+            <p>When an event has a time, Aschertype sends a notification so you don\u2019t miss it. Works on desktop and in the browser.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="principles" class="principles">
+      <div class="container">
+        <div class="section-head centered">
+          <span class="eyebrow">Principles</span>
+          <h2 class="display">Why we built it this way.</h2>
+        </div>
+        <div class="principle-grid">
+          {principles.map((p) => (
+            <div class="principle-card">
+              <div class="principle-icon" set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${icon(p.icon)}</svg>`} />
+              <h3>{p.title}</h3>
+              <p>{p.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section id="how" class="how">
+      <div class="container">
+        <div class="section-head">
+          <span class="eyebrow">How it works</span>
+          <h2 class="display">Three steps. That's it.</h2>
+        </div>
+        <div class="steps">
+          {steps.map((s) => (
+            <div class="step">
+              <div class="step-num display">{s.n}</div>
+              <div class="step-icon" set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${icon(s.icon)}</svg>`} />
+              <h3>{s.title}</h3>
+              <p>{s.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section id="collab" class="collab">
+      <div class="container collab-inner">
+        <div class="collab-copy">
+          <span class="eyebrow">Group projects</span>
+          <h2 class="display">Collaboration, without the chaos.</h2>
+          <p>
+            Invite someone by email. They see the project, they can check things off,
+            everyone stays in sync. No Slack. No @-mentions. No notifications you
+            didn't ask for. Just the list, and the people working on it.
+          </p>
+          <ul class="collab-points">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+              Invite by email in one click
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+              Everyone sees the same list, live
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+              Permission to add, rename, or remove — your call
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+              Free. No team plan, no seat pricing
+            </li>
+          </ul>
+        </div>
+        <div class="collab-visual">
+          <img
+            src="/project.png"
+            alt="A shared Aschertype project viewed by multiple people."
+            width="1200"
+            height="700"
+            loading="lazy"
+            decoding="async"
+            class="collab-shot"
+          />
+        </div>
+      </div>
+    </section>
+
+    <section id="who" class="who">
+      <div class="container">
+        <div class="section-head centered">
+          <span class="eyebrow">Fit</span>
+          <h2 class="display">Who it's for. And who it isn't.</h2>
+          <p class="section-sub">
+            Being honest about this saves us both time.
+          </p>
+        </div>
+
+        <div class="who-grid">
+          <div class="who-card for">
+            <div class="who-head">
+              <span class="who-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+              </span>
+              <h3>Aschertype is for you if</h3>
+            </div>
+            <ul>
+              {forYou.map((item) => (
+                <li>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div class="who-card against">
+            <div class="who-head">
+              <span class="who-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </span>
+              <h3>Aschertype isn't for you if</h3>
+            </div>
+            <ul>
+              {notForYou.map((item) => (
+                <li>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="compare" class="compare">
+      <div class="container">
+        <div class="section-head">
+          <span class="eyebrow">Compare</span>
+          <h2 class="display">Why people leave their old tools.</h2>
+          <p class="section-sub">
+            Most productivity apps ask you to sign up, sync to their servers,
+            and live in their ecosystem. Aschertype does the opposite.
+          </p>
+        </div>
+
+        <div class="compare-table" role="table" aria-label="Feature comparison">
+          <div class="compare-head" role="row">
+            <div class="compare-cell label" role="columnheader">Feature</div>
+            <div class="compare-cell ours" role="columnheader">
+              <img src="/favicon.png" alt="" width="20" height="20" />
+              Aschertype
+            </div>
+            <div class="compare-cell theirs" role="columnheader">Typical apps</div>
+          </div>
+
+          {compareRows.map((row) => (
+            <div class="compare-row" role="row">
+              <div class="compare-cell label" role="cell">{row.feature}</div>
+              <div class="compare-cell ours" role="cell">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                <span>Yes</span>
+              </div>
+              <div class="compare-cell theirs" role="cell">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                <span>{row.others}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section id="platforms" class="platforms">
+      <div class="container">
+        <div class="section-head centered">
+          <span class="eyebrow">Available everywhere</span>
+          <h2 class="display">One app. Every device you use.</h2>
+        </div>
+        <div class="platform-grid">
+          {platforms.map((p) => (
+            <div class="platform-card">
+              <div class="platform-icon" set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${icon(p.icon)}</svg>`} />
+              <span>{p.name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
     <section id="privacy" class="privacy">
       <div class="container privacy-inner">
         <div class="privacy-copy">
+          <span class="eyebrow">Privacy</span>
           <h2 class="display">Your data, your device — by default.</h2>
           <p>
             Aschertype works fully offline and signed out. Create a free
@@ -191,11 +602,28 @@ function icon(name: string) {
           ))}
         </ul>
       </div>
+
+      <div class="container privacy-donts-wrap">
+        <div class="privacy-donts">
+          <h3 class="display">What we don't do.</h3>
+          <ul class="donts-list">
+            {privacyDonts.map((item) => (
+              <li>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
     </section>
 
     <section id="faq" class="faq">
       <div class="container faq-inner">
-        <h2 class="display">Questions, answered</h2>
+        <div class="section-head centered">
+          <span class="eyebrow">FAQ</span>
+          <h2 class="display">Questions, answered</h2>
+        </div>
         <div class="faq-list">
           {faqs.map((item) => (
             <details class="faq-item">
@@ -212,8 +640,12 @@ function icon(name: string) {
 
     <section class="cta">
       <div class="container cta-inner">
-        <h2 class="display">Ready to get organized?</h2>
-        <a href={APP_URL} class="btn primary">Open Aschertype</a>
+        <h2 class="display">Ready for a calmer way to work?</h2>
+        <p class="cta-sub">Open Aschertype and start in seconds. No signup. No card. No catch.</p>
+        <a href={APP_URL} class="btn primary">
+          Open Aschertype
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
       </div>
     </section>
   </main>
@@ -223,7 +655,11 @@ function icon(name: string) {
       <span>&copy; {new Date().getFullYear()} Aschertype</span>
       <div class="footer-links">
         <a href="#features">Features</a>
+        <a href="#calendar">Calendar</a>
+        <a href="#how">How it works</a>
+        <a href="#who">Who it's for</a>
         <a href="#privacy">Privacy</a>
+        <a href="#faq">FAQ</a>
         <a href={APP_URL}>Sign in</a>
       </div>
     </div>
@@ -277,7 +713,7 @@ function icon(name: string) {
   .nav-links {
     display: flex;
     align-items: center;
-    gap: 28px;
+    gap: 22px;
     flex: 1;
     justify-content: center;
   }
@@ -333,94 +769,131 @@ function icon(name: string) {
   }
   .mobile-menu-actions .btn { flex: 1; }
 
+  /* ===== Shared section head ===== */
+  .section-head { margin-bottom: 48px; }
+  .section-head.centered { text-align: center; max-width: 640px; margin-inline: auto; }
+  .eyebrow {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    margin-bottom: 12px;
+  }
+  .section-sub {
+    color: var(--ink-light);
+    font-size: 1rem;
+    line-height: 1.6;
+    margin: 12px 0 0;
+  }
+
   .hero {
-    padding: 88px 0 96px;
+    padding: 80px 0 0;
     background: radial-gradient(720px 360px at 82% -12%, var(--accent-soft), transparent);
   }
   .hero-inner {
     display: grid;
-    grid-template-columns: 1.05fr 0.95fr;
+    grid-template-columns: 1fr 1.1fr;
     gap: 56px;
     align-items: center;
+    padding-bottom: 72px;
   }
   .hero h1 {
-    font-size: clamp(2.4rem, 4.6vw, 3.6rem);
+    font-size: clamp(2.4rem, 4.6vw, 3.4rem);
     line-height: 1.08;
     font-weight: 500;
-    margin: 0 0 20px;
+    margin: 8px 0 20px;
     letter-spacing: -0.01em;
   }
   .hero-sub {
-    font-size: 1.1rem;
+    font-size: 1.08rem;
     color: var(--ink-light);
-    margin: 0 0 32px;
+    margin: 0 0 16px;
+    max-width: 46ch;
+  }
+  .hero-emphasis {
+    font-size: 1rem;
+    color: var(--ink-2);
+    font-weight: 500;
+    margin: 0 0 30px;
+    padding-left: 14px;
+    border-left: 3px solid var(--accent);
     max-width: 46ch;
   }
   .hero-actions {
     display: flex;
     gap: 14px;
     flex-wrap: wrap;
+    margin-bottom: 28px;
   }
+  .hero-points {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+    color: var(--ink-light);
+    font-size: 0.92rem;
+  }
+  .hero-points li { display: inline-flex; align-items: center; gap: 7px; }
+  .hero-points svg { width: 15px; height: 15px; color: var(--accent-ink); }
 
   .hero-visual { display: flex; justify-content: center; }
-  .mock-card {
+  .hero-shot {
     width: 100%;
-    max-width: 360px;
-    background: var(--card);
+    height: auto;
+    border-radius: 14px;
     border: 1px solid var(--border);
-    border-radius: 18px;
     box-shadow: var(--shadow-lg);
-    padding: 22px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-  .mock-row { display: flex; align-items: center; gap: 10px; }
-  .mock-check {
-    width: 17px; height: 17px; border-radius: 50%;
-    border: 1.5px solid var(--border-hover);
-    flex-shrink: 0;
-  }
-  .mock-check.done { background: var(--accent); border-color: var(--accent); }
-  .mock-line {
-    height: 9px; border-radius: 5px;
-    background: var(--task-bg, var(--border));
-  }
-  .mock-line.done { opacity: 0.45; }
-  .mock-line.long { width: 62%; }
-  .mock-line.medium { width: 42%; }
-  .mock-tag {
-    margin-left: auto;
-    font-size: 10px;
-    font-weight: 600;
-    padding: 3px 9px;
-    border-radius: 9999px;
-    background: var(--accent-soft);
-    color: var(--accent-ink);
-    white-space: nowrap;
-  }
-  .mock-tag.alt { background: var(--border); color: var(--ink-light); }
-  .mock-progress {
-    height: 5px;
-    border-radius: 9999px;
-    background: var(--border);
-    overflow: hidden;
-    margin-top: 4px;
-  }
-  .mock-progress span {
     display: block;
-    width: 55%;
-    height: 100%;
-    background: var(--accent);
-    border-radius: 9999px;
+    background: var(--card);
   }
+
+  /* ===== Trust bar ===== */
+  .trust-bar {
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-elev);
+    padding: 20px 0;
+  }
+  .trust-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
+    flex-wrap: wrap;
+  }
+  .trust-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-light);
+  }
+  .trust-items {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .trust-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--ink-2);
+  }
+  .trust-item svg { width: 17px; height: 17px; color: var(--accent-ink); }
 
   .features { padding: 88px 0; }
   .features h2 {
     font-size: 2rem;
     font-weight: 500;
-    margin-bottom: 48px;
-    max-width: 20ch;
+    margin: 0 0 12px;
+    max-width: 22ch;
   }
   .feature-grid {
     display: grid;
@@ -433,7 +906,9 @@ function icon(name: string) {
     border-radius: 16px;
     padding: 26px;
     box-shadow: var(--shadow-sm);
+    transition: border-color 0.15s ease, transform 0.15s ease;
   }
+  .feature-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
   .feature-icon {
     width: 42px; height: 42px;
     border-radius: 11px;
@@ -446,27 +921,308 @@ function icon(name: string) {
   .feature-card h3 { margin: 0 0 8px; font-size: 1.05rem; color: var(--ink); font-weight: 600; }
   .feature-card p { margin: 0; color: var(--ink-light); font-size: 0.93rem; line-height: 1.55; }
 
-  .privacy {
-    padding: 80px 0;
-    background: var(--bg-elev);
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
+  /* ===== Calendar ===== */
+  .calendar { padding: 88px 0; background: var(--bg-elev); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .calendar-inner {
+    display: grid;
+    grid-template-columns: 1fr 1.1fr;
+    gap: 56px;
+    align-items: center;
   }
+  .calendar-copy h2 { font-size: 1.9rem; font-weight: 500; margin: 8px 0 16px; max-width: 22ch; }
+  .calendar-copy p { color: var(--ink-light); line-height: 1.65; margin: 0 0 22px; }
+  .calendar-points { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+  .calendar-points li { display: flex; align-items: flex-start; gap: 12px; font-size: 0.97rem; color: var(--ink-2); line-height: 1.5; }
+  .calendar-points svg { width: 18px; height: 18px; color: var(--accent-ink); flex-shrink: 0; margin-top: 3px; }
+  .calendar-visual { display: flex; justify-content: center; }
+  .calendar-shot {
+    width: 100%;
+    height: auto;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
+    display: block;
+    background: var(--card);
+  }
+
+  .reminder-strip { margin-top: 64px; }
+  .reminder-card {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 32px;
+    box-shadow: var(--shadow-sm);
+  }
+  .reminder-icon {
+    width: 56px; height: 56px;
+    border-radius: 14px;
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .reminder-icon svg { width: 26px; height: 26px; }
+  .reminder-copy h3 { margin: 0 0 6px; font-size: 1.1rem; font-weight: 600; }
+  .reminder-copy p { margin: 0; color: var(--ink-light); font-size: 0.95rem; line-height: 1.55; }
+
+  /* ===== Principles ===== */
+  .principles { padding: 88px 0; }
+  .principle-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 24px;
+  }
+  .principle-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 30px 26px;
+    box-shadow: var(--shadow-sm);
+    text-align: center;
+  }
+  .principle-icon {
+    width: 48px; height: 48px;
+    border-radius: 13px;
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 18px;
+  }
+  .principle-icon svg { width: 22px; height: 22px; }
+  .principle-card h3 { margin: 0 0 10px; font-size: 1.1rem; font-weight: 600; }
+  .principle-card p { margin: 0; color: var(--ink-light); font-size: 0.93rem; line-height: 1.6; }
+
+  /* ===== How it works ===== */
+  .how { padding: 88px 0; background: var(--bg-elev); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 24px;
+  }
+  .step {
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 30px 26px 26px;
+    box-shadow: var(--shadow-sm);
+  }
+  .step-num {
+    position: absolute;
+    top: 18px;
+    right: 22px;
+    font-size: 1.6rem;
+    font-weight: 500;
+    color: var(--border-hover);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .step-icon {
+    width: 42px; height: 42px;
+    border-radius: 11px;
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 18px;
+  }
+  .step-icon svg { width: 20px; height: 20px; }
+  .step h3 { margin: 0 0 8px; font-size: 1.05rem; font-weight: 600; }
+  .step p { margin: 0; color: var(--ink-light); font-size: 0.93rem; line-height: 1.55; }
+
+  /* ===== Collaboration ===== */
+  .collab { padding: 88px 0; }
+  .collab-inner {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 56px;
+    align-items: center;
+  }
+  .collab-copy h2 { font-size: 1.9rem; font-weight: 500; margin: 8px 0 16px; }
+  .collab-copy p { color: var(--ink-light); line-height: 1.65; margin: 0 0 22px; }
+  .collab-points { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+  .collab-points li { display: flex; align-items: flex-start; gap: 12px; font-size: 0.97rem; }
+  .collab-points svg { width: 18px; height: 18px; color: var(--accent-ink); flex-shrink: 0; margin-top: 3px; }
+  .collab-visual { display: flex; justify-content: center; }
+  .collab-shot {
+    width: 100%;
+    height: auto;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
+    display: block;
+    background: var(--card);
+  }
+
+  /* ===== Who it's for ===== */
+  .who { padding: 88px 0; background: var(--bg-elev); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .who-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .who-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px 30px;
+    box-shadow: var(--shadow-sm);
+  }
+  .who-card.for { border-top: 3px solid var(--accent); }
+  .who-card.against { border-top: 3px solid var(--border-hover); }
+  .who-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+  .who-badge {
+    width: 34px; height: 34px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .who-card.for .who-badge { background: var(--accent-soft); color: var(--accent-ink); }
+  .who-card.against .who-badge { background: var(--bg-elev); color: var(--ink-light); }
+  .who-badge svg { width: 18px; height: 18px; }
+  .who-card h3 { margin: 0; font-size: 1.05rem; font-weight: 600; }
+  .who-card ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+  .who-card li { display: flex; align-items: flex-start; gap: 12px; font-size: 0.95rem; color: var(--ink-2); line-height: 1.5; }
+  .who-card.for li svg { color: var(--accent-ink); }
+  .who-card.against li svg { color: var(--ink-light); }
+  .who-card li svg { width: 17px; height: 17px; flex-shrink: 0; margin-top: 3px; }
+
+  /* ===== Compare table ===== */
+  .compare { padding: 88px 0; }
+  .compare-table {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--card);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  .compare-head,
+  .compare-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    align-items: center;
+  }
+  .compare-head {
+    background: var(--bg-elev);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--ink-2);
+  }
+  .compare-row { border-bottom: 1px solid var(--border); }
+  .compare-row:last-child { border-bottom: none; }
+  .compare-cell {
+    padding: 18px 22px;
+    font-size: 0.94rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .compare-cell.label { color: var(--ink); font-weight: 500; }
+  .compare-cell.ours {
+    color: var(--accent-ink);
+    font-weight: 600;
+    background: var(--accent-soft);
+  }
+  .compare-cell.theirs { color: var(--ink-light); }
+  .compare-cell svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .compare-cell.ours svg { color: var(--accent-ink); }
+  .compare-cell.theirs svg { color: var(--ink-light); opacity: 0.7; }
+  .compare-head .compare-cell.ours { justify-content: flex-start; }
+  .compare-head img { border-radius: 5px; }
+
+  /* ===== Platforms ===== */
+  .platforms { padding: 88px 0; background: var(--bg-elev); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .platform-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+  }
+  .platform-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 26px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--ink-2);
+    box-shadow: var(--shadow-sm);
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .platform-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+  .platform-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .platform-icon svg { width: 22px; height: 22px; }
+
+  /* ===== Privacy ===== */
+  .privacy { padding: 88px 0; }
   .privacy-inner {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 48px;
     align-items: center;
   }
-  .privacy-copy h2 { font-size: 1.9rem; font-weight: 500; margin: 0 0 16px; }
+  .privacy-copy h2 { font-size: 1.9rem; font-weight: 500; margin: 8px 0 16px; }
   .privacy-copy p { color: var(--ink-light); line-height: 1.65; margin: 0; }
   .privacy-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
   .privacy-list li { display: flex; align-items: flex-start; gap: 12px; font-size: 0.98rem; }
   .privacy-list svg { width: 19px; height: 19px; color: var(--accent-ink); flex-shrink: 0; margin-top: 2px; }
 
-  .faq { padding: 88px 0; }
-  .faq-inner { max-width: 680px; margin: 0 auto; }
-  .faq h2 { font-size: 1.9rem; font-weight: 500; margin: 0 0 32px; text-align: center; }
+  .privacy-donts-wrap { margin-top: 64px; }
+  .privacy-donts {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px 36px;
+    box-shadow: var(--shadow-sm);
+  }
+  .privacy-donts h3 {
+    font-size: 1.25rem;
+    font-weight: 500;
+    margin: 0 0 20px;
+  }
+  .donts-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px 32px;
+  }
+  .donts-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 0.95rem;
+    color: var(--ink-2);
+  }
+  .donts-list svg {
+    width: 17px; height: 17px;
+    color: var(--ink-light);
+    flex-shrink: 0;
+    margin-top: 3px;
+  }
+
+  /* ===== FAQ ===== */
+  .faq { padding: 88px 0; background: var(--bg-elev); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .faq-inner { max-width: 720px; margin: 0 auto; }
   .faq-list { display: flex; flex-direction: column; gap: 10px; }
   .faq-item {
     border: 1px solid var(--border);
@@ -499,8 +1255,9 @@ function icon(name: string) {
     line-height: 1.6;
   }
 
-  .cta { padding: 88px 0; text-align: center; }
-  .cta h2 { font-size: 1.9rem; font-weight: 500; margin-bottom: 26px; }
+  .cta { padding: 96px 0; text-align: center; }
+  .cta h2 { font-size: 1.9rem; font-weight: 500; margin: 0 0 12px; }
+  .cta-sub { color: var(--ink-light); margin: 0 0 28px; font-size: 1rem; }
 
   .site-footer { border-top: 1px solid var(--border); padding-block: 26px; }
   .footer-inner {
@@ -512,29 +1269,55 @@ function icon(name: string) {
     flex-wrap: wrap;
     gap: 12px;
   }
-  .footer-links { display: flex; gap: 20px; }
+  .footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
   .footer-links a { color: var(--ink-light); text-decoration: none; }
   .footer-links a:hover { color: var(--ink); }
+
+  @media (max-width: 960px) {
+    .hero-inner { grid-template-columns: 1fr; gap: 40px; text-align: center; padding-bottom: 56px; }
+    .hero-sub, .hero-emphasis { margin-inline: auto; }
+    .hero-actions { justify-content: center; }
+    .hero-points { justify-content: center; }
+    .hero-emphasis { text-align: left; }
+    .calendar-inner { grid-template-columns: 1fr; gap: 40px; }
+    .collab-inner { grid-template-columns: 1fr; gap: 40px; }
+    .privacy-inner { grid-template-columns: 1fr; gap: 32px; }
+    .who-grid { grid-template-columns: 1fr; }
+  }
 
   @media (max-width: 860px) {
     .nav-links { display: none; }
     .desktop-only { display: none; }
     .menu-toggle { display: flex; }
 
-    .hero { padding: 56px 0 64px; }
-    .hero-inner { grid-template-columns: 1fr; gap: 40px; text-align: center; }
-    .hero-sub { margin-inline: auto; }
-    .hero-actions { justify-content: center; }
-    .mock-card { max-width: 320px; }
+    .hero { padding: 56px 0 0; }
+    .features, .faq, .cta, .privacy, .how, .compare, .platforms, .principles, .collab, .who, .calendar { padding-block: 64px; }
 
-    .privacy-inner { grid-template-columns: 1fr; gap: 32px; text-align: left; }
+    .trust-inner { gap: 16px; }
+    .trust-items { gap: 20px; }
 
-    .features, .faq, .cta, .privacy { padding-block: 64px; }
+    .compare-head, .compare-row { grid-template-columns: 1fr 1fr; }
+    .compare-head .compare-cell.label,
+    .compare-row .compare-cell.label {
+      grid-column: 1 / -1;
+      background: var(--bg-elev);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+      padding-top: 12px;
+    }
+    .compare-cell { padding: 14px 16px; font-size: 0.9rem; }
+
+    .reminder-card { flex-direction: column; align-items: flex-start; gap: 16px; padding: 24px; }
 
     .footer-inner { flex-direction: column; align-items: flex-start; }
   }
 
   @media (max-width: 480px) {
     .feature-grid { grid-template-columns: 1fr; }
+    .steps { grid-template-columns: 1fr; }
+    .platform-grid { grid-template-columns: repeat(2, 1fr); }
+    .who-card { padding: 26px 22px; }
+    .privacy-donts { padding: 26px 22px; }
+    .reminder-card { padding: 20px; }
   }
 </style>
