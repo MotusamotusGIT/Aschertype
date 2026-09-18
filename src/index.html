@@ -861,6 +861,19 @@
     </div>
   </div>
 
+  <!-- ===== Add category modal (replaces unreliable window.prompt) ===== -->
+  <div id="category-modal-overlay" class="modal-overlay" style="display:none">
+    <div class="modal-card category-modal-card">
+      <div class="category-modal-title">New category</div>
+      <input type="text" id="category-modal-input" class="category-modal-input" placeholder="e.g. Design, Marketing, Personal" maxlength="40" autocomplete="off">
+      <div id="category-modal-error" class="category-modal-error" style="display:none"></div>
+      <div class="modal-actions">
+        <button type="button" id="category-modal-cancel" class="btn small">Cancel</button>
+        <button type="button" id="category-modal-save" class="btn primary small">Add category</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
   <footer class="tips-bar" id="tips-bar">

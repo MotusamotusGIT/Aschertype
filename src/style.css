@@ -854,39 +854,59 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .task-card.touch-dragging { opacity: 0.45; }
 
 .task-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-.task-card-top-left { display: flex; align-items: flex-start; gap: 9px; min-width: 0; flex: 1; }
-
-.task-check {
-  width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--border);
-  background: var(--bg); flex-shrink: 0; margin-top: 2px; cursor: pointer;
-  appearance: none; -webkit-appearance: none; display: grid; place-content: center;
-  transition: background-color .15s ease, border-color .15s ease;
-}
-.task-check:checked { background: var(--accent); border-color: var(--accent); }
-.task-check:checked::after {
-  content: ""; width: 4.5px; height: 8px; border: solid var(--accent-contrast); border-width: 0 1.6px 1.6px 0;
-  transform: rotate(45deg) translate(-1px, -1px);
-}
-.task-check:disabled { opacity: .45; cursor: not-allowed; }
+.task-card-header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
 .task-main { min-width: 0; flex: 1; }
 .task-title {
-  font-size: 15px; font-weight: 600; color: var(--ink-2); line-height: 1.35; word-break: break-word;
+  font-size: 15.5px; font-weight: 700; color: var(--ink); line-height: 1.35; word-break: break-word;
 }
 .task-card-category {
   font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 9999px;
   background: var(--accent-soft); color: var(--accent-ink); flex-shrink: 0; white-space: nowrap;
 }
 .task-desc {
-  font-size: 13px; font-weight: 500; color: var(--ink); line-height: 1.5;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: 13px; font-weight: 500; color: var(--ink-light); line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 
-.task-card-footer {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
-  margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border);
-}
 .task-meta { display: flex; gap: 5px; flex-wrap: wrap; }
+
+/* ===== Bottom row: round checkbox + priority progress bar (screenshot style) ===== */
+.task-card-progress-row {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: auto; padding-top: 12px;
+}
+.task-check {
+  width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--border);
+  background: var(--bg); flex-shrink: 0; cursor: pointer;
+  appearance: none; -webkit-appearance: none; display: grid; place-content: center;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.task-check:checked { background: var(--accent); border-color: var(--accent); }
+.task-check:checked::after {
+  content: ""; width: 5px; height: 9px; border: solid var(--accent-contrast); border-width: 0 1.6px 1.6px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+.task-check:disabled { opacity: .45; cursor: not-allowed; }
+
+.task-card-progress-track {
+  flex: 1; height: 6px; border-radius: 9999px; background: var(--task-bg);
+  overflow: hidden; min-width: 0;
+}
+.task-card-progress-fill {
+  display: block; height: 100%; border-radius: 9999px; background: var(--border-hover);
+  transition: width .25s ease, background-color .15s ease;
+}
+.task-card.completed .task-card-progress-fill { background: var(--accent); }
+
+.task-priority-flag {
+  flex-shrink: 0; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+  color: var(--low);
+}
+.task-priority-flag svg { width: 15px; height: 15px; }
+.task-priority-flag.priority-medium { color: var(--medium); }
+.task-priority-flag.priority-high { color: var(--high); }
+.task-card.completed .task-priority-flag { opacity: 0.5; }
 .task-pill {
   display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 500;
   padding: 2.5px 8px 2.5px 6px; border-radius: 9999px; background: var(--bg); color: var(--ink-light); border: 1px solid transparent;
@@ -1243,6 +1263,15 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 }
 .closeout-item-actions button:hover { border-color: var(--accent); color: var(--accent-ink); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 8px; }
+
+.category-modal-card { max-width: 360px; display: flex; flex-direction: column; gap: 12px; }
+.category-modal-title { font-size: 16px; font-weight: 700; color: var(--ink); }
+.category-modal-input {
+  width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--task-bg); color: var(--ink); font-size: 14px; font-family: inherit;
+}
+.category-modal-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.category-modal-error { color: var(--high); font-size: 12.5px; }
 
 /* ===== Welcome modal ===== */
 .welcome-card {

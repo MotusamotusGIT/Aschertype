@@ -696,15 +696,56 @@ function renderTaskCategorySelects(selectedForAdd, selectedForDetail) {
     sel.value = taskCategories.includes(keep) ? keep : '';
   });
 }
-function addTaskCategory(targetSelect) {
-  const name = prompt('New category name:');
-  if (!name || !name.trim()) return;
-  const trimmed = name.trim();
+// ===== Add-category modal =====
+// NOTE: this used to call window.prompt(), which Electron/many embedded
+// webviews do not implement (it silently no-ops), which is why the "+"
+// button appeared broken. Replaced with a proper in-app modal.
+const categoryModalOverlay = document.getElementById('category-modal-overlay');
+const categoryModalInput = document.getElementById('category-modal-input');
+const categoryModalError = document.getElementById('category-modal-error');
+const categoryModalCancel = document.getElementById('category-modal-cancel');
+const categoryModalSave = document.getElementById('category-modal-save');
+let categoryModalTargetSelect = null;
+
+function openCategoryModal(targetSelect) {
+  categoryModalTargetSelect = targetSelect || null;
+  categoryModalInput.value = '';
+  categoryModalError.style.display = 'none';
+  categoryModalOverlay.style.display = 'flex';
+  requestAnimationFrame(() => categoryModalInput.focus());
+}
+function closeCategoryModal() {
+  categoryModalOverlay.style.display = 'none';
+  categoryModalTargetSelect = null;
+}
+function commitCategoryModal() {
+  const trimmed = categoryModalInput.value.trim();
+  if (!trimmed) {
+    categoryModalError.textContent = 'Enter a category name.';
+    categoryModalError.style.display = 'block';
+    categoryModalInput.focus();
+    return;
+  }
   const exists = taskCategories.some(c => c.toLowerCase() === trimmed.toLowerCase());
   if (!exists) { taskCategories.push(trimmed); saveTaskCategories(); }
   const finalValue = exists ? taskCategories.find(c => c.toLowerCase() === trimmed.toLowerCase()) : trimmed;
   renderTaskCategorySelects();
-  if (targetSelect) targetSelect.value = finalValue;
+  if (categoryModalTargetSelect) categoryModalTargetSelect.value = finalValue;
+  closeCategoryModal();
+}
+categoryModalSave.addEventListener('click', commitCategoryModal);
+categoryModalCancel.addEventListener('click', closeCategoryModal);
+categoryModalOverlay.addEventListener('click', (e) => { if (e.target === categoryModalOverlay) closeCategoryModal(); });
+categoryModalInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); commitCategoryModal(); }
+  else if (e.key === 'Escape') { e.preventDefault(); closeCategoryModal(); }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && categoryModalOverlay.style.display === 'flex') closeCategoryModal();
+});
+
+function addTaskCategory(targetSelect) {
+  openCategoryModal(targetSelect);
 }
 todoAddCategoryBtn.addEventListener('click', () => addTaskCategory(todoCategorySelect));
 
@@ -749,7 +790,13 @@ function myMembership(projectId) {
 }
 function isProjectOwner(projectId) {
   const p = getProject(projectId);
-  return !!p && !!currentUser && p.userId === currentUser.id;
+  if (!p) return false;
+  // No signed-in account (guest/local mode): a project with no userId was
+  // created locally by this same guest, so treat it as owned. Previously this
+  // returned false whenever currentUser was null, which silently blocked
+  // guests from adding/editing tasks in their own projects.
+  if (!currentUser) return !p.userId;
+  return p.userId === currentUser.id;
 }
 function canRenameProject(projectId) {
   if (isProjectOwner(projectId)) return true;
@@ -1010,6 +1057,7 @@ const ICON_PEOPLE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" 
 const ICON_PENCIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>';
 const ICON_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>';
 const ICON_SHIELD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>';
+const ICON_FLAG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V4"></path><path d="M4 4h13l-2.5 4L17 12H4"></path></svg>';
 
 function pillIcon(svgMarkup) {
   const span = document.createElement('span');
@@ -1043,27 +1091,9 @@ function renderTodos() {
       openTaskDetail(t.id);
     });
 
-    // ---- top row: checkbox + title (left), category badge (right) ----
+    // ---- header row: title (left), category badge + hover actions (right) ----
     const top = document.createElement('div');
     top.className = 'task-card-top';
-
-    const topLeft = document.createElement('div');
-    topLeft.className = 'task-card-top-left';
-
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.className = 'task-check';
-    checkbox.checked = t.done;
-    checkbox.disabled = !canToggle;
-    checkbox.title = t.priority === 'high' ? 'High priority' : t.priority === 'medium' ? 'Medium priority' : 'Low priority';
-    checkbox.addEventListener('change', () => {
-      const wasDone = t.done;
-      t.done = checkbox.checked;
-      if (!wasDone && t.done) recordCompletion();
-      saveTodos(); renderTodos(); renderCounts();
-      if (currentUser) dbUpdate('todos', t.id, { done: t.done });
-      if (t.done) showToast('complete');
-    });
 
     const main = document.createElement('div');
     main.className = 'task-main';
@@ -1071,15 +1101,16 @@ function renderTodos() {
     title.className = 'task-title';
     title.textContent = t.text;
     main.appendChild(title);
+    top.appendChild(main);
 
-    topLeft.append(checkbox, main);
-    top.appendChild(topLeft);
+    const headerRight = document.createElement('div');
+    headerRight.className = 'task-card-header-right';
 
     if (t.category) {
       const cat = document.createElement('span');
       cat.className = 'task-card-category';
       cat.textContent = t.category;
-      top.appendChild(cat);
+      headerRight.appendChild(cat);
     }
 
     const actions = document.createElement('div');
@@ -1106,6 +1137,8 @@ function renderTodos() {
       });
       actions.appendChild(del);
     }
+    headerRight.appendChild(actions);
+    top.appendChild(headerRight);
 
     card.append(top);
 
@@ -1116,10 +1149,7 @@ function renderTodos() {
       card.appendChild(desc);
     }
 
-    // ---- footer: due / project pills (left), actions (right, on hover) ----
-    const footer = document.createElement('div');
-    footer.className = 'task-card-footer';
-
+    // ---- meta pills: due / project (only if present) ----
     const meta = document.createElement('div');
     meta.className = 'task-meta';
     if (t.due) {
@@ -1147,9 +1177,41 @@ function renderTodos() {
         meta.appendChild(tag);
       }
     }
-    footer.appendChild(meta);
-    footer.appendChild(actions);
-    card.appendChild(footer);
+    if (meta.children.length) card.appendChild(meta);
+
+    // ---- bottom row: round checkbox + priority progress bar (screenshot style) ----
+    const progressRow = document.createElement('div');
+    progressRow.className = 'task-card-progress-row';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'task-check';
+    checkbox.checked = t.done;
+    checkbox.disabled = !canToggle;
+    checkbox.title = t.priority === 'high' ? 'High priority' : t.priority === 'medium' ? 'Medium priority' : 'Low priority';
+    checkbox.addEventListener('change', () => {
+      const wasDone = t.done;
+      t.done = checkbox.checked;
+      if (!wasDone && t.done) recordCompletion();
+      saveTodos(); renderTodos(); renderCounts();
+      if (currentUser) dbUpdate('todos', t.id, { done: t.done });
+      if (t.done) showToast('complete');
+    });
+
+    const track = document.createElement('span');
+    track.className = 'task-card-progress-track';
+    const fill = document.createElement('span');
+    fill.className = 'task-card-progress-fill';
+    fill.style.width = (t.done ? 100 : 0) + '%';
+    track.appendChild(fill);
+
+    const flag = document.createElement('span');
+    flag.className = 'task-priority-flag priority-' + t.priority;
+    flag.title = t.priority === 'high' ? 'High priority' : t.priority === 'medium' ? 'Medium priority' : 'Low priority';
+    flag.innerHTML = ICON_FLAG;
+
+    progressRow.append(checkbox, track, flag);
+    card.appendChild(progressRow);
 
     todoListEl.appendChild(card);
   });
