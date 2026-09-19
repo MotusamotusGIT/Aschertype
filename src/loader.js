@@ -3,7 +3,7 @@
 // No CDN — the SDK is vendored in ./vendor/supabase.min.js.
 (function boot() {
   const APP_SCRIPTS = [
-    '../vendor/supabase.min.js',
+    './vendor/supabase.min.js',
     './supabase-config.js',
     './utils.js',
     './db.js',
