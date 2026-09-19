@@ -5,6 +5,49 @@ function isPlausibleEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+// ===== Leaked password check (HaveIBeenPwned, k-anonymity) =====
+// Supabase's built-in leaked-password check is a Pro-tier feature.
+// This is the free equivalent: hash the password with SHA-1, send
+// only the first 5 hex characters of the hash to the API, and check
+// whether the remaining 35-character suffix appears in the returned
+// list. The full password (and even the full hash) never leaves the
+// browser — HIBP only ever sees a 5-character prefix shared by many
+// thousands of unrelated hashes.
+async function checkPasswordPwned(password) {
+  try {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+    const prefix = hashHex.slice(0, 5);
+    const suffix = hashHex.slice(5);
+
+    const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
+      headers: { 'Add-Padding': 'true' },
+    });
+    if (!res.ok) {
+      console.warn('[PwnedCheck] API returned', res.status, '— skipping check, allowing submission.');
+      return { checked: false, pwned: false, count: 0 };
+    }
+
+    const text = await res.text();
+    const lines = text.split('\n');
+    for (const line of lines) {
+      const [lineSuffix, countStr] = line.trim().split(':');
+      if (lineSuffix === suffix) {
+        return { checked: true, pwned: true, count: parseInt(countStr, 10) || 0 };
+      }
+    }
+    return { checked: true, pwned: false, count: 0 };
+  } catch (err) {
+    // Network failure, ad blocker, offline, etc. — fail open rather
+    // than blocking account creation entirely over a best-effort check.
+    console.warn('[PwnedCheck] Check failed, allowing submission:', err.message);
+    return { checked: false, pwned: false, count: 0 };
+  }
+}
+
 const RL_KEY = 'aschertypeRateLimits';
 
 function loadRateLimitState() {
@@ -143,6 +186,7 @@ const electronSecureStorage = {
 
 if (typeof window !== 'undefined') {
   window.isPlausibleEmail = isPlausibleEmail;
+  window.checkPasswordPwned = checkPasswordPwned;
   window.formatWait = formatWait;
   window.checkRateLimit = checkRateLimit;
   window.recordAttempt = recordAttempt;

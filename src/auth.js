@@ -3,6 +3,18 @@
 let currentUser = null;
 let isGuest = false;
 
+let loginCaptchaToken = null;
+let registerCaptchaToken = null;
+
+window.onLoginCaptcha = function (token) { loginCaptchaToken = token; };
+window.onRegisterCaptcha = function (token) { registerCaptchaToken = token; };
+
+function resetCaptcha(widgetIndex) {
+  if (typeof window.hcaptcha !== 'undefined') {
+    try { window.hcaptcha.reset(widgetIndex); } catch (err) {}
+  }
+}
+
 const authScreen = document.getElementById('auth-screen');
 const authTabLogin = document.getElementById('auth-tab-login');
 const authTabRegister = document.getElementById('auth-tab-register');
@@ -90,6 +102,7 @@ loginForm.addEventListener('submit', async (e) => {
   const forgetSession = document.getElementById('login-forget-session').checked;
 
   if (!isPlausibleEmail(email)) { showAuthError('Enter a valid email address.'); return; }
+  if (!loginCaptchaToken) { showAuthError('Please complete the captcha.'); return; }
   if (!supabaseReady) {
     showAuthError('Accounts are not set up yet on this deployment. Use "Continue without an account" below.');
     return;
@@ -100,8 +113,14 @@ loginForm.addEventListener('submit', async (e) => {
   recordAttempt('login', 60000);
   setRememberPreference(!forgetSession);
 
-  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password,
+    options: { captchaToken: loginCaptchaToken },
+  });
   clearButtonBusy(submitBtn);
+  resetCaptcha();
+  loginCaptchaToken = null;
 
   if (error) {
     recordFailure('login');
@@ -138,12 +157,20 @@ registerForm.addEventListener('submit', async (e) => {
     return;
   }
   if (password !== confirm) { showAuthError('Passwords do not match.'); return; }
+  if (!registerCaptchaToken) { showAuthError('Please complete the captcha.'); return; }
   if (!supabaseReady) {
     showAuthError('Accounts are not set up yet on this deployment. Use "Continue without an account" below.');
     return;
   }
 
   const submitBtn = registerForm.querySelector('.auth-submit');
+  setButtonBusy(submitBtn, 'Checking password…');
+  const pwnedResult = await checkPasswordPwned(password);
+  if (pwnedResult.checked && pwnedResult.pwned) {
+    clearButtonBusy(submitBtn);
+    showAuthError(`That password has appeared in ${pwnedResult.count.toLocaleString()} known data breaches. Please choose a different one.`);
+    return;
+  }
   setButtonBusy(submitBtn, 'Creating account…');
   recordAttempt('register', 60000);
   setRememberPreference(true);
@@ -151,9 +178,14 @@ registerForm.addEventListener('submit', async (e) => {
   const { data, error } = await supabaseClient.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: `${window.location.origin}/confirm.html` },
+    options: {
+      emailRedirectTo: `${window.location.origin}/confirm.html`,
+      captchaToken: registerCaptchaToken,
+    },
   });
   clearButtonBusy(submitBtn);
+  resetCaptcha();
+  registerCaptchaToken = null;
 
   if (error) { recordFailure('register'); showAuthError(error.message); return; }
 

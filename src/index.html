@@ -32,16 +32,19 @@
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'self';
                  img-src 'self' data: blob:;
-                 style-src 'self' 'unsafe-inline';
-                 script-src 'self';
-                 connect-src 'self' https://*.supabase.co wss://*.supabase.co;
+                 style-src 'self' 'unsafe-inline' https://hcaptcha.com https://*.hcaptcha.com;
+                 script-src 'self' https://hcaptcha.com https://*.hcaptcha.com;
+                 connect-src 'self' https://*.supabase.co wss://*.supabase.co https://hcaptcha.com https://*.hcaptcha.com;
                  font-src 'self';
                  worker-src 'self' blob:;
+                 frame-src https://hcaptcha.com https://*.hcaptcha.com;
                  base-uri 'self';
                  form-action 'self';
                  object-src 'none'">
 
   <link rel="stylesheet" href="style.css">
+
+  <script src="https://hcaptcha.com/1/api.js" async defer></script>
 </head>
 <body>
 
@@ -107,6 +110,7 @@
           Forget login session when app closes
         </label>
         <button type="submit" class="btn primary auth-submit">Sign in</button>
+        <div class="h-captcha" data-sitekey="YOUR_HCAPTCHA_SITE_KEY" data-callback="onLoginCaptcha"></div>
         <button type="button" id="forgot-password-btn" class="auth-link-btn">Forgot password?</button>
       </form>
 
@@ -145,6 +149,7 @@
           </span>
         </label>
         <button type="submit" class="btn primary auth-submit">Create account</button>
+        <div class="h-captcha" data-sitekey="YOUR_HCAPTCHA_SITE_KEY" data-callback="onRegisterCaptcha"></div>
       </form>
 
       <div class="auth-divider"><span>or</span></div>
