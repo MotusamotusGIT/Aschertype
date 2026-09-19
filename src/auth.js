@@ -15,6 +15,45 @@ function resetCaptcha(widgetIndex) {
   }
 }
 
+// ---- HIBP k-anonymity password breach check -------------------------------
+// Sends only the first 5 chars of the SHA-1 hash to the HIBP range API;
+// compares the remaining 35 chars locally. Fails open on any error.
+async function checkPasswordPwned(password) {
+  try {
+    const enc = new TextEncoder().encode(password);
+    const hashBuf = await crypto.subtle.digest('SHA-1', enc);
+    const hashHex = [...new Uint8Array(hashBuf)]
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase();
+    const prefix = hashHex.slice(0, 5);
+    const suffix = hashHex.slice(5);
+
+    const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
+      // HIBP supports CORS on this endpoint; no custom headers needed.
+      method: 'GET',
+    });
+    if (!res.ok) return { checked: false, pwned: false, count: 0 };
+
+    const text = await res.text();
+    for (const line of text.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const [hashSuffix, countStr] = trimmed.split(':');
+      if (hashSuffix === suffix) {
+        const count = parseInt(countStr, 10) || 0;
+        return { checked: true, pwned: true, count };
+      }
+    }
+    return { checked: true, pwned: false, count: 0 };
+  } catch (err) {
+    // Network/CORS/crypto failure — don't block signup.
+    console.warn('[Auth] Password breach check skipped:', err && err.message);
+    return { checked: false, pwned: false, count: 0 };
+  }
+}
+// ---------------------------------------------------------------------------
+
 const authScreen = document.getElementById('auth-screen');
 const authTabLogin = document.getElementById('auth-tab-login');
 const authTabRegister = document.getElementById('auth-tab-register');
@@ -43,11 +82,13 @@ document.querySelectorAll('.password-toggle').forEach((btn) => {
 });
 
 function showAuthError(msg) {
-  authErrorEl.textContent = msg;
+  if (!authErrorEl) return;
+  authErrorEl.textContent = msg || '';
   authErrorEl.style.display = msg ? 'block' : 'none';
 }
 function showAuthNotice(msg) {
-  authNoticeEl.textContent = msg;
+  if (!authNoticeEl) return;
+  authNoticeEl.textContent = msg || '';
   authNoticeEl.style.display = msg ? 'block' : 'none';
 }
 function setAuthTab(tab) {
@@ -78,18 +119,22 @@ function showAuthScreen() {
 }
 
 function setButtonBusy(btn, busyText) {
+  if (!btn) return;
   btn.dataset.originalText = btn.dataset.originalText || btn.textContent;
   btn.disabled = true;
   btn.textContent = busyText;
 }
 function clearButtonBusy(btn) {
+  if (!btn) return;
   btn.disabled = false;
   if (btn.dataset.originalText) btn.textContent = btn.dataset.originalText;
 }
 
+// -------- Login ------------------------------------------------------------
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  showAuthError(''); showAuthNotice('');
+  showAuthError('');
+  showAuthNotice('');
 
   const rl = checkRateLimit('login', 5, 60000);
   if (rl.limited) {
@@ -113,32 +158,41 @@ loginForm.addEventListener('submit', async (e) => {
   recordAttempt('login', 60000);
   setRememberPreference(!forgetSession);
 
-  const { data, error } = await supabaseClient.auth.signInWithPassword({
-    email,
-    password,
-    options: { captchaToken: loginCaptchaToken },
-  });
-  clearButtonBusy(submitBtn);
-  resetCaptcha();
-  loginCaptchaToken = null;
+  try {
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password,
+      options: { captchaToken: loginCaptchaToken },
+    });
 
-  if (error) {
+    if (error) {
+      recordFailure('login');
+      showAuthError('Incorrect email or password.');
+      return;
+    }
+
+    recordSuccess('login');
+    currentUser = data.user;
+    isGuest = false;
+    sessionStorage.removeItem('aschertypeGuest');
+    hideAuthScreen();
+    window.initApp(currentUser);
+  } catch (err) {
+    console.error('[Auth] Sign-in threw:', err);
     recordFailure('login');
-    showAuthError('Incorrect email or password.');
-    return;
+    showAuthError('Something went wrong signing in. Please try again.');
+  } finally {
+    clearButtonBusy(submitBtn);
+    resetCaptcha();
+    loginCaptchaToken = null;
   }
-
-  recordSuccess('login');
-  currentUser = data.user;
-  isGuest = false;
-  sessionStorage.removeItem('aschertypeGuest');
-  hideAuthScreen();
-  window.initApp(currentUser);
 });
 
+// -------- Register ---------------------------------------------------------
 registerForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  showAuthError(''); showAuthNotice('');
+  showAuthError('');
+  showAuthNotice('');
 
   const rl = checkRateLimit('register', 3, 60000);
   if (rl.limited) {
@@ -165,73 +219,98 @@ registerForm.addEventListener('submit', async (e) => {
 
   const submitBtn = registerForm.querySelector('.auth-submit');
   setButtonBusy(submitBtn, 'Checking password…');
-  const pwnedResult = await checkPasswordPwned(password);
-  if (pwnedResult.checked && pwnedResult.pwned) {
+
+  try {
+    const pwnedResult = await checkPasswordPwned(password);
+    if (pwnedResult.checked && pwnedResult.pwned) {
+      showAuthError(
+        `That password has appeared in ${pwnedResult.count.toLocaleString()} known data breaches. Please choose a different one.`
+      );
+      return; // finally block will un-busy the button
+    }
+
+    setButtonBusy(submitBtn, 'Creating account…');
+    recordAttempt('register', 60000);
+    setRememberPreference(true);
+
+    const { data, error } = await supabaseClient.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/confirm.html`,
+        captchaToken: registerCaptchaToken,
+      },
+    });
+
+    if (error) {
+      recordFailure('register');
+      showAuthError(error.message);
+      return;
+    }
+
+    recordSuccess('register');
+    if (data.session) {
+      currentUser = data.user;
+      isGuest = false;
+      sessionStorage.removeItem('aschertypeGuest');
+      hideAuthScreen();
+      window.initApp(currentUser);
+    } else {
+      setAuthTab('login');
+      showAuthNotice('Account created — check your email to confirm it, then sign in.');
+    }
+  } catch (err) {
+    console.error('[Auth] Sign-up threw:', err);
+    recordFailure('register');
+    showAuthError('Something went wrong creating your account. Please try again.');
+  } finally {
     clearButtonBusy(submitBtn);
-    showAuthError(`That password has appeared in ${pwnedResult.count.toLocaleString()} known data breaches. Please choose a different one.`);
-    return;
+    resetCaptcha();
+    registerCaptchaToken = null;
   }
-  setButtonBusy(submitBtn, 'Creating account…');
-  recordAttempt('register', 60000);
-  setRememberPreference(true);
+});
 
-  const { data, error } = await supabaseClient.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: `${window.location.origin}/confirm.html`,
-      captchaToken: registerCaptchaToken,
-    },
+// -------- Forgot password --------------------------------------------------
+if (forgotPasswordBtn) {
+  forgotPasswordBtn.addEventListener('click', async () => {
+    showAuthError('');
+    showAuthNotice('');
+
+    const rl = checkRateLimit('forgot_password', 3, 60000);
+    if (rl.limited) {
+      showAuthError(`Too many password reset requests. Please wait ${formatWait(rl.waitMs)}.`);
+      return;
+    }
+
+    const email = document.getElementById('login-email').value.trim();
+    if (!email) { showAuthError('Enter your email above first, then click "Forgot password?" again.'); return; }
+    if (!isPlausibleEmail(email)) { showAuthError('Enter a valid email address.'); return; }
+    if (!supabaseReady) { showAuthError('Accounts are not set up yet on this deployment.'); return; }
+
+    recordAttempt('forgot_password', 60000);
+    try {
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/confirm.html`,
+      });
+      if (error) console.error('[Auth] Password reset request failed:', error.message);
+    } catch (err) {
+      console.error('[Auth] Password reset threw:', err);
+    }
+    showAuthNotice('If that email has an account, a reset link is on its way.');
   });
-  clearButtonBusy(submitBtn);
-  resetCaptcha();
-  registerCaptchaToken = null;
+}
 
-  if (error) { recordFailure('register'); showAuthError(error.message); return; }
-
-  recordSuccess('register');
-  if (data.session) {
-    currentUser = data.user;
-    isGuest = false;
-    sessionStorage.removeItem('aschertypeGuest');
+// -------- Guest ------------------------------------------------------------
+if (authGuestLink) {
+  authGuestLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    isGuest = true;
+    currentUser = null;
+    sessionStorage.setItem('aschertypeGuest', 'true');
     hideAuthScreen();
-    window.initApp(currentUser);
-  } else {
-    setAuthTab('login');
-    showAuthNotice('Account created — check your email to confirm it, then sign in.');
-  }
-});
-
-forgotPasswordBtn.addEventListener('click', async () => {
-  showAuthError(''); showAuthNotice('');
-
-  const rl = checkRateLimit('forgot_password', 3, 60000);
-  if (rl.limited) {
-    showAuthError(`Too many password reset requests. Please wait ${formatWait(rl.waitMs)}.`);
-    return;
-  }
-
-  const email = document.getElementById('login-email').value.trim();
-  if (!email) { showAuthError('Enter your email above first, then click "Forgot password?" again.'); return; }
-  if (!isPlausibleEmail(email)) { showAuthError('Enter a valid email address.'); return; }
-  if (!supabaseReady) { showAuthError('Accounts are not set up yet on this deployment.'); return; }
-
-  recordAttempt('forgot_password', 60000);
-  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/confirm.html`,
+    window.initApp(null);
   });
-  if (error) console.error('[Auth] Password reset request failed:', error.message);
-  showAuthNotice('If that email has an account, a reset link is on its way.');
-});
-
-authGuestLink.addEventListener('click', (e) => {
-  e.preventDefault();
-  isGuest = true;
-  currentUser = null;
-  sessionStorage.setItem('aschertypeGuest', 'true');
-  hideAuthScreen();
-  window.initApp(null);
-});
+}
 
 async function signOutAndReset() {
   if (supabaseReady) {
