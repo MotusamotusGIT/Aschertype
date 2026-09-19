@@ -28,6 +28,93 @@ export function loadIndexHtml() {
   document.body.innerHTML = withoutScripts;
 }
 
+/* ------------------------------------------------------------------ */
+/* Supabase client mock — single source of truth for every test file   */
+/* that needs to stub auth.js's `supabaseClient`. Override individual   */
+/* methods per-test via the returned object (they're vi.fn()s already   */
+/* except where a caller wires its own vi.fn(), e.g. signInWithPassword */
+/* in rate-limit-integration.test.js).                                  */
+/* ------------------------------------------------------------------ */
+export function makeMockSupabaseClient(overrides = {}) {
+  const base = {
+    auth: {
+      signInWithPassword: vi.fn(async () => ({
+        data: { user: null, session: null },
+        error: { message: 'not stubbed' },
+      })),
+      signUp: vi.fn(async () => ({ data: { user: null, session: null }, error: null })),
+      signOut: vi.fn(async () => ({ error: null })),
+      resetPasswordForEmail: vi.fn(async () => ({ data: null, error: null })),
+      getUser: vi.fn(async () => ({ data: { user: null }, error: null })),
+      getSession: vi.fn(async () => ({ data: { session: null }, error: null })),
+      onAuthStateChange: vi.fn(() => ({
+        data: { subscription: { unsubscribe: vi.fn() } },
+      })),
+    },
+  };
+  return {
+    auth: { ...base.auth, ...(overrides.auth || {}) },
+    ...overrides,
+  };
+}
+
+function loadUtilsSource() {
+  const src = readFileSync(resolve(ROOT, 'utils.js'), 'utf8');
+  new Function('window', 'localStorage', 'sessionStorage', `(function(){${src}})();`)(
+    window, window.localStorage, window.sessionStorage,
+  );
+}
+
+function loadAuthSource() {
+  const src = readFileSync(resolve(ROOT, 'auth.js'), 'utf8');
+  new Function(
+    'window', 'document', 'navigator', 'localStorage',
+    'sessionStorage', 'location', 'Notification',
+    `(function(){${src}})();`,
+  )(
+    window, window.document, window.navigator, window.localStorage,
+    window.sessionStorage, window.location, window.Notification,
+  );
+}
+
+/**
+ * Mount ONLY auth.js against index.html — for tests that exercise the
+ * login/register/session-recovery flow without booting the full
+ * renderer.js app (session-recovery.test.js, rate-limit-integration.test.js).
+ *
+ * Clears sessionStorage first (guest-flag tests set it back afterward
+ * on purpose). Does NOT clear localStorage — callers that need a clean
+ * rate-limit slate should clear it themselves in beforeEach.
+ */
+export function mountAuthOnly({
+  supabaseClient = makeMockSupabaseClient(),
+  supabaseReady = true,
+  preserveSession = false,
+} = {}) {
+  if (!preserveSession) sessionStorage.clear();
+  loadIndexHtml();
+  window.initApp = vi.fn(async () => {});
+  window.dismissLoading = vi.fn();
+  window.supabaseClient = supabaseClient;
+  window.supabaseReady = supabaseReady;
+  loadUtilsSource();
+  loadAuthSource();
+  return supabaseClient;
+}
+
+/** Submit the login form with the given credentials. */
+export function submitLogin(email, password) {
+  document.getElementById('login-email').value = email;
+  document.getElementById('login-password').value = password;
+  document.getElementById('login-form').dispatchEvent(
+    new window.Event('submit', { bubbles: true, cancelable: true }),
+  );
+}
+
+/** Wait for pending microtasks/timers in auth.js's async handlers to settle. */
+export const flushAsync = (ms = 30) => new Promise((r) => setTimeout(r, ms));
+
+
 /**
  * Stub the globals auth.js / db.js would provide. renderer.js references
  * these at call time, so defining them on window is enough.

@@ -7,7 +7,7 @@
   --accent-contrast: #ffffff;
   --ink: #2b3542;
   --ink-2: #4c596b;
-  --ink-light: #808d9e;
+  --ink-light: #6b7788;
   --bg: #e4e5e9;
   --bg-elev: #e7e8ec;
   --panel: #e7e8ec;
@@ -121,7 +121,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   position: absolute; inset: -10%;
   z-index: 0;
   pointer-events: none;
-  filter: blur(80px);
+  filter: blur(30px);
   opacity: 0.75;
   transition: opacity .4s ease;
 }
@@ -143,11 +143,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   bottom: -25%; right: -15%;
   animation: auroraDrift2 32s ease-in-out infinite alternate;
 }
-.blob-3 {
-  background: radial-gradient(circle at 50% 50%, rgba(49, 81, 66, 0.35), rgba(49, 81, 66, 0) 60%);
-  top: 30%; left: 25%;
-  animation: auroraDrift3 38s ease-in-out infinite alternate;
-}
+.blob-3 { display: none; }
 [data-theme="dark"] .blob-2 {
   background: radial-gradient(circle at 50% 50%, rgba(124, 92, 255, 0.28), rgba(124, 92, 255, 0) 60%);
 }

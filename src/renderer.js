@@ -990,8 +990,9 @@ function setView(view) {
   allTasksBtn.classList.toggle('active', ['all', 'today', 'active', 'completed'].includes(view));
   showView(view);
   if (view === 'settings') renderSettingsUI();
+  if (view === 'pomodoro') renderPomodoro();
   if (view === 'calendar') { renderCalendar(); renderDayPanel(); }
-  if (view === 'notes') renderNotes();
+  if (view === 'notes') { renderCategoryTabs(); renderNoteCategorySelect(); renderNotes(); }
   if (['all', 'today', 'active', 'completed', 'project'].includes(view)) {
     renderProjectSelect();
     renderTodos();
@@ -2847,6 +2848,64 @@ if (tipsIntroOverlay) {
   });
 }
 
+// ===== Modal focus trap =====
+// Generic Tab/Shift+Tab trap + focus restore for all overlay dialogs.
+// Applied lazily whenever an overlay becomes visible (display:flex/block)
+// via a MutationObserver, so no per-modal wiring is needed.
+(function setupModalFocusTrap() {
+  const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  let lastFocused = null;
+  let activeOverlay = null;
+
+  function isVisible(el) {
+    return el.offsetParent !== null || el.style.display === 'flex' || el.style.display === 'block';
+  }
+
+  function trapKeydown(e) {
+    if (!activeOverlay) return;
+    if (e.key === 'Tab') {
+      const focusables = Array.from(activeOverlay.querySelectorAll(FOCUSABLE)).filter(isVisible);
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+      }
+    }
+  }
+
+  function activate(overlay) {
+    if (activeOverlay === overlay) return;
+    activeOverlay = overlay;
+    lastFocused = document.activeElement;
+    const focusables = Array.from(overlay.querySelectorAll(FOCUSABLE)).filter(isVisible);
+    if (focusables.length) setTimeout(() => focusables[0].focus(), 0);
+    document.addEventListener('keydown', trapKeydown, true);
+  }
+  function deactivate(overlay) {
+    if (activeOverlay !== overlay) return;
+    activeOverlay = null;
+    document.removeEventListener('keydown', trapKeydown, true);
+    if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
+  }
+
+  const overlaySelectors = [
+    '#closeout-overlay', '#project-modal-overlay', '#invite-overlay', '#notif-overlay',
+    '#welcome-overlay', '#tips-intro-overlay', '#category-modal-overlay', '#task-detail-overlay',
+  ];
+  overlaySelectors.forEach((sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return;
+    const observer = new MutationObserver(() => {
+      const open = el.classList.contains('open') || isVisible(el);
+      if (open) activate(el); else deactivate(el);
+    });
+    observer.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
+  });
+})();
+
 // ===== Startup =====
 window.initApp = async function initApp(user) {
   currentUser = user || null;
@@ -2906,15 +2965,28 @@ window.initApp = async function initApp(user) {
   updateCollabFabVisibility();
   renderNotifBadge();
   renderNotifList();
-  renderPomodoro();
-  renderCalendar();
-  renderDayPanel();
-  renderCategoryTabs();
-  renderNoteCategorySelect();
-  renderNotes();
   renderTaskCategorySelects();
   tipsBarEl.style.display = areTipsEnabled() ? 'flex' : 'none';
   refreshTip();
+
+  // Pomodoro / Calendar / Notes are hidden (display:none) until the user
+  // navigates to them — building their DOM now just blocks the main
+  // thread during boot for no visible benefit. Defer to the next idle
+  // slot so first paint / input stays responsive.
+  const deferRenderHiddenViews = () => {
+    renderPomodoro();
+    renderCalendar();
+    renderDayPanel();
+    renderCategoryTabs();
+    renderNoteCategorySelect();
+    renderNotes();
+  };
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(deferRenderHiddenViews, { timeout: 2000 });
+  } else {
+    setTimeout(deferRenderHiddenViews, 200);
+  }
+
   setTimeout(maybeAutoOpenCloseout, 4000);
   requestNotifPermissionIfNeeded();
   checkEventNotifications();

@@ -227,7 +227,7 @@ describe('main process security — CSP header', () => {
     mockBrowserWindow.mockClear();
   });
 
-  it('injects Content-Security-Policy on every response', () => {
+  it('injects Content-Security-Policy on our own file:// responses', () => {
     require('../main.js');
     const onSession = getAppHandler('session-created');
     const { session, captured } = makeFakeSession();
@@ -236,7 +236,10 @@ describe('main process security — CSP header', () => {
     expect(captured.onHeadersReceived).not.toBeNull();
 
     const callback = vi.fn();
-    captured.onHeadersReceived({ responseHeaders: {} }, callback);
+    captured.onHeadersReceived(
+      { url: 'file:///home/user/app/src/index.html', responseHeaders: {} },
+      callback,
+    );
 
     expect(callback).toHaveBeenCalledTimes(1);
     const arg = callback.mock.calls[0][0];
@@ -254,9 +257,17 @@ describe('main process security — CSP header', () => {
     expect(cspText).toContain('https://*.supabase.co');
     expect(cspText).toContain('wss://*.supabase.co');
     expect(cspText).toContain("script-src 'self'");
+
+    // The auth flow requires hCaptcha (script + frame) and the HIBP
+    // breach-check API — regressing either of these silently breaks
+    // sign-in/sign-up in the shipped desktop build.
+    expect(cspText).toContain('https://hcaptcha.com');
+    expect(cspText).toContain('https://*.hcaptcha.com');
+    expect(cspText).toContain('https://api.pwnedpasswords.com');
+    expect(cspText).toMatch(/frame-src[^;]*hcaptcha\.com/);
   });
 
-  it('preserves existing response headers', () => {
+  it('preserves existing response headers on our own file:// responses', () => {
     require('../main.js');
     const onSession = getAppHandler('session-created');
     const { session, captured } = makeFakeSession();
@@ -264,12 +275,54 @@ describe('main process security — CSP header', () => {
 
     const callback = vi.fn();
     captured.onHeadersReceived(
-      { responseHeaders: { 'X-Custom': ['keep-me'] } },
+      { url: 'file:///home/user/app/src/index.html', responseHeaders: { 'X-Custom': ['keep-me'] } },
       callback,
     );
 
     const arg = callback.mock.calls[0][0];
     expect(arg.responseHeaders['X-Custom']).toEqual(['keep-me']);
     expect(arg.responseHeaders['Content-Security-Policy']).toBeDefined();
+  });
+
+  it('does NOT override CSP on third-party responses (e.g. hCaptcha\'s own iframe)', () => {
+    require('../main.js');
+    const onSession = getAppHandler('session-created');
+    const { session, captured } = makeFakeSession();
+    onSession(session);
+
+    const callback = vi.fn();
+    const thirdPartyHeaders = {
+      'Content-Security-Policy': ["default-src 'self' https://hcaptcha.com"],
+      'X-Frame-Options': ['SAMEORIGIN'],
+    };
+    captured.onHeadersReceived(
+      { url: 'https://hcaptcha.com/1/api.js', responseHeaders: thirdPartyHeaders },
+      callback,
+    );
+
+    expect(callback).toHaveBeenCalledTimes(1);
+    const arg = callback.mock.calls[0][0];
+    // Headers must pass through untouched — our CSP must not clobber
+    // hCaptcha's own security headers.
+    expect(arg.responseHeaders).toBe(thirdPartyHeaders);
+    expect(arg.responseHeaders['Content-Security-Policy']).toEqual(
+      ["default-src 'self' https://hcaptcha.com"],
+    );
+  });
+
+  it('does NOT override CSP on Supabase API responses', () => {
+    require('../main.js');
+    const onSession = getAppHandler('session-created');
+    const { session, captured } = makeFakeSession();
+    onSession(session);
+
+    const callback = vi.fn();
+    captured.onHeadersReceived(
+      { url: 'https://tjjzeetbsxnkrgoiagbf.supabase.co/rest/v1/todos', responseHeaders: {} },
+      callback,
+    );
+
+    const arg = callback.mock.calls[0][0];
+    expect(arg.responseHeaders['Content-Security-Policy']).toBeUndefined();
   });
 });

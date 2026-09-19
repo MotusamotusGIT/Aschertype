@@ -11,8 +11,19 @@ import {
 
 async function bootAndCaptureHandlers() {
   await bootApp({ signedIn: true, supabaseReady: true });
+  return getRealtimeHandlers();
+}
+
+/**
+ * Reads the handlers passed to the most recent setupRealtime() call
+ * WITHOUT booting the app again. Use this when a test needs to set up
+ * state (add a task, create a project, etc.) BEFORE realtime events
+ * arrive — calling bootApp() a second time would wipe that state by
+ * re-running loadIndexHtml().
+ */
+function getRealtimeHandlers() {
   const calls = window.setupRealtime.mock.calls;
-  if (!calls.length) throw new Error('setupRealtime was never called');
+  if (!calls.length) throw new Error('setupRealtime was never called — did you boot signed in with supabaseReady:true?');
   return calls[calls.length - 1][0];
 }
 
@@ -44,7 +55,7 @@ describe('realtime — handleRealtimeTodo', () => {
     addTaskViaUI({ text: 'Original' });
     const id = readTodos()[0].id;
 
-    const handlers = await bootAndCaptureHandlers();
+    const handlers = getRealtimeHandlers();
     handlers.onTodo({
       eventType: 'UPDATE',
       new: { id, text: 'Updated remotely', done: false, priority: 'high', project_id: null },
@@ -62,7 +73,7 @@ describe('realtime — handleRealtimeTodo', () => {
     addTaskViaUI({ text: 'Doomed' });
     const id = readTodos()[0].id;
 
-    const handlers = await bootAndCaptureHandlers();
+    const handlers = getRealtimeHandlers();
     handlers.onTodo({ eventType: 'DELETE', new: null, old: { id } });
     await flushDebounce();
 
@@ -107,7 +118,7 @@ describe('realtime — handleRealtimeProject', () => {
 
     addTaskViaUI({ text: 'Orphan task', project: String(projectId) });
 
-    const handlers = await bootAndCaptureHandlers();
+    const handlers = getRealtimeHandlers();
     handlers.onProject({
       eventType: 'DELETE',
       new: null,
@@ -204,7 +215,7 @@ describe('realtime — handleRealtimeEvent', () => {
     document.getElementById('event-save-btn').click();
     const id = readEvents()[0].id;
 
-    const handlers = await bootAndCaptureHandlers();
+    const handlers = getRealtimeHandlers();
     handlers.onEvent({ eventType: 'DELETE', new: null, old: { id } });
     await flushDebounce();
 

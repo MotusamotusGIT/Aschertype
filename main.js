@@ -126,10 +126,11 @@ const CSP_STRING = [
   "default-src 'self' file:",
   "img-src 'self' file: data: blob:",
   "style-src 'self' 'unsafe-inline'",
-  "script-src 'self'",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+  "script-src 'self' https://hcaptcha.com https://*.hcaptcha.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://hcaptcha.com https://*.hcaptcha.com https://api.pwnedpasswords.com",
   "font-src 'self'",
   "worker-src 'self' blob:",
+  "frame-src https://hcaptcha.com https://*.hcaptcha.com",
   "base-uri 'self'",
   "form-action 'self'",
   "object-src 'none'",
@@ -137,6 +138,13 @@ const CSP_STRING = [
 
 app.on('session-created', (session) => {
   session.webRequest.onHeadersReceived((details, callback) => {
+    // Only override CSP for our own app shell (file://) — leave
+    // third-party responses (hCaptcha's own iframe/document, its
+    // sub-resources, Supabase, etc.) to set their own headers.
+    if (!details.url.startsWith('file://')) {
+      callback({ responseHeaders: details.responseHeaders });
+      return;
+    }
     const responseHeaders = Object.assign({}, details.responseHeaders);
     responseHeaders['Content-Security-Policy'] = [CSP_STRING];
     callback({ responseHeaders });
