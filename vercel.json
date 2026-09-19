@@ -8,7 +8,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'sha256-LdlORHyUW/rwezK0l13nW+IwcZmi78eWOCBjewMWRr4=' 'sha256-iwpvkKW7HfeTmYqwuxjHILBZX770VS3gS2gsriVF+fo=' 'sha256-y8PJa5KQMdlV5/kRdvryXfSMM4PckHDD3ivcmtNYIUQ=' 'sha256-im4KquB9P1f+SRFwi3KGUutOodJQiWf7tcoXux0858Q=' 'unsafe-hashes'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; font-src 'self'; worker-src 'self' blob:; base-uri 'self'; form-action 'self'; object-src 'none'; frame-ancestors 'none'"
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; font-src 'self'; worker-src 'self' blob:; base-uri 'self'; form-action 'self'; object-src 'none'; frame-ancestors 'none'"
         },
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "DENY" },
