@@ -1,15 +1,10 @@
-// src/utils.js — full file
-// ===== Shared pure helpers =====
-// Extracted from auth.js and db.js so tests can import them without
-// booting the whole app. Loaded as a classic <script>, so everything
-// lives in global scope and auth.js / db.js call these directly.
+// src/utils.js
+// Classic script — attaches everything to window. No ESM exports.
 
-// ----- Email sanity check -----
 function isPlausibleEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-// ----- Rate limiter -----
 const RL_KEY = 'aschertypeRateLimits';
 
 function loadRateLimitState() {
@@ -17,7 +12,7 @@ function loadRateLimitState() {
   catch (err) { return {}; }
 }
 function saveRateLimitState(state) {
-  try { localStorage.setItem(RL_KEY, JSON.stringify(state)); } catch (err) { /* ignore */ }
+  try { localStorage.setItem(RL_KEY, JSON.stringify(state)); } catch (err) {}
 }
 function pruneHistory(history, windowMs) {
   const now = Date.now();
@@ -66,7 +61,6 @@ function formatWait(ms) {
   return `${Math.ceil(s / 60)} minute${Math.ceil(s / 60) === 1 ? '' : 's'}`;
 }
 
-// ----- Remember-session preference -----
 const REMEMBER_KEY = 'aschertypeRememberSession';
 
 function getRememberPreference() {
@@ -91,15 +85,62 @@ const rememberAwareStorage = {
     try {
       const store = getRememberPreference() ? localStorage : sessionStorage;
       store.setItem(key, value);
-    } catch (err) { /* ignore */ }
+    } catch (err) {}
   },
   removeItem(key) {
-    try { localStorage.removeItem(key); } catch (err) { /* ignore */ }
-    try { sessionStorage.removeItem(key); } catch (err) { /* ignore */ }
+    try { localStorage.removeItem(key); } catch (err) {}
+    try { sessionStorage.removeItem(key); } catch (err) {}
   },
 };
 
-// ----- Expose helpers on window for classic scripts + tests -----
+const SUPABASE_SESSION_KEY = 'sb-tjjzeetbsxnkrgoiagbf-auth-token';
+const secureCache = new Map();
+let secureCacheHydrated = false;
+let secureStorageReadyResolve = null;
+const secureStorageReady = new Promise((resolve) => { secureStorageReadyResolve = resolve; });
+
+async function hydrateSecureCache(keys) {
+  if (typeof window === 'undefined' || !window.electronAPI || !window.electronAPI.secureStore) {
+    secureCacheHydrated = true;
+    if (secureStorageReadyResolve) secureStorageReadyResolve();
+    return;
+  }
+  await Promise.all(keys.map(async (key) => {
+    const value = await window.electronAPI.secureStore.get(key);
+    if (value !== null && value !== undefined) secureCache.set(key, value);
+  }));
+  secureCacheHydrated = true;
+  if (secureStorageReadyResolve) secureStorageReadyResolve();
+}
+
+if (typeof window !== 'undefined') {
+  hydrateSecureCache([SUPABASE_SESSION_KEY]);
+}
+
+const electronSecureStorage = {
+  getItem(key) {
+    if (!secureCacheHydrated) return null;
+    const value = secureCache.get(key);
+    return value === undefined ? null : value;
+  },
+  setItem(key, value) {
+    secureCache.set(key, value);
+    if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.secureStore) {
+      window.electronAPI.secureStore.set(key, value).catch((err) => {
+        console.error('[secure-store] persist failed:', err);
+      });
+    }
+  },
+  removeItem(key) {
+    secureCache.delete(key);
+    if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.secureStore) {
+      window.electronAPI.secureStore.remove(key).catch((err) => {
+        console.error('[secure-store] remove failed:', err);
+      });
+    }
+  },
+};
+
 if (typeof window !== 'undefined') {
   window.isPlausibleEmail = isPlausibleEmail;
   window.formatWait = formatWait;
@@ -111,20 +152,6 @@ if (typeof window !== 'undefined') {
   window.getRememberPreference = getRememberPreference;
   window.setRememberPreference = setRememberPreference;
   window.rememberAwareStorage = rememberAwareStorage;
-}
-
-// ----- Dual-mode export for tests -----
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    isPlausibleEmail,
-    formatWait,
-    checkRateLimit,
-    recordAttempt,
-    recordFailure,
-    recordSuccess,
-    loadRateLimitState,
-    getRememberPreference,
-    setRememberPreference,
-    rememberAwareStorage,
-  };
+  window.electronSecureStorage = electronSecureStorage;
+  window.secureStorageReady = secureStorageReady;
 }

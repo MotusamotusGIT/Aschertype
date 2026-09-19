@@ -21,7 +21,7 @@ import {
 /* ------------------------------------------------------------------ */
 const REQUIRED_IDS = [
   // loading screen
-  'loading-screen', 'loading-continue', 'loading-status', 'status-text', 'status-dot',
+  'loading-screen', 'loading-status', 'status-text', 'status-dot',
   // theme
   'theme-light-btn', 'theme-dark-btn',
   // account

@@ -1,6 +1,20 @@
 // tests/utils.test.js
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import {
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = typeof __dirname !== 'undefined'
+  ? __dirname
+  : dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(HERE, '..', 'src');
+
+const src = readFileSync(resolve(ROOT, 'utils.js'), 'utf8');
+new Function('window', 'localStorage', 'sessionStorage', `(function(){${src}})();`)(
+  window, window.localStorage, window.sessionStorage,
+);
+
+const {
   isPlausibleEmail,
   formatWait,
   checkRateLimit,
@@ -11,7 +25,7 @@ import {
   getRememberPreference,
   setRememberPreference,
   rememberAwareStorage,
-} from '../src/utils.js';
+} = window;
 
 /* ------------------------------------------------------------------ */
 /* Email                                                                */
@@ -91,7 +105,7 @@ describe('rate limiter', () => {
     recordFailure('login');
     recordFailure('login');
     expect(checkRateLimit('login', 5, 60000).limited).toBe(false);
-    recordFailure('login'); // 3rd failure triggers lock
+    recordFailure('login');
     const r = checkRateLimit('login', 5, 60000);
     expect(r.limited).toBe(true);
     expect(r.waitMs).toBeGreaterThan(0);
@@ -100,17 +114,16 @@ describe('rate limiter', () => {
   it('backs off longer with each additional failure', () => {
     recordFailure('login');
     recordFailure('login');
-    recordFailure('login'); // failStreak 3 → 30s
+    recordFailure('login');
     const first = checkRateLimit('login', 5, 60000).waitMs;
 
-    recordFailure('login'); // failStreak 4 → 60s
+    recordFailure('login');
     const second = checkRateLimit('login', 5, 60000).waitMs;
 
     expect(second).toBeGreaterThan(first);
   });
 
   it('caps the backoff at 10 minutes', () => {
-    // 3 → 30s, 4 → 60s, 5 → 120s, 6 → 240s, 7 → 480s, 8 → 600s (capped)
     for (let i = 0; i < 8; i++) recordFailure('login');
     const { waitMs } = checkRateLimit('login', 5, 60000);
     expect(waitMs).toBeLessThanOrEqual(600_000);

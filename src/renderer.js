@@ -8,14 +8,6 @@ if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.p
 }
 
 // ===== Safe localStorage helpers =====
-// A corrupted key (crash mid-write, disk full, extension interference,
-// schema drift across versions) must never brick the app on boot.
-// On parse failure we drop the bad key and return the fallback, so the
-// next write replaces it with a valid value.
-
-// Some browsers throw on localStorage access (private mode, blocked
-// storage, disabled cookies). Every read must go through this so a
-// throw never bubbles up and kills the app.
 function safeGetItem(key) {
   try { return localStorage.getItem(key); }
   catch (err) { return null; }
@@ -35,9 +27,6 @@ function safeParse(key, fallback) {
   }
 }
 
-// localStorage.setItem throws on quota exceeded. Swallow the error so a
-// full disk doesn't crash the app mid-save; the user keeps their session,
-// loses the current write, and sees the console warning.
 function safeSetItem(key, value) {
   try {
     localStorage.setItem(key, value);
@@ -218,9 +207,6 @@ const profileOverlay = document.getElementById('profile-overlay');
 const profilePopover = document.getElementById('profile-popover');
 const profilePopNameEdit = document.getElementById('profile-pop-name-edit');
 
-// Track which chip was tapped so the desktop popover anchors to the
-// right element. On mobile, CSS positions the popover under the
-// mobile topbar and we skip JS positioning entirely.
 let activeProfileAnchor = null;
 
 function isMobileViewport() {
@@ -228,25 +214,16 @@ function isMobileViewport() {
 }
 
 function positionProfilePopover() {
-  // Mobile: CSS pins the popover under the mobile topbar. Clear any
-  // inline top/right/left left over from a desktop session so the CSS
-  // rule can take over.
   if (isMobileViewport()) {
     profilePopover.style.top = '';
     profilePopover.style.right = '';
     profilePopover.style.left = '';
     return;
   }
-
-  // Desktop: anchor the popover under whichever chip is visible.
-  // Prefer the one that was just clicked; fall back to the desktop
-  // chip. If that chip has no size (i.e. it's hidden), bail so we
-  // don't reposition to (0,0).
   const chip = activeProfileAnchor || document.getElementById('profile-chip');
   if (!chip) return;
   const rect = chip.getBoundingClientRect();
   if (!rect.width && !rect.height) return;
-
   const popRect = profilePopover.getBoundingClientRect();
   const top = Math.min(rect.bottom + 8, window.innerHeight - popRect.height - 12);
   const right = Math.max(12, window.innerWidth - rect.right);
@@ -680,7 +657,7 @@ function closeTaskAdd() {
 taskAddToggle.addEventListener('click', openTaskAdd);
 taskAddCancel.addEventListener('click', closeTaskAdd);
 
-// ===== Task categories (user-defined, remembered across tasks) =====
+// ===== Task categories =====
 function saveTaskCategories() { safeSetItem('taskCategories', JSON.stringify(taskCategories)); }
 function renderTaskCategorySelects(selectedForAdd, selectedForDetail) {
   [todoCategorySelect, taskDetailCategory].forEach((sel, idx) => {
@@ -696,10 +673,8 @@ function renderTaskCategorySelects(selectedForAdd, selectedForDetail) {
     sel.value = taskCategories.includes(keep) ? keep : '';
   });
 }
+
 // ===== Add-category modal =====
-// NOTE: this used to call window.prompt(), which Electron/many embedded
-// webviews do not implement (it silently no-ops), which is why the "+"
-// button appeared broken. Replaced with a proper in-app modal.
 const categoryModalOverlay = document.getElementById('category-modal-overlay');
 const categoryModalInput = document.getElementById('category-modal-input');
 const categoryModalError = document.getElementById('category-modal-error');
@@ -791,10 +766,6 @@ function myMembership(projectId) {
 function isProjectOwner(projectId) {
   const p = getProject(projectId);
   if (!p) return false;
-  // No signed-in account (guest/local mode): a project with no userId was
-  // created locally by this same guest, so treat it as owned. Previously this
-  // returned false whenever currentUser was null, which silently blocked
-  // guests from adding/editing tasks in their own projects.
   if (!currentUser) return !p.userId;
   return p.userId === currentUser.id;
 }
@@ -951,13 +922,23 @@ function renderProjectSelect() {
   }
 }
 
-function saveTodos() { safeSetItem('todos', JSON.stringify(todos)); }
-function todayStr() { return new Date().toISOString().slice(0, 10); }
+// ===== Date helpers — LOCAL TIME =====
+function todayStr() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 function tomorrowStr() {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
+function saveTodos() { safeSetItem('todos', JSON.stringify(todos)); }
 function escapeHtml(str) {
   const d = document.createElement('div');
   d.textContent = str;
@@ -1091,7 +1072,6 @@ function renderTodos() {
       openTaskDetail(t.id);
     });
 
-    // ---- header row: title (left), category badge + hover actions (right) ----
     const top = document.createElement('div');
     top.className = 'task-card-top';
 
@@ -1149,7 +1129,6 @@ function renderTodos() {
       card.appendChild(desc);
     }
 
-    // ---- meta pills: due / project (only if present) ----
     const meta = document.createElement('div');
     meta.className = 'task-meta';
     if (t.due) {
@@ -1179,9 +1158,8 @@ function renderTodos() {
     }
     if (meta.children.length) card.appendChild(meta);
 
-    // ---- bottom row: round checkbox + priority progress bar (screenshot style) ----
-    const progressRow = document.createElement('div');
-    progressRow.className = 'task-card-progress-row';
+    const footer = document.createElement('div');
+    footer.className = 'task-card-progress-row';
 
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
@@ -1198,20 +1176,16 @@ function renderTodos() {
       if (t.done) showToast('complete');
     });
 
-    const track = document.createElement('span');
-    track.className = 'task-card-progress-track';
-    const fill = document.createElement('span');
-    fill.className = 'task-card-progress-fill';
-    fill.style.width = (t.done ? 100 : 0) + '%';
-    track.appendChild(fill);
+    const spacer = document.createElement('span');
+    spacer.style.flex = '1';
 
     const flag = document.createElement('span');
     flag.className = 'task-priority-flag priority-' + t.priority;
     flag.title = t.priority === 'high' ? 'High priority' : t.priority === 'medium' ? 'Medium priority' : 'Low priority';
     flag.innerHTML = ICON_FLAG;
 
-    progressRow.append(checkbox, track, flag);
-    card.appendChild(progressRow);
+    footer.append(checkbox, spacer, flag);
+    card.appendChild(footer);
 
     todoListEl.appendChild(card);
   });
@@ -1347,7 +1321,7 @@ taskDetailDeleteBtn.addEventListener('click', () => {
   closeTaskDetail();
 });
 
-// ===== Drag a task onto the Pomodoro nav item to focus it there =====
+// ===== Drag a task onto the Pomodoro nav item =====
 const pomodoroNavItem = document.querySelector('.nav-item[data-view="pomodoro"]');
 if (pomodoroNavItem) {
   pomodoroNavItem.addEventListener('dragover', (e) => {
@@ -1375,11 +1349,7 @@ function sendTaskToPomodoro(t) {
   showToast('pomodoro');
 }
 
-// ===== Touch drag: same "send to Pomodoro" gesture, working on mobile =====
-// Native HTML5 drag events don't fire on touch devices, and the Pomodoro nav item
-// lives in the off-canvas sidebar on mobile, so dragging a task card onto it isn't
-// reachable there. Instead, a long-press + drag on a task card raises a floating
-// "Focus in Pomodoro" dropzone the finger can be released over, from anywhere.
+// ===== Touch drag =====
 const mobileDropzone = document.createElement('div');
 mobileDropzone.id = 'mobile-pomodoro-dropzone';
 mobileDropzone.className = 'mobile-pomodoro-dropzone';
@@ -1432,7 +1402,7 @@ document.body.appendChild(mobileDropzone);
   }
 
   todoListEl.addEventListener('touchstart', (e) => {
-    if (window.innerWidth > 760) return; // desktop keeps native HTML5 drag
+    if (window.innerWidth > 760) return;
     const card = e.target.closest('.task-card');
     if (!card || e.target.closest('.task-check, .task-card-actions, .task-title-edit')) return;
     const filtered = getFilteredTodos();
@@ -2503,7 +2473,7 @@ function maybeAutoOpenCloseout() {
 }
 setInterval(maybeAutoOpenCloseout, 60 * 1000);
 
-// ===== Realtime: live sync across devices =====
+// ===== Realtime =====
 let realtimeRenderTimer = null;
 function debouncedSharedRender() {
   if (realtimeRenderTimer) clearTimeout(realtimeRenderTimer);
@@ -2766,11 +2736,29 @@ function detachRealtimeSubscriptions() {
   if (typeof teardownRealtime === 'function') teardownRealtime();
 }
 
-// ===== Loading screen (staged) =====
+// ===== Loading screen =====
 const loadingScreen = document.getElementById('loading-screen');
-const loadingContinueBtn = document.getElementById('loading-continue');
 const statusDotEl = document.getElementById('status-dot');
 const statusTextEl = document.getElementById('status-text');
+
+// Random phrase shown when the app is ready. Replaces the old "Tap
+// anywhere to continue" button. Picked fresh every launch so it never
+// feels like the same static text.
+const LOADING_READY_PHRASES = [
+  'Ready to go',
+  "Let's start the day",
+  'All set',
+  'Ready when you are',
+  "Let's get things done",
+  'Warming up',
+  'Almost there',
+  'Good to go',
+  'Here we go',
+  'Everything is ready',
+];
+function pickLoadingPhrase() {
+  return LOADING_READY_PHRASES[Math.floor(Math.random() * LOADING_READY_PHRASES.length)];
+}
 
 let loadingDismissed = false;
 let loadingReady = false;
@@ -2788,12 +2776,11 @@ function setLoadingStage(text) {
 function markLoadingReady() {
   if (loadingReady) return;
   loadingReady = true;
-  setLoadingStage('Ready');
-  loadingContinueBtn.classList.add('ready');
-  // Auto-dismiss shortly after ready so the user doesn't have to tap.
+  setLoadingStage(pickLoadingPhrase());
+  // Let the phrase sit for a beat so it reads, then auto-dismiss.
   setTimeout(() => {
     if (!loadingDismissed) dismissLoading();
-  }, 800);
+  }, 1100);
 }
 
 function dismissLoading() {
@@ -2802,13 +2789,8 @@ function dismissLoading() {
   unlockAudioContext();
   loadingScreen.classList.add('hidden');
 }
-// Exposed so auth.js can dismiss the loading overlay on the
-// "no session -> show sign-in card" path, where window.initApp()
-// never runs. Without this the overlay sits on top of the auth
-// screen forever and the app looks stuck on "Connecting…".
 window.dismissLoading = dismissLoading;
 loadingScreen.addEventListener('click', dismissLoading);
-loadingContinueBtn.addEventListener('click', (e) => { e.stopPropagation(); dismissLoading(); });
 
 function updateConnectionStatus() {
   const online = typeof navigator !== 'undefined' ? navigator.onLine : true;
@@ -2819,7 +2801,7 @@ updateConnectionStatus();
 window.addEventListener('online', updateConnectionStatus);
 window.addEventListener('offline', updateConnectionStatus);
 
-// ===== Welcome modal (first login only) =====
+// ===== Welcome modal =====
 const WELCOME_KEY = 'aschertypeWelcomeSeen';
 const welcomeOverlay = document.getElementById('welcome-overlay');
 const welcomeDismissBtn = document.getElementById('welcome-dismiss-btn');
@@ -2842,7 +2824,7 @@ if (welcomeOverlay) {
   });
 }
 
-// ===== Tips intro modal (first time the tips bar is shown) =====
+// ===== Tips intro modal =====
 const TIPS_INTRO_KEY = 'aschertypeTipsIntroSeen';
 const tipsIntroOverlay = document.getElementById('tips-intro-overlay');
 const tipsIntroDismissBtn = document.getElementById('tips-intro-dismiss-btn');
@@ -2940,8 +2922,6 @@ window.initApp = async function initApp(user) {
 
   markLoadingReady();
 
-  // After the loading overlay fades, show the welcome modal (first time only),
-  // then the tips intro modal (first time tips are shown).
   maybeShowWelcome();
 
   let waited = 0;

@@ -32,12 +32,12 @@ export function loadIndexHtml() {
  * Stub the globals auth.js / db.js would provide. renderer.js references
  * these at call time, so defining them on window is enough.
  */
-export function installAppGlobals({ signedIn = false } = {}) {
+export function installAppGlobals({ signedIn = false, supabaseReady = false } = {}) {
   window.currentUser = signedIn
     ? { id: 'test-user-id', email: 'tester@example.com' }
     : null;
   window.isGuest = !signedIn;
-  window.supabaseReady = false;
+  window.supabaseReady = supabaseReady;
   window.currentProfile = signedIn
     ? { id: 'test-user-id', email: 'tester@example.com', display_name: null }
     : null;
@@ -88,9 +88,9 @@ export function loadRenderer() {
  * Full boot: HTML + globals + renderer + initApp. Returns once the app
  * has finished its startup sequence and the DOM reflects initial state.
  */
-export async function bootApp({ signedIn = false } = {}) {
+export async function bootApp({ signedIn = false, supabaseReady = false } = {}) {
   loadIndexHtml();
-  installAppGlobals({ signedIn });
+  installAppGlobals({ signedIn, supabaseReady });
   loadRenderer();
   await window.initApp(signedIn ? window.currentUser : null);
 }

@@ -1,10 +1,4 @@
 // ===== Auth screen (login / register / guest) =====
-// Supabase Auth handles password hashing, storage, and session
-// tokens entirely server-side — this file only ever sends email +
-// password over HTTPS to Supabase and reacts to the result.
-//
-// The rate limiter, isPlausibleEmail, formatWait, and remember-session
-// helpers now live in utils.js (loaded before this file by loader.js).
 
 let currentUser = null;
 let isGuest = false;
@@ -19,11 +13,8 @@ const authNoticeEl = document.getElementById('auth-notice');
 const authGuestLink = document.getElementById('auth-guest-link');
 const forgotPasswordBtn = document.getElementById('forgot-password-btn');
 
-// ----- Password visibility toggle -----
 document.querySelectorAll('.password-toggle').forEach((btn) => {
-  btn.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-  });
+  btn.addEventListener('mousedown', (e) => { e.preventDefault(); });
   btn.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -61,13 +52,6 @@ authTabRegister.addEventListener('click', () => setAuthTab('register'));
 
 function hideAuthScreen() { authScreen.classList.add('hidden'); }
 
-// When we're about to reveal the auth card, the loading overlay MUST
-// also come down — otherwise (because loading-screen has z-index 999
-// and auth-screen has z-index 500) the auth card renders behind an
-// overlay that never auto-dismisses, and the user gets stuck on
-// "Connecting…" forever. This happens on the "no session" path,
-// where window.initApp() never runs, so renderer's own
-// markLoadingReady() / dismissLoading() never fire.
 function dismissLoadingOverlay() {
   if (typeof window.dismissLoading === 'function') {
     window.dismissLoading();
@@ -75,8 +59,6 @@ function dismissLoadingOverlay() {
   }
   const el = document.getElementById('loading-screen');
   if (el) el.classList.add('hidden');
-  const btn = document.getElementById('loading-continue');
-  if (btn) btn.classList.remove('ready');
 }
 function showAuthScreen() {
   dismissLoadingOverlay();
@@ -108,7 +90,6 @@ loginForm.addEventListener('submit', async (e) => {
   const forgetSession = document.getElementById('login-forget-session').checked;
 
   if (!isPlausibleEmail(email)) { showAuthError('Enter a valid email address.'); return; }
-
   if (!supabaseReady) {
     showAuthError('Accounts are not set up yet on this deployment. Use "Continue without an account" below.');
     return;
@@ -117,7 +98,6 @@ loginForm.addEventListener('submit', async (e) => {
   const submitBtn = loginForm.querySelector('.auth-submit');
   setButtonBusy(submitBtn, 'Signing in…');
   recordAttempt('login', 60000);
-
   setRememberPreference(!forgetSession);
 
   const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
@@ -158,7 +138,6 @@ registerForm.addEventListener('submit', async (e) => {
     return;
   }
   if (password !== confirm) { showAuthError('Passwords do not match.'); return; }
-
   if (!supabaseReady) {
     showAuthError('Accounts are not set up yet on this deployment. Use "Continue without an account" below.');
     return;
@@ -168,12 +147,11 @@ registerForm.addEventListener('submit', async (e) => {
   setButtonBusy(submitBtn, 'Creating account…');
   recordAttempt('register', 60000);
   setRememberPreference(true);
+
   const { data, error } = await supabaseClient.auth.signUp({
     email,
     password,
-    options: {
-      emailRedirectTo: `${window.location.origin}/confirm.html`,
-    },
+    options: { emailRedirectTo: `${window.location.origin}/confirm.html` },
   });
   clearButtonBusy(submitBtn);
 
@@ -225,7 +203,7 @@ authGuestLink.addEventListener('click', (e) => {
 
 async function signOutAndReset() {
   if (supabaseReady) {
-    try { await supabaseClient.auth.signOut(); } catch (err) { /* ignore */ }
+    try { await supabaseClient.auth.signOut(); } catch (err) {}
   }
   sessionStorage.removeItem('aschertypeGuest');
   location.reload();
@@ -238,13 +216,29 @@ function isAuthInvalidError(error) {
 }
 
 async function resolveInitialAuthState() {
+  // Guest check FIRST, before any await — guarantees getSession is
+  // never called when the guest flag is set, even across test reloads.
   if (sessionStorage.getItem('aschertypeGuest') === 'true') {
     isGuest = true;
     hideAuthScreen();
     window.initApp(null);
     return;
   }
+
   if (!supabaseReady) {
+    isGuest = true;
+    hideAuthScreen();
+    window.initApp(null);
+    return;
+  }
+
+  if (window.secureStorageReady && typeof window.secureStorageReady.then === 'function') {
+    try { await window.secureStorageReady; } catch (err) {}
+  }
+
+  // Re-check the guest flag after the await — it may have been set
+  // while we were waiting on hydration.
+  if (sessionStorage.getItem('aschertypeGuest') === 'true') {
     isGuest = true;
     hideAuthScreen();
     window.initApp(null);
@@ -275,7 +269,7 @@ async function resolveInitialAuthState() {
           window.initApp(currentUser);
           return;
         }
-      } catch (err2) { /* still offline — fall through */ }
+      } catch (err2) {}
       showAuthScreen();
     }, 1500);
   }

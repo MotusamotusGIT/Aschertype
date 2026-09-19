@@ -1,6 +1,6 @@
 // ===== Supabase client & data-access helpers =====
-// getRememberPreference / setRememberPreference / rememberAwareStorage
-// now live in utils.js (loaded before this file by loader.js).
+// Session is stored in the OS keychain via safeStorage (Electron),
+// exposed through electronSecureStorage in utils.js.
 
 let supabaseClient = null;
 let supabaseReady = false;
@@ -14,13 +14,19 @@ let supabaseReady = false;
 
   if (!configured) return;
   if (typeof window.supabase === 'undefined') {
-    console.warn('[Supabase] SDK did not load from the CDN — falling back to local-only mode.');
+    console.warn('[Supabase] SDK did not load — falling back to local-only mode.');
     return;
   }
 
   try {
     supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { persistSession: true, autoRefreshToken: true, storage: rememberAwareStorage },
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false, // Electron: no URL hash to parse
+        flowType: 'pkce',
+        storage: window.electronSecureStorage,
+      },
     });
     supabaseReady = true;
   } catch (err) {

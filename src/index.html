@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <title>Aschertype &mdash; Productivity, all in one</title>
-  <meta name="title" content="Aschertype &mdash; Productivity, all in one">
   <meta name="description" content="A modern, privacy-first productivity suite featuring tasks, calendar, notes, and Pomodoro focus timers.">
 
   <meta property="og:type" content="website">
@@ -23,24 +22,21 @@
 
   <link rel="icon" type="image/png" href="./favicon.png">
   <link rel="apple-touch-icon" href="./favicon.png">
-  <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#7c5cff">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Aschertype">
 
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self' file:;
-                 img-src 'self' file: data: blob: https://aschertype.vercel.app;
+        content="default-src 'self';
+                 img-src 'self' data: blob:;
                  style-src 'self' 'unsafe-inline';
-                 script-src 'self' https://cdn.jsdelivr.net https://unpkg.com;
-                 connect-src 'self' https://api.quotable.io https://*.supabase.co wss://*.supabase.co;
+                 script-src 'self';
+                 connect-src 'self' https://*.supabase.co wss://*.supabase.co;
                  font-src 'self';
-                 manifest-src 'self';
                  worker-src 'self' blob:;
                  base-uri 'self';
                  form-action 'self';
-                 object-src 'none'">
+                 object-src 'none';
+                 frame-ancestors 'none'">
+
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -64,7 +60,6 @@
       <div class="loading-progress" aria-hidden="true">
         <span class="loading-progress-bar" id="loading-progress-bar"></span>
       </div>
-      <button id="loading-continue" class="loading-continue" type="button">Tap anywhere to continue</button>
     </div>
   </div>
 
@@ -105,7 +100,7 @@
         </label>
         <label class="checkbox-label">
           <input type="checkbox" id="login-forget-session">
-          Forget login session when browser closes
+          Forget login session when app closes
         </label>
         <button type="submit" class="btn primary auth-submit">Sign in</button>
         <button type="button" id="forgot-password-btn" class="auth-link-btn">Forgot password?</button>
@@ -861,7 +856,7 @@
     </div>
   </div>
 
-  <!-- ===== Add category modal (replaces unreliable window.prompt) ===== -->
+  <!-- ===== Add category modal ===== -->
   <div id="category-modal-overlay" class="modal-overlay" style="display:none">
     <div class="modal-card category-modal-card">
       <div class="category-modal-title">New category</div>
