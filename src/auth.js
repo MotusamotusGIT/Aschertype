@@ -16,8 +16,9 @@ function resetCaptcha(widgetIndex) {
 }
 
 // ---- HIBP k-anonymity password breach check -------------------------------
-// Sends only the first 5 chars of the SHA-1 hash to the HIBP range API;
-// compares the remaining 35 chars locally. Fails open on any error.
+// Sends only the first 5 hex chars of the SHA-1 hash to HIBP's range API;
+// compares the remaining 35 chars locally. Fails open on any error so a
+// network/CSP failure never blocks signup.
 async function checkPasswordPwned(password) {
   try {
     const enc = new TextEncoder().encode(password);
@@ -30,7 +31,6 @@ async function checkPasswordPwned(password) {
     const suffix = hashHex.slice(5);
 
     const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
-      // HIBP supports CORS on this endpoint; no custom headers needed.
       method: 'GET',
     });
     if (!res.ok) return { checked: false, pwned: false, count: 0 };
@@ -47,7 +47,6 @@ async function checkPasswordPwned(password) {
     }
     return { checked: true, pwned: false, count: 0 };
   } catch (err) {
-    // Network/CORS/crypto failure — don't block signup.
     console.warn('[Auth] Password breach check skipped:', err && err.message);
     return { checked: false, pwned: false, count: 0 };
   }
@@ -130,6 +129,34 @@ function clearButtonBusy(btn) {
   if (btn.dataset.originalText) btn.textContent = btn.dataset.originalText;
 }
 
+// Map a raw Supabase auth error into a helpful user-facing message.
+function friendlyAuthError(error, fallback) {
+  const raw = ((error && (error.message || error.error_description || error.msg)) || '').toString();
+  const msg = raw.toLowerCase();
+
+  if (!raw) return fallback;
+  if (msg.includes('captcha')) return 'Captcha check failed — please try again.';
+  if (msg.includes('already registered') || msg.includes('already exists')) {
+    return 'That email is already registered. Try signing in instead.';
+  }
+  if (msg.includes('rate limit') || msg.includes('too many')) {
+    return 'Too many attempts. Please wait a few minutes and try again.';
+  }
+  if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+    return 'Please confirm your email first — check your inbox for the link.';
+  }
+  if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
+    return 'Incorrect email or password.';
+  }
+  if (msg.includes('weak password') || msg.includes('password should be')) {
+    return 'That password is too weak. Please choose a stronger one.';
+  }
+  if (msg.includes('signups not allowed') || msg.includes('signup is disabled')) {
+    return 'New signups are currently disabled on this deployment.';
+  }
+  return raw || fallback;
+}
+
 // -------- Login ------------------------------------------------------------
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -167,7 +194,7 @@ loginForm.addEventListener('submit', async (e) => {
 
     if (error) {
       recordFailure('login');
-      showAuthError('Incorrect email or password.');
+      showAuthError(friendlyAuthError(error, 'Incorrect email or password.'));
       return;
     }
 
@@ -244,7 +271,8 @@ registerForm.addEventListener('submit', async (e) => {
 
     if (error) {
       recordFailure('register');
-      showAuthError(error.message);
+      console.error('[Auth] Sign-up error:', error);
+      showAuthError(friendlyAuthError(error, 'Could not create your account.'));
       return;
     }
 

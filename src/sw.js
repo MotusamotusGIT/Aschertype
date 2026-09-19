@@ -2,7 +2,7 @@
 // Caches the app shell for offline use. Does NOT cache Supabase API calls,
 // auth responses, or anything user-specific.
 
-const VERSION = 'v4'; // bump this on every deploy that changes cached files
+const VERSION = 'v5'; // bump this on every deploy that changes cached files
 const CACHE_NAME = `aschertype-${VERSION}`;
 
 // The app shell — everything needed to boot the app offline.
