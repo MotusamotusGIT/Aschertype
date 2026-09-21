@@ -6,7 +6,7 @@
   // db.js and renderer.js both need vendor+config+utils but not each other.
   // auth.js needs db.js (reads supabaseReady/supabaseClient at top level)
   // and renderer.js (window.initApp), so it loads last.
-  const STAGE_1 = ['./vendor/supabase.min.js', './supabase-config.js', './utils.js'];
+  const STAGE_1 = ['./vendor/supabase.min.js', './supabase-config.js', './ai-config.js', './utils.js', './ai-bridge.js'];
   const STAGE_2 = ['./db.js', './renderer.js'];
   const STAGE_3 = ['./auth.js'];
 

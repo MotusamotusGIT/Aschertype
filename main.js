@@ -4,6 +4,7 @@ const { app, BrowserWindow, shell, crashReporter } = electron;
 const path = require('node:path');
 const fsp = require('node:fs/promises');
 const crypto = require('node:crypto');
+const ai = require('./ai');
 
 // ipcMain and safeStorage may be absent in the unit-test electron mock.
 // Guard them so module load doesn't throw.
@@ -76,6 +77,71 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
       if (err.code === 'ENOENT') return true;
       return false;
     }
+  });
+
+  // ===== AI =====
+  ipcMain.handle('ai:health', async (_event, payload) => {
+    return await ai.aiHealth((payload && payload.model) || undefined);
+  });
+
+  ipcMain.handle('ai:chat', async (_event, { messages, options, model }) => {
+    try {
+      const text = await ai.aiChat({ messages, options, model });
+      return { ok: true, text };
+    } catch (err) {
+      return { ok: false, error: err.message || String(err) };
+    }
+  });
+
+  ipcMain.handle('ai:chat-tools', async (_event, { messages, tools, options, requestId, model }) => {
+    try {
+      const { message, aborted } = await ai.aiChatTools({ messages, tools, options, requestId, model });
+      return { ok: true, message, aborted: !!aborted };
+    } catch (err) {
+      return { ok: false, error: err.message || String(err) };
+    }
+  });
+
+  ipcMain.handle('ai:parse-task', async (_event, { sentence }) => {
+    try {
+      return await ai.aiParseTask({ sentence });
+    } catch (err) {
+      return { ok: false, error: err.message || String(err) };
+    }
+  });
+
+  ipcMain.handle('ai:abort', async (_event, { requestId }) => {
+    return { ok: ai.aiAbort(requestId) };
+  });
+
+  ipcMain.handle('ai:chat-stream', async (event, { messages, options, model }) => {
+    const requestId = ai.newRequestId();
+    const sender = event.sender;
+
+    (async () => {
+      try {
+        await ai.aiChatStream({
+          messages,
+          options,
+          model,
+          requestId,
+          onChunk: (chunk) => {
+            if (!sender.isDestroyed()) {
+              sender.send('ai:chunk', { requestId, chunk });
+            }
+          },
+        });
+        if (!sender.isDestroyed()) {
+          sender.send('ai:done', { requestId, done: true });
+        }
+      } catch (err) {
+        if (!sender.isDestroyed()) {
+          sender.send('ai:done', { requestId, done: true, error: err.message || String(err) });
+        }
+      }
+    })();
+
+    return { ok: true, requestId };
   });
 }
 

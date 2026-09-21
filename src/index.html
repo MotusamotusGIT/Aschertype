@@ -34,7 +34,7 @@
                  img-src 'self' data: blob:;
                  style-src 'self' 'unsafe-inline' https://hcaptcha.com https://*.hcaptcha.com;
                  script-src 'self' https://hcaptcha.com https://*.hcaptcha.com;
-                 connect-src 'self' https://*.supabase.co wss://*.supabase.co https://hcaptcha.com https://*.hcaptcha.com;
+                 connect-src 'self' https://*.trycloudflare.com https://*.supabase.co wss://*.supabase.co https://hcaptcha.com https://*.hcaptcha.com;
                  font-src 'self';
                  worker-src 'self' blob:;
                  frame-src https://hcaptcha.com https://*.hcaptcha.com;
@@ -227,6 +227,9 @@
         <button class="nav-item" data-view="pomodoro">
           <span class="nav-label">Pomodoro</span>
         </button>
+        <button class="nav-item" data-view="assistant">
+          <span class="nav-label">AI-Assistant</span>
+        </button>
       </div>
 
       <div class="sidebar-footer">
@@ -304,6 +307,19 @@
               </div>
             </div>
 
+            <div id="home-focus" class="home-focus" style="display:none"></div>
+
+            <div id="home-widgets" class="home-widgets" style="display:none">
+              <div class="home-widget" id="home-progress"></div>
+              <div class="home-widget" id="home-minical"></div>
+              <div class="home-widget home-widget-ai">
+                <div class="home-widget-title">AI&rsquo;scher</div>
+                <p class="home-widget-caption">Runs on your device. Let it suggest where to start.</p>
+                <button type="button" id="home-ai-plan-btn" class="btn small home-ai-plan-btn">&#10024; Plan my day</button>
+                <p id="home-ai-output" class="home-ai-output" style="display:none"></p>
+              </div>
+            </div>
+
             <div class="task-add" id="task-add">
               <button type="button" id="task-add-toggle" class="task-add-toggle">
                 <span class="task-add-plus">+</span>
@@ -311,7 +327,10 @@
               </button>
 
               <form id="todo-form" class="task-add-form" hidden>
-                <input type="text" id="todo-input" placeholder="What needs to be done?" autocomplete="off" required>
+                <div class="task-add-title-row">
+                  <input type="text" id="todo-input" placeholder="What needs to be done?" autocomplete="off" required>
+                  <button type="button" id="todo-magic-btn" class="task-magic-btn" title="Parse with AI" aria-label="Parse with AI">&#10024;</button>
+                </div>
                 <input type="text" id="desc-input" placeholder="Description (optional)">
                 <div class="task-add-row">
                   <input type="date" id="due-input" title="Due date">
@@ -365,6 +384,61 @@
         </button>
       </section>
 
+      <section id="assistant-view" class="view-panel" style="display:none">
+        <header class="main-header">
+          <div class="main-header-block">
+            <div class="assistant-title-row">
+              <div class="assistant-badge" aria-hidden="true">AI</div>
+              <div>
+                <h2>AI'scher</h2>
+                <div class="main-header-meta">
+                  <span id="assistant-status" class="assistant-status-pill">Checking local model&hellip;</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div class="assistant-card">
+          <div id="assistant-messages" class="assistant-messages" aria-live="polite"></div>
+
+          <div id="assistant-empty" class="assistant-empty">
+            <div class="assistant-empty-badge">AI</div>
+            <h3 class="assistant-empty-title">Hey, I'm AI'scher</h3>
+            <p class="assistant-empty-sub">I can plan your day, and actually manage things for you — add or finish tasks, drop them into a project, put events on your calendar, and invite people to collaborate.</p>
+            <div class="assistant-chips">
+              <button type="button" class="assistant-chip" data-prompt="What should I work on first today, and why?"><span class="assistant-chip-icon">✦</span>What should I do first?</button>
+              <button type="button" class="assistant-chip" data-prompt="Give me a detailed summary of my open tasks, grouped by priority."><span class="assistant-chip-icon">≡</span>Summarize my tasks</button>
+              <button type="button" class="assistant-chip" data-prompt="Add a task to call the dentist tomorrow, high priority."><span class="assistant-chip-icon">+</span>Add a task for me</button>
+              <button type="button" class="assistant-chip" data-prompt="Put an event on my calendar for a team sync this Friday at 3pm."><span class="assistant-chip-icon">🗓</span>Schedule an event</button>
+              <button type="button" class="assistant-chip" data-prompt="Invite teammate@example.com to collaborate on this project."><span class="assistant-chip-icon">↗</span>Invite a collaborator</button>
+              <button type="button" class="assistant-chip" data-prompt="Mark my oldest overdue task as complete."><span class="assistant-chip-icon">✓</span>Clear an overdue task</button>
+            </div>
+          </div>
+
+          <form id="assistant-form" class="assistant-form">
+            <textarea
+              id="assistant-input"
+              class="assistant-input"
+              placeholder="Message AI'scher&hellip;"
+              rows="1"
+              autocomplete="off"></textarea>
+            <button type="submit" id="assistant-send" class="assistant-icon-btn send" title="Send" aria-label="Send">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 12L20 4L14 20L11 13L4 12Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+            </button>
+            <button type="button" id="assistant-stop" class="assistant-icon-btn stop" title="Stop" aria-label="Stop" style="display:none">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></svg>
+            </button>
+          </form>
+
+          <div class="assistant-foot">
+            <span>AI'scher</span>
+            <span>&middot;</span>
+            <span>Local AI · Private to this device</span>
+          </div>
+        </div>
+      </section>
+
       <section id="pomodoro-view" class="view-panel" style="display:none">
         <header class="main-header">
           <div class="main-header-block">
@@ -398,9 +472,16 @@
       <section id="calendar-view" class="view-panel" style="display:none">
         <header class="main-header">
           <div class="main-header-block">
-            <h2>Calendar</h2>
-            <div class="main-header-meta">
-              <span id="calendar-subtitle">Keep track of important dates</span>
+            <div class="cal-title-row">
+              <div class="cal-badge" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 9.5h17" stroke="currentColor" stroke-width="1.7"/><path d="M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="8" cy="13.5" r="1.1" fill="currentColor"/><circle cx="12" cy="13.5" r="1.1" fill="currentColor"/><circle cx="8" cy="17" r="1.1" fill="currentColor"/></svg>
+              </div>
+              <div>
+                <h2>Calendar</h2>
+                <div class="main-header-meta">
+                  <span id="calendar-subtitle">Keep track of important dates</span>
+                </div>
+              </div>
             </div>
           </div>
         </header>
@@ -408,10 +489,17 @@
         <div class="calendar-layout">
           <div class="calendar-main">
             <div class="calendar-toolbar">
-              <button type="button" id="cal-prev" class="icon-btn round">&lsaquo;</button>
+              <button type="button" id="cal-prev" class="icon-btn round" aria-label="Previous month">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 5l-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
               <div id="cal-month-label" class="cal-month-label"></div>
-              <button type="button" id="cal-next" class="icon-btn round">&rsaquo;</button>
-              <button type="button" id="cal-today-btn" class="pill-btn">Today</button>
+              <button type="button" id="cal-next" class="icon-btn round" aria-label="Next month">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <button type="button" id="cal-today-btn" class="pill-btn">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/></svg>
+                Today
+              </button>
             </div>
 
             <div class="calendar-weekdays">
@@ -426,7 +514,9 @@
                 <div class="day-panel-date" id="day-panel-date">Select a date</div>
                 <div class="day-panel-sub" id="day-panel-sub"></div>
               </div>
-              <button type="button" id="day-panel-add" class="btn primary small">Add Event</button>
+              <button type="button" id="day-panel-add" class="btn primary small">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="14" height="14" style="margin-right:4px;vertical-align:-2px"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>Add Event
+              </button>
             </div>
 
             <div id="day-panel-list" class="day-panel-list"></div>
@@ -570,6 +660,27 @@
                 <input type="checkbox" id="encouragement-enabled-input">
                 Show encouragement toasts
               </label>
+            </div>
+          </div>
+          <div class="settings-block">
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">AI Assistant model</div>
+                <div class="settings-hint">AI'scher runs fully on your device via Ollama, using the built-in default model (qwen2.5:3b). This isn't configurable — it's tuned to work reliably out of the box.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-block">
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">AI system prompt</div>
+                <div class="settings-hint">This is the exact instruction AI'scher is given on every message, so you know what it can do and why it behaves the way it does. It's read-only here.</div>
+              </div>
+            </div>
+            <div class="color-picker-row" style="flex-direction:column; align-items:stretch;">
+              <button type="button" id="ai-prompt-toggle-btn" class="btn small" style="align-self:flex-start;">Show system prompt</button>
+              <pre id="ai-prompt-view" class="ai-prompt-view" style="display:none"></pre>
             </div>
           </div>
         </div>
