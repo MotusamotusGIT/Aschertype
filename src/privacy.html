@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Terms of Service — Aschertype</title>
+  <link rel="icon" type="image/png" href="./favicon.png">
+  <meta name="theme-color" content="#7c5cff">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    // Match whatever theme the app is set to (or the OS, if never set),
+    // applied before first paint so there's no flash of the wrong theme.
+    (function () {
+      try {
+        var stored = localStorage.getItem('theme');
+        var mode = (stored === 'light' || stored === 'dark')
+          ? stored
+          : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', mode);
+      } catch (err) { /* ignore — falls back to light */ }
+    })();
+  </script>
+  <style>
+    html, body.legal-body {
+      height: auto;
+      min-height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
+    body.legal-body {
+      display: flex;
+      justify-content: center;
+      padding: max(32px, env(safe-area-inset-top, 0px)) 20px calc(60px + env(safe-area-inset-bottom, 0px));
+      box-sizing: border-box;
+    }
+    .legal-card {
+      width: 100%; max-width: 720px;
+      background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+      box-shadow: var(--shadow-lg);
+      padding: 36px 32px 44px;
+      box-sizing: border-box;
+      align-self: flex-start;
+    }
+    .legal-back {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 13px; color: var(--ink-light); text-decoration: none; margin-bottom: 22px;
+    }
+    .legal-back:hover { color: var(--accent-ink); }
+    .legal-title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink); margin: 0 0 4px; }
+    .legal-updated { font-size: 13px; color: var(--ink-light); margin: 0 0 28px; }
+    .legal-card h2 { font-size: 16px; font-weight: 700; color: var(--ink); margin: 28px 0 10px; }
+    .legal-card p, .legal-card li { font-size: 14px; line-height: 1.65; color: var(--ink-light); }
+    .legal-card ul { margin: 0 0 12px; padding-left: 20px; }
+    .legal-card strong { color: var(--ink); }
+    .legal-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 10px 0 16px; }
+    @media (max-width: 600px) {
+      body.legal-body { padding: 24px 14px calc(48px + env(safe-area-inset-bottom, 0px)); }
+      .legal-card { padding: 24px 18px 32px; border-radius: 16px; }
+      .legal-title { font-size: 21px; }
+    }
+  </style>
+</head>
+<body class="legal-body">
+  <div class="legal-card">
+    <a href="./index.html" class="legal-back">&larr; Back to Aschertype</a>
+    <h1 class="legal-title">Terms of Service</h1>
+    <p class="legal-updated">Last updated: September 22, 2026</p>
+
+    <p>These Terms govern your use of Aschertype (the "App" — the desktop application and any hosted
+    web version at aschertype.vercel.app, together the "Service"). By creating an account, using the
+    Service as a guest, or otherwise accessing it, you agree to these Terms.</p>
+
+    <h2>1. The Service</h2>
+    <p>Aschertype is a personal productivity app for tasks, notes, a calendar, a Pomodoro timer, and an
+    optional local AI assistant. It is provided as-is, without warranty of any kind, and may change,
+    break, or be discontinued at any time.</p>
+
+    <h2>2. Accounts and guest mode</h2>
+    <p>You can use Aschertype with an account (data synced via our backend provider) or as a guest
+    (data stored only on your device). You're responsible for keeping your password secure and for
+    all activity under your account. Tell us promptly if you believe your account has been
+    compromised.</p>
+
+    <h2>3. Acceptable use</h2>
+    <ul>
+      <li>Don't use the Service for anything illegal, or to store or share content you don't have the right to.</li>
+      <li>Don't attempt to disrupt, reverse-engineer for malicious purposes, or gain unauthorized access to the Service or other users' data.</li>
+      <li>Don't use project invitations or collaboration features to harass or spam other people.</li>
+    </ul>
+
+    <h2>4. Your content</h2>
+    <p>You own the tasks, notes, and other content you create in Aschertype ("Your Content"). You're
+    responsible for it. We only use it to operate the Service (storing and syncing it, and — if you
+    use the AI assistant — sending relevant parts of it to the AI model you've configured, as
+    described in our <a href="./privacy.html">Privacy Policy</a>).</p>
+
+    <h2>5. The AI assistant</h2>
+    <p>The built-in AI assistant ("AI'scher") can take actions on your data (creating, editing, or
+    deleting tasks, events, and notes) when you ask it to. It can make mistakes. Review important
+    changes it makes, especially deletions, before relying on them.</p>
+
+    <h2>6. Termination</h2>
+    <p>You can stop using the Service and delete your account at any time from Settings. We may
+    suspend or terminate accounts that violate these Terms.</p>
+
+    <h2>7. Disclaimer and limitation of liability</h2>
+    <p>The Service is provided "as is" without warranties of any kind. To the fullest extent
+    permitted by law, we are not liable for any indirect, incidental, or consequential damages
+    arising from your use of the Service, including loss of data.</p>
+
+    <h2>8. Changes to these Terms</h2>
+    <p>We may update these Terms from time to time. Continued use of the Service after a change
+    means you accept the updated Terms.</p>
+
+    <h2>9. Contact</h2>
+    <p>Questions about these Terms? Reach out through the app's support channel or the project
+    repository.</p>
+  </div>
+</body>
+</html>

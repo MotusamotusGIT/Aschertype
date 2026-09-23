@@ -72,6 +72,9 @@
       text-decoration: none;
     }
     .confirm-link:hover { color: var(--accent-ink); text-decoration: underline; }
+    .confirm-reset-form {
+      display: flex; flex-direction: column; gap: 14px; width: 100%; margin-top: 4px; text-align: left;
+    }
     .confirm-spinner {
       width: 30px; height: 30px;
       border-radius: 50%;
@@ -103,8 +106,21 @@
       <a id="confirm-primary" class="btn primary" href="./index.html">Continue to Aschertype</a>
       <a id="confirm-secondary" class="confirm-link" href="./index.html">Back to sign in</a>
     </div>
+
+    <form id="reset-form" class="confirm-reset-form" style="display:none">
+      <label class="field-label" style="width:100%">New password
+        <input type="password" id="reset-password" autocomplete="new-password" required minlength="8">
+      </label>
+      <label class="field-label" style="width:100%">Confirm new password
+        <input type="password" id="reset-password-confirm" autocomplete="new-password" required minlength="8">
+      </label>
+      <div id="reset-error" class="auth-message error" style="display:none; width:100%"></div>
+      <button type="submit" class="btn primary" id="reset-submit-btn" style="width:100%">Set new password</button>
+    </form>
   </div>
 
+  <script src="./vendor/supabase.min.js"></script>
+  <script src="./supabase-config.js"></script>
   <script src="./confirm.js"></script>
 </body>
 </html>

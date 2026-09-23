@@ -44,6 +44,8 @@
 
   <link rel="stylesheet" href="style.css">
 
+  <script src="./theme-init.js"></script>
+
   <script src="https://hcaptcha.com/1/api.js" async defer></script>
 </head>
 <body>
@@ -154,6 +156,12 @@
 
       <div class="auth-divider"><span>or</span></div>
       <a href="#" id="auth-guest-link" class="auth-guest-link">Continue without an account (data stays on this device only)</a>
+
+      <p class="auth-legal-note">
+        By continuing, you agree to our
+        <a href="./terms.html">Terms of Service</a> and
+        <a href="./privacy.html">Privacy Policy</a>.
+      </p>
     </div>
   </div>
 
@@ -187,21 +195,21 @@
 
       <nav class="sidebar-section">
         <button class="nav-item active" id="all-tasks-btn" data-view="all">
-          <span class="nav-label">Home</span>
+          <span class="nav-label" data-i18n="nav.home">Home</span>
           <span class="nav-count" id="count-all">0</span>
           <span class="chevron" id="all-chevron">&#9662;</span>
         </button>
         <div class="sub-nav" id="all-subnav">
           <button class="nav-item sub" data-view="today">
-            <span class="nav-label">Today</span>
+            <span class="nav-label" data-i18n="nav.today">Today</span>
             <span class="nav-count" id="count-today">0</span>
           </button>
           <button class="nav-item sub" data-view="active">
-            <span class="nav-label">Active</span>
+            <span class="nav-label" data-i18n="nav.active">Active</span>
             <span class="nav-count" id="count-active">0</span>
           </button>
           <button class="nav-item sub" data-view="completed">
-            <span class="nav-label">Completed</span>
+            <span class="nav-label" data-i18n="nav.completed">Completed</span>
             <span class="nav-count" id="count-completed">0</span>
           </button>
         </div>
@@ -209,7 +217,7 @@
 
       <div class="sidebar-section">
         <div class="sidebar-title-row">
-          <div class="sidebar-title">Projects</div>
+          <div class="sidebar-title" data-i18n="nav.projects">Projects</div>
           <button type="button" id="add-project-btn" class="icon-btn plus" title="New project">+</button>
         </div>
         <div id="project-nav-list"></div>
@@ -217,33 +225,33 @@
       </div>
 
       <div class="sidebar-section">
-        <div class="sidebar-title">Tools</div>
+        <div class="sidebar-title" data-i18n="nav.tools">Tools</div>
         <button class="nav-item" data-view="calendar">
-          <span class="nav-label">Calendar</span>
+          <span class="nav-label" data-i18n="nav.calendar">Calendar</span>
         </button>
         <button class="nav-item" data-view="notes">
-          <span class="nav-label">Notes</span>
+          <span class="nav-label" data-i18n="nav.notes">Notes</span>
         </button>
         <button class="nav-item" data-view="pomodoro">
-          <span class="nav-label">Pomodoro</span>
+          <span class="nav-label" data-i18n="nav.pomodoro">Pomodoro</span>
         </button>
         <button class="nav-item" data-view="assistant">
-          <span class="nav-label">AI-Assistant</span>
+          <span class="nav-label" data-i18n="nav.assistant">AI-Assistant</span>
         </button>
       </div>
 
       <div class="sidebar-footer">
-        <button id="closeout-btn" title="Review today's unfinished tasks">Daily closeout</button>
-        <button id="clear-completed">Clear completed</button>
+        <button id="closeout-btn" title="Review today's unfinished tasks" data-i18n="nav.closeout">Daily closeout</button>
+        <button id="clear-completed" data-i18n="nav.clearCompleted">Clear completed</button>
         <button class="nav-item" data-view="settings">
-          <span class="nav-label">Settings</span>
+          <span class="nav-label" data-i18n="nav.settings">Settings</span>
         </button>
       </div>
     </aside>
 
     <main class="main">
       <div class="top-header-bar">
-        <button type="button" id="notif-bell" class="topbar-btn" aria-label="Notifications" title="Notifications">
+        <button type="button" id="notif-bell" class="topbar-btn" aria-label="Notifications" title="Notifications" data-i18n-title="notif.title">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
@@ -251,7 +259,7 @@
           <span id="notif-count" class="notif-badge" style="display:none">0</span>
         </button>
 
-        <button type="button" id="profile-chip" class="profile-chip hidden" aria-label="Account" title="Account">
+        <button type="button" id="profile-chip" class="profile-chip hidden" aria-label="Account" title="Account" data-i18n-title="settings.account.label">
           <div id="profile-avatar" class="profile-avatar">U</div>
           <span id="profile-name" class="profile-name">User</span>
           <span class="profile-caret">&#9662;</span>
@@ -292,17 +300,17 @@
               <div class="home-pulse">
                 <div class="home-pulse-item">
                   <span id="home-pulse-today" class="home-pulse-num">0</span>
-                  <span class="home-pulse-label">today</span>
+                  <span class="home-pulse-label" data-i18n="home.pulse.today">today</span>
                 </div>
                 <span class="home-pulse-dot">&middot;</span>
                 <div class="home-pulse-item">
                   <span id="home-pulse-active" class="home-pulse-num">0</span>
-                  <span class="home-pulse-label">active</span>
+                  <span class="home-pulse-label" data-i18n="home.pulse.active">active</span>
                 </div>
                 <span class="home-pulse-dot">&middot;</span>
                 <div class="home-pulse-item">
                   <span id="home-pulse-week" class="home-pulse-num">0</span>
-                  <span class="home-pulse-label">done this week</span>
+                  <span class="home-pulse-label" data-i18n="home.pulse.week">done this week</span>
                 </div>
               </div>
             </div>
@@ -314,61 +322,68 @@
               <div class="home-widget" id="home-minical"></div>
               <div class="home-widget home-widget-ai">
                 <div class="home-widget-title">AI&rsquo;scher</div>
-                <p class="home-widget-caption">Runs on your device. Let it suggest where to start.</p>
-                <button type="button" id="home-ai-plan-btn" class="btn small home-ai-plan-btn">&#10024; Plan my day</button>
+                <p class="home-widget-caption" data-i18n="widget.ai.caption">Runs on your device. Let it suggest where to start.</p>
+                <button type="button" id="home-ai-plan-btn" class="btn small home-ai-plan-btn" data-i18n="widget.ai.planBtn">&#10024; Plan my day</button>
                 <p id="home-ai-output" class="home-ai-output" style="display:none"></p>
+              </div>
+              <div class="home-widget tips-bar" id="tips-bar">
+                <div class="home-widget-title-row">
+                  <span class="home-widget-title" data-i18n="widget.tip">Tip</span>
+                  <button type="button" id="tips-refresh-btn" class="tips-refresh" title="Next tip" aria-label="Next tip">&#8635;</button>
+                </div>
+                <p class="tips-text" id="tips-text">Loading a tip&hellip;</p>
               </div>
             </div>
 
             <div class="task-add" id="task-add">
               <button type="button" id="task-add-toggle" class="task-add-toggle">
                 <span class="task-add-plus">+</span>
-                <span>Add a task</span>
+                <span data-i18n="task.addBtn">Add a task</span>
               </button>
 
               <form id="todo-form" class="task-add-form" hidden>
                 <div class="task-add-title-row">
-                  <input type="text" id="todo-input" placeholder="What needs to be done?" autocomplete="off" required>
-                  <button type="button" id="todo-magic-btn" class="task-magic-btn" title="Parse with AI" aria-label="Parse with AI">&#10024;</button>
+                  <input type="text" id="todo-input" placeholder="What needs to be done?" autocomplete="off" required data-i18n-placeholder="task.titlePlaceholder">
+                  <button type="button" id="todo-magic-btn" class="task-magic-btn" title="Parse with AI" aria-label="Parse with AI" data-i18n-title="task.parseAi">&#10024;</button>
                 </div>
-                <input type="text" id="desc-input" placeholder="Description (optional)">
+                <input type="text" id="desc-input" placeholder="Description (optional)" data-i18n-placeholder="task.descPlaceholder">
                 <div class="task-add-row">
-                  <input type="date" id="due-input" title="Due date">
-                  <select id="priority-input" title="Priority">
-                    <option value="low">Low</option>
-                    <option value="medium" selected>Medium</option>
-                    <option value="high">High</option>
+                  <input type="date" id="due-input" title="Due date" data-i18n-title="taskDetail.due">
+                  <select id="priority-input" title="Priority" data-i18n-title="taskDetail.priority">
+                    <option value="low" data-i18n="priority.low">Low</option>
+                    <option value="medium" selected data-i18n="priority.medium">Medium</option>
+                    <option value="high" data-i18n="priority.high">High</option>
                   </select>
-                  <select id="todo-project-select" title="Project">
-                    <option value="">No project</option>
+                  <select id="todo-project-select" title="Project" data-i18n-title="taskDetail.project">
+                    <option value="" data-i18n="project.none">No project</option>
                   </select>
                 </div>
                 <div class="task-add-category-row">
-                  <select id="todo-category-select" title="Category">
-                    <option value="">No category</option>
+                  <select id="todo-category-select" title="Category" data-i18n-title="taskDetail.category">
+                    <option value="" data-i18n="category.none">No category</option>
                   </select>
-                  <button type="button" id="todo-add-category-btn" class="icon-btn plus" title="New category" aria-label="New category">+</button>
+                  <button type="button" id="todo-add-category-btn" class="icon-btn plus" title="New category" aria-label="New category" data-i18n-title="common.addCategory">+</button>
                 </div>
                 <div class="task-add-actions">
-                  <button type="button" id="task-add-cancel" class="btn small">Cancel</button>
-                  <button type="submit" class="btn primary small">Add task</button>
+                  <button type="button" id="task-add-cancel" class="btn small" data-i18n="common.cancel">Cancel</button>
+                  <button type="submit" class="btn primary small" data-i18n="task.addTask">Add task</button>
                 </div>
               </form>
             </div>
 
             <div id="todo-list" class="task-list"></div>
-            <p id="empty-state" class="empty-state" style="display:none">Nothing here yet.</p>
+            <p id="empty-state" class="empty-state" style="display:none" data-i18n="task.empty">Nothing here yet.</p>
           </div>
 
           <aside id="project-collab-panel" class="project-collab-panel" style="display:none">
             <div class="collab-backdrop" id="collab-backdrop"></div>
             <div class="collab-sheet">
               <div class="collab-head">
-                <span class="collab-title">Collaborators</span>
-                <button type="button" id="collab-invite-btn" class="icon-btn plus" title="Invite collaborator">+</button>
+                <span class="collab-title" data-i18n="collab.title">Collaborators</span>
+                <button type="button" id="collab-invite-btn" class="icon-btn plus" title="Invite collaborator" data-i18n-title="invite.title">+</button>
               </div>
               <div id="collab-body" class="collab-body"></div>
-              <div id="collab-empty" class="collab-empty" style="display:none">No collaborators yet.</div>
+              <div id="collab-empty" class="collab-empty" style="display:none" data-i18n="collab.empty">No collaborators yet.</div>
             </div>
           </aside>
         </div>
@@ -390,9 +405,9 @@
             <div class="assistant-title-row">
               <div class="assistant-badge" aria-hidden="true">AI</div>
               <div>
-                <h2>AI'scher</h2>
+                <h2 data-i18n="assistant.title">AI'scher</h2>
                 <div class="main-header-meta">
-                  <span id="assistant-status" class="assistant-status-pill">Checking local model&hellip;</span>
+                  <span id="assistant-status" class="assistant-status-pill" data-i18n="assistant.status.checking">Checking local model&hellip;</span>
                 </div>
               </div>
             </div>
@@ -404,15 +419,15 @@
 
           <div id="assistant-empty" class="assistant-empty">
             <div class="assistant-empty-badge">AI</div>
-            <h3 class="assistant-empty-title">Hey, I'm AI'scher</h3>
-            <p class="assistant-empty-sub">I can plan your day, and actually manage things for you — add or finish tasks, drop them into a project, put events on your calendar, and invite people to collaborate.</p>
+            <h3 class="assistant-empty-title" data-i18n="assistant.empty.title">Hey, I'm AI'scher</h3>
+            <p class="assistant-empty-sub" data-i18n="assistant.empty.sub">I can plan your day, and actually manage things for you — add or finish tasks, drop them into a project, put events on your calendar, and invite people to collaborate.</p>
             <div class="assistant-chips">
-              <button type="button" class="assistant-chip" data-prompt="What should I work on first today, and why?"><span class="assistant-chip-icon">✦</span>What should I do first?</button>
-              <button type="button" class="assistant-chip" data-prompt="Give me a detailed summary of my open tasks, grouped by priority."><span class="assistant-chip-icon">≡</span>Summarize my tasks</button>
-              <button type="button" class="assistant-chip" data-prompt="Add a task to call the dentist tomorrow, high priority."><span class="assistant-chip-icon">+</span>Add a task for me</button>
-              <button type="button" class="assistant-chip" data-prompt="Put an event on my calendar for a team sync this Friday at 3pm."><span class="assistant-chip-icon">🗓</span>Schedule an event</button>
-              <button type="button" class="assistant-chip" data-prompt="Invite teammate@example.com to collaborate on this project."><span class="assistant-chip-icon">↗</span>Invite a collaborator</button>
-              <button type="button" class="assistant-chip" data-prompt="Mark my oldest overdue task as complete."><span class="assistant-chip-icon">✓</span>Clear an overdue task</button>
+              <button type="button" class="assistant-chip" data-prompt="What should I work on first today, and why?"><span class="assistant-chip-icon">✦</span><span data-i18n="assistant.chip.start">What should I do first?</span></button>
+              <button type="button" class="assistant-chip" data-prompt="Give me a detailed summary of my open tasks, grouped by priority."><span class="assistant-chip-icon">≡</span><span data-i18n="assistant.chip.summarize">Summarize my tasks</span></button>
+              <button type="button" class="assistant-chip" data-prompt="Add a task to call the dentist tomorrow, high priority."><span class="assistant-chip-icon">+</span><span data-i18n="assistant.chip.addTask">Add a task for me</span></button>
+              <button type="button" class="assistant-chip" data-prompt="Put an event on my calendar for a team sync this Friday at 3pm."><span class="assistant-chip-icon">🗓</span><span data-i18n="assistant.chip.schedule">Schedule an event</span></button>
+              <button type="button" class="assistant-chip" data-prompt="Invite teammate@example.com to collaborate on this project."><span class="assistant-chip-icon">↗</span><span data-i18n="assistant.chip.invite">Invite a collaborator</span></button>
+              <button type="button" class="assistant-chip" data-prompt="Mark my oldest overdue task as complete."><span class="assistant-chip-icon">✓</span><span data-i18n="assistant.chip.clear">Clear an overdue task</span></button>
             </div>
           </div>
 
@@ -421,12 +436,13 @@
               id="assistant-input"
               class="assistant-input"
               placeholder="Message AI'scher&hellip;"
+              data-i18n-placeholder="assistant.input.placeholder"
               rows="1"
               autocomplete="off"></textarea>
-            <button type="submit" id="assistant-send" class="assistant-icon-btn send" title="Send" aria-label="Send">
+            <button type="submit" id="assistant-send" class="assistant-icon-btn send" title="Send" aria-label="Send" data-i18n-title="common.send">
               <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 12L20 4L14 20L11 13L4 12Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
             </button>
-            <button type="button" id="assistant-stop" class="assistant-icon-btn stop" title="Stop" aria-label="Stop" style="display:none">
+            <button type="button" id="assistant-stop" class="assistant-icon-btn stop" title="Stop" aria-label="Stop" data-i18n-title="common.stop" style="display:none">
               <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor"/></svg>
             </button>
           </form>
@@ -434,7 +450,7 @@
           <div class="assistant-foot">
             <span>AI'scher</span>
             <span>&middot;</span>
-            <span>Local AI · Private to this device</span>
+            <span data-i18n="assistant.foot.local">Local AI · Private to this device</span>
           </div>
         </div>
       </section>
@@ -442,30 +458,36 @@
       <section id="pomodoro-view" class="view-panel" style="display:none">
         <header class="main-header">
           <div class="main-header-block">
-            <h2>Pomodoro</h2>
+            <h2 data-i18n="pomodoro.title">Pomodoro</h2>
             <div class="main-header-meta">
-              <span id="pomodoro-mode-label">Focus session</span>
+              <span id="pomodoro-mode-label" data-i18n="pomodoro.mode.focus">Focus session</span>
             </div>
           </div>
         </header>
 
         <div class="pomodoro-card">
-          <input type="text" id="pomodoro-task" class="pomodoro-task-input" placeholder="What are you working on?">
+          <input type="text" id="pomodoro-task" class="pomodoro-task-input" placeholder="What are you working on?" data-i18n-placeholder="pomodoro.task.placeholder" readonly>
+          <div class="pomodoro-task-picker-row">
+            <select id="pomodoro-task-select">
+              <option value="" data-i18n="pomodoro.task.pick">Pick a task from your lists…</option>
+            </select>
+            <button type="button" id="pomodoro-mark-done" class="btn small" disabled title="Mark this task done and keep the timer running" data-i18n-title="pomodoro.markDone.title" data-i18n="pomodoro.markDone">Done, next task →</button>
+          </div>
           <div class="pomodoro-timer" id="pomodoro-timer">25:00</div>
           <div class="pomodoro-controls">
-            <button type="button" id="pomodoro-start" class="btn primary">Start</button>
-            <button type="button" id="pomodoro-pause" class="btn" disabled>Pause</button>
-            <button type="button" id="pomodoro-reset" class="btn">Reset</button>
+            <button type="button" id="pomodoro-start" class="btn primary" data-i18n="common.start">Start</button>
+            <button type="button" id="pomodoro-pause" class="btn" disabled data-i18n="common.pause">Pause</button>
+            <button type="button" id="pomodoro-reset" class="btn" data-i18n="common.reset">Reset</button>
           </div>
           <div class="pomodoro-settings-row">
-            <label>Focus (min)
+            <label><span data-i18n="pomodoro.focusMin">Focus (min)</span>
               <input type="number" id="pomodoro-work-min" min="1" max="120" value="25">
             </label>
-            <label>Break (min)
+            <label><span data-i18n="pomodoro.breakMin">Break (min)</span>
               <input type="number" id="pomodoro-break-min" min="1" max="60" value="5">
             </label>
           </div>
-          <div class="pomodoro-sessions">Sessions completed: <span id="pomodoro-sessions">0</span></div>
+          <div class="pomodoro-sessions"><span data-i18n="pomodoro.sessions">Sessions completed:</span> <span id="pomodoro-sessions">0</span></div>
         </div>
       </section>
 
@@ -477,9 +499,9 @@
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 9.5h17" stroke="currentColor" stroke-width="1.7"/><path d="M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="8" cy="13.5" r="1.1" fill="currentColor"/><circle cx="12" cy="13.5" r="1.1" fill="currentColor"/><circle cx="8" cy="17" r="1.1" fill="currentColor"/></svg>
               </div>
               <div>
-                <h2>Calendar</h2>
+                <h2 data-i18n="calendar.title">Calendar</h2>
                 <div class="main-header-meta">
-                  <span id="calendar-subtitle">Keep track of important dates</span>
+                  <span id="calendar-subtitle" data-i18n="calendar.subtitle">Keep track of important dates</span>
                 </div>
               </div>
             </div>
@@ -498,12 +520,12 @@
               </button>
               <button type="button" id="cal-today-btn" class="pill-btn">
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="2.5" fill="currentColor"/></svg>
-                Today
+                <span data-i18n="calendar.today">Today</span>
               </button>
             </div>
 
             <div class="calendar-weekdays">
-              <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+              <span data-i18n="calendar.day.sun">Sun</span><span data-i18n="calendar.day.mon">Mon</span><span data-i18n="calendar.day.tue">Tue</span><span data-i18n="calendar.day.wed">Wed</span><span data-i18n="calendar.day.thu">Thu</span><span data-i18n="calendar.day.fri">Fri</span><span data-i18n="calendar.day.sat">Sat</span>
             </div>
             <div class="calendar-grid" id="calendar-grid"></div>
           </div>
@@ -511,31 +533,31 @@
           <div class="day-panel">
             <div class="day-panel-header" id="day-panel-header-list">
               <div>
-                <div class="day-panel-date" id="day-panel-date">Select a date</div>
+                <div class="day-panel-date" id="day-panel-date" data-i18n="calendar.selectDate">Select a date</div>
                 <div class="day-panel-sub" id="day-panel-sub"></div>
               </div>
               <button type="button" id="day-panel-add" class="btn primary small">
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="14" height="14" style="margin-right:4px;vertical-align:-2px"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>Add Event
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="14" height="14" style="margin-right:4px;vertical-align:-2px"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><span data-i18n="calendar.addEvent">Add Event</span>
               </button>
             </div>
 
             <div id="day-panel-list" class="day-panel-list"></div>
 
             <div id="day-panel-form" class="day-panel-form" style="display:none">
-              <button type="button" id="event-back-btn" class="back-btn">&larr; Back to events</button>
-              <div class="day-panel-form-title" id="event-form-title">Add Event</div>
-              <label class="field-label">Time (optional)
+              <button type="button" id="event-back-btn" class="back-btn" data-i18n="calendar.backToEvents">&larr; Back to events</button>
+              <div class="day-panel-form-title" id="event-form-title" data-i18n="calendar.addEvent">Add Event</div>
+              <label class="field-label"><span data-i18n="calendar.timeOptional">Time (optional)</span>
                 <input type="time" id="event-time-input">
               </label>
-              <label class="field-label">Title
-                <input type="text" id="event-title-input" placeholder="e.g. Doctor appointment" autocomplete="off">
+              <label class="field-label"><span data-i18n="calendar.eventTitle">Title</span>
+                <input type="text" id="event-title-input" placeholder="e.g. Doctor appointment" autocomplete="off" data-i18n-placeholder="calendar.eventTitle.placeholder">
               </label>
-              <label class="field-label">Notes (optional)
-                <textarea id="event-notes-input" rows="3" placeholder="Details..."></textarea>
+              <label class="field-label"><span data-i18n="calendar.notesOptional">Notes (optional)</span>
+                <textarea id="event-notes-input" rows="3" placeholder="Details..." data-i18n-placeholder="common.detailsPlaceholder"></textarea>
               </label>
               <div class="form-actions">
-                <button type="button" id="event-delete-btn" class="btn danger" style="display:none">Delete</button>
-                <button type="button" id="event-save-btn" class="btn primary">Save</button>
+                <button type="button" id="event-delete-btn" class="btn danger" style="display:none" data-i18n="common.delete">Delete</button>
+                <button type="button" id="event-save-btn" class="btn primary" data-i18n="common.save">Save</button>
               </div>
             </div>
           </div>
@@ -545,38 +567,38 @@
       <section id="notes-view" class="view-panel" style="display:none">
         <header class="main-header">
           <div class="main-header-block">
-            <h2>Notes</h2>
+            <h2 data-i18n="notes.title">Notes</h2>
             <div class="main-header-meta">
-              <span>Quick notes and ideas</span>
+              <span data-i18n="notes.subtitle">Quick notes and ideas</span>
             </div>
           </div>
         </header>
 
         <div class="notes-toolbar">
           <div class="category-tabs" id="category-tabs"></div>
-          <button type="button" id="add-category-btn" class="icon-btn plus" title="Add category">+</button>
+          <button type="button" id="add-category-btn" class="icon-btn plus" title="Add category" data-i18n-title="common.addCategory">+</button>
         </div>
 
         <form id="note-form" class="note-form">
           <div class="form-row">
-            <input type="text" id="note-title-input" placeholder="Note title..." autocomplete="off" required>
+            <input type="text" id="note-title-input" placeholder="Note title..." autocomplete="off" required data-i18n-placeholder="notes.titlePlaceholder">
             <select id="note-category-select"></select>
           </div>
-          <input type="text" id="note-desc-input" placeholder="Short description (optional)">
-          <textarea id="note-content-input" rows="3" placeholder="Write your note..."></textarea>
-          <button type="submit" class="btn primary note-submit">Add Note</button>
+          <input type="text" id="note-desc-input" placeholder="Short description (optional)" data-i18n-placeholder="notes.descPlaceholder">
+          <textarea id="note-content-input" rows="3" placeholder="Write your note..." data-i18n-placeholder="notes.contentPlaceholder"></textarea>
+          <button type="submit" class="btn primary note-submit" data-i18n="notes.addBtn">Add Note</button>
         </form>
 
         <div id="notes-list" class="notes-list"></div>
-        <p id="notes-empty-state" class="empty-state" style="display:none">No notes yet. Add one above.</p>
+        <p id="notes-empty-state" class="empty-state" style="display:none" data-i18n="notes.empty">No notes yet. Add one above.</p>
       </section>
 
       <section id="settings-view" class="view-panel" style="display:none">
         <header class="main-header">
           <div class="main-header-block">
-            <h2>Settings</h2>
+            <h2 data-i18n="settings.title">Settings</h2>
             <div class="main-header-meta">
-              <span>Personalize the app</span>
+              <span data-i18n="settings.subtitle">Personalize the app</span>
             </div>
           </div>
         </header>
@@ -585,29 +607,42 @@
           <div class="settings-block">
             <div class="settings-row">
               <div>
-                <div class="settings-label">Account</div>
-                <div class="settings-hint" id="account-status">Checking account&hellip;</div>
+                <div class="settings-label" data-i18n="settings.account.label">Account</div>
+                <div class="settings-hint" id="account-status" data-i18n="settings.account.checking">Checking account&hellip;</div>
               </div>
             </div>
             <div class="color-picker-row">
-              <button type="button" id="account-signout-btn" class="btn danger small" style="display:none">Log out</button>
-              <button type="button" id="account-switch-btn" class="btn small" style="display:none">Sign in / Create account</button>
+              <button type="button" id="account-signout-btn" class="btn danger small" style="display:none" data-i18n="settings.account.logout">Log out</button>
+              <button type="button" id="account-switch-btn" class="btn small" style="display:none" data-i18n="settings.account.signin">Sign in / Create account</button>
             </div>
           </div>
 
           <div class="settings-block">
             <div class="settings-row">
               <div>
-                <div class="settings-label">Theme</div>
-                <div class="settings-hint">Choose light or dark. Follows your device by default.</div>
+                <div class="settings-label" data-i18n="settings.language.label">Language</div>
+                <div class="settings-hint" data-i18n="settings.language.hint">Choose the app's display language.</div>
+              </div>
+            </div>
+            <select id="language-select">
+              <option value="en">English</option>
+              <option value="id">Bahasa Indonesia</option>
+            </select>
+          </div>
+
+          <div class="settings-block">
+            <div class="settings-row">
+              <div>
+                <div class="settings-label" data-i18n="settings.theme.label">Theme</div>
+                <div class="settings-hint" data-i18n="settings.theme.hint">Choose light or dark. Follows your device by default.</div>
               </div>
             </div>
             <div class="theme-toggle" id="theme-toggle" role="group" aria-label="Theme">
               <button type="button" id="theme-light-btn" class="theme-toggle-btn" data-theme-choice="light">
-                <span class="theme-swatch light"></span> Light
+                <span class="theme-swatch light"></span> <span data-i18n="settings.theme.light">Light</span>
               </button>
               <button type="button" id="theme-dark-btn" class="theme-toggle-btn" data-theme-choice="dark">
-                <span class="theme-swatch dark"></span> Dark
+                <span class="theme-swatch dark"></span> <span data-i18n="settings.theme.dark">Dark</span>
               </button>
             </div>
           </div>
@@ -615,15 +650,15 @@
           <div class="settings-block">
             <div class="settings-row">
               <div>
-                <div class="settings-label">Daily closeout time</div>
-                <div class="settings-hint">When your workday ends, we'll offer a quick 2-minute review of anything left unfinished.</div>
+                <div class="settings-label" data-i18n="settings.closeout.label">Daily closeout time</div>
+                <div class="settings-hint" data-i18n="settings.closeout.hint">When your workday ends, we'll offer a quick 2-minute review of anything left unfinished.</div>
               </div>
             </div>
             <div class="color-picker-row">
               <input type="time" id="closeout-time-input" class="hex-input">
               <label class="closeout-toggle-label">
                 <input type="checkbox" id="closeout-enabled-input">
-                Enable daily closeout
+                <span data-i18n="settings.closeout.enable">Enable daily closeout</span>
               </label>
             </div>
           </div>
@@ -631,14 +666,14 @@
           <div class="settings-block">
             <div class="settings-row">
               <div>
-                <div class="settings-label">Notifications</div>
-                <div class="settings-hint">Alerts when an event is starting or a Pomodoro session is almost done.</div>
+                <div class="settings-label" data-i18n="settings.notifications.label">Notifications</div>
+                <div class="settings-hint" data-i18n="settings.notifications.hint">Alerts when an event is starting or a Pomodoro session is almost done.</div>
               </div>
             </div>
             <div class="color-picker-row">
               <label class="closeout-toggle-label">
                 <input type="checkbox" id="notifications-enabled-input">
-                Enable notifications
+                <span data-i18n="settings.notifications.enable">Enable notifications</span>
               </label>
               <span class="notif-permission-hint" id="notif-permission-hint"></span>
             </div>
@@ -647,26 +682,26 @@
           <div class="settings-block">
             <div class="settings-row">
               <div>
-                <div class="settings-label">Tips &amp; encouragement</div>
-                <div class="settings-hint">Show rotating productivity tips and small encouragement messages.</div>
+                <div class="settings-label" data-i18n="settings.tips.label">Tips &amp; encouragement</div>
+                <div class="settings-hint" data-i18n="settings.tips.hint">Show a rotating productivity tip on your Home screen, plus small encouragement messages.</div>
               </div>
             </div>
             <div class="color-picker-row">
               <label class="closeout-toggle-label">
                 <input type="checkbox" id="tips-enabled-input">
-                Show tips bar
+                <span data-i18n="settings.tips.showHome">Show tip on Home</span>
               </label>
               <label class="closeout-toggle-label">
                 <input type="checkbox" id="encouragement-enabled-input">
-                Show encouragement toasts
+                <span data-i18n="settings.tips.showEncouragement">Show encouragement toasts</span>
               </label>
             </div>
           </div>
           <div class="settings-block">
             <div class="settings-row">
               <div>
-                <div class="settings-label">AI Assistant model</div>
-                <div class="settings-hint">AI'scher runs fully on your device via Ollama, using the built-in default model (qwen2.5:3b). This isn't configurable — it's tuned to work reliably out of the box.</div>
+                <div class="settings-label" data-i18n="settings.aiModel.label">AI Assistant model</div>
+                <div class="settings-hint" data-i18n="settings.aiModel.hint">AI'scher runs fully on your device via Ollama, using the built-in default model (qwen2.5:3b). This isn't configurable — it's tuned to work reliably out of the box.</div>
               </div>
             </div>
           </div>
@@ -674,13 +709,25 @@
           <div class="settings-block">
             <div class="settings-row">
               <div>
-                <div class="settings-label">AI system prompt</div>
-                <div class="settings-hint">This is the exact instruction AI'scher is given on every message, so you know what it can do and why it behaves the way it does. It's read-only here.</div>
+                <div class="settings-label" data-i18n="settings.aiPrompt.label">AI system prompt</div>
+                <div class="settings-hint" data-i18n="settings.aiPrompt.hint">This is the exact instruction AI'scher is given on every message, so you know what it can do and why it behaves the way it does. It's read-only here.</div>
               </div>
             </div>
             <div class="color-picker-row" style="flex-direction:column; align-items:stretch;">
-              <button type="button" id="ai-prompt-toggle-btn" class="btn small" style="align-self:flex-start;">Show system prompt</button>
+              <button type="button" id="ai-prompt-toggle-btn" class="btn small" style="align-self:flex-start;" data-i18n="settings.aiPrompt.show">Show system prompt</button>
               <pre id="ai-prompt-view" class="ai-prompt-view" style="display:none"></pre>
+            </div>
+          </div>
+          <div class="settings-block">
+            <div class="settings-row">
+              <div>
+                <div class="settings-label" data-i18n="settings.legal.label">Legal</div>
+                <div class="settings-hint" data-i18n="settings.legal.hint">Read our Terms of Service and Privacy Policy.</div>
+              </div>
+            </div>
+            <div class="color-picker-row">
+              <a href="./terms.html" class="btn small" data-i18n="settings.legal.terms">Terms of Service</a>
+              <a href="./privacy.html" class="btn small" data-i18n="settings.legal.privacy">Privacy Policy</a>
             </div>
           </div>
         </div>
@@ -693,16 +740,16 @@
     <div class="modal-card closeout-card">
       <div class="modal-header">
         <div>
-          <div class="modal-title">Closeout &middot; end of day</div>
-          <div class="modal-sub">A quick 2-minute pass over what's still open.</div>
+          <div class="modal-title" data-i18n="closeout.title">Closeout &middot; end of day</div>
+          <div class="modal-sub" data-i18n="closeout.sub">A quick 2-minute pass over what's still open.</div>
         </div>
-        <button type="button" id="closeout-close-btn" class="icon-btn" aria-label="Close">&times;</button>
+        <button type="button" id="closeout-close-btn" class="icon-btn" aria-label="Close" data-i18n-title="common.close">&times;</button>
       </div>
       <div id="closeout-list" class="closeout-list"></div>
-      <div id="closeout-empty" class="day-panel-empty" style="display:none">Everything's wrapped up. Nice work today.</div>
+      <div id="closeout-empty" class="day-panel-empty" style="display:none" data-i18n="closeout.empty">Everything's wrapped up. Nice work today.</div>
       <div class="modal-actions">
-        <button type="button" id="closeout-move-all-btn" class="btn">Move all to tomorrow</button>
-        <button type="button" id="closeout-done-btn" class="btn primary">Done for today</button>
+        <button type="button" id="closeout-move-all-btn" class="btn" data-i18n="closeout.moveAll">Move all to tomorrow</button>
+        <button type="button" id="closeout-done-btn" class="btn primary" data-i18n="closeout.done">Done for today</button>
       </div>
     </div>
   </div>
@@ -712,20 +759,20 @@
     <div class="modal-card project-modal-card">
       <div class="modal-header">
         <div>
-          <div class="modal-title" id="project-modal-title">New project</div>
-          <div class="modal-sub">Group related tasks together.</div>
+          <div class="modal-title" id="project-modal-title" data-i18n="project.new">New project</div>
+          <div class="modal-sub" data-i18n="project.sub">Group related tasks together.</div>
         </div>
-        <button type="button" id="project-modal-close-btn" class="icon-btn" aria-label="Close">&times;</button>
+        <button type="button" id="project-modal-close-btn" class="icon-btn" aria-label="Close" data-i18n-title="common.close">&times;</button>
       </div>
       <div class="project-modal-field">
         <span id="project-preview-tile" class="project-preview-tile">?</span>
-        <label class="field-label">Project name
-          <input type="text" id="project-name-input" placeholder="e.g. Website redesign" autocomplete="off" maxlength="60">
+        <label class="field-label"><span data-i18n="project.nameLabel">Project name</span>
+          <input type="text" id="project-name-input" placeholder="e.g. Website redesign" autocomplete="off" maxlength="60" data-i18n-placeholder="project.namePlaceholder">
         </label>
       </div>
       <div class="modal-actions">
-        <button type="button" id="project-modal-cancel-btn" class="btn">Cancel</button>
-        <button type="button" id="project-modal-save-btn" class="btn primary">Save</button>
+        <button type="button" id="project-modal-cancel-btn" class="btn" data-i18n="common.cancel">Cancel</button>
+        <button type="button" id="project-modal-save-btn" class="btn primary" data-i18n="common.save">Save</button>
       </div>
     </div>
   </div>
@@ -735,42 +782,42 @@
     <div class="modal-card invite-modal-card">
       <div class="modal-header">
         <div>
-          <div class="modal-title" id="invite-modal-title">Invite collaborator</div>
-          <div class="modal-sub" id="invite-modal-sub">They'll get an invite in their notification bell.</div>
+          <div class="modal-title" id="invite-modal-title" data-i18n="invite.title">Invite collaborator</div>
+          <div class="modal-sub" id="invite-modal-sub" data-i18n="invite.sub">They'll get an invite in their notification bell.</div>
         </div>
-        <button type="button" id="invite-close-btn" class="icon-btn" aria-label="Close">&times;</button>
+        <button type="button" id="invite-close-btn" class="icon-btn" aria-label="Close" data-i18n-title="common.close">&times;</button>
       </div>
 
       <div id="invite-error" class="auth-message error" style="display:none"></div>
 
-      <label class="field-label">Email address
+      <label class="field-label"><span data-i18n="invite.emailLabel">Email address</span>
         <input type="email" id="invite-email" placeholder="name@gmail.com" autocomplete="off">
       </label>
 
       <div class="perm-block">
-        <div class="perm-title">Permissions</div>
-        <div class="perm-hint">Everyone can view tasks and check them off. Add extra abilities below.</div>
+        <div class="perm-title" data-i18n="perm.title">Permissions</div>
+        <div class="perm-hint" data-i18n="perm.hint">Everyone can view tasks and check them off. Add extra abilities below.</div>
         <label class="perm-row">
           <input type="checkbox" id="invite-can-add-task">
-          <span>Add tasks</span>
+          <span data-i18n="perm.addTasks">Add tasks</span>
         </label>
         <label class="perm-row">
           <input type="checkbox" id="invite-can-rename-task">
-          <span>Rename tasks</span>
+          <span data-i18n="perm.renameTasks">Rename tasks</span>
         </label>
         <label class="perm-row">
           <input type="checkbox" id="invite-can-remove-task">
-          <span>Remove tasks</span>
+          <span data-i18n="perm.removeTasks">Remove tasks</span>
         </label>
         <label class="perm-row">
           <input type="checkbox" id="invite-can-rename-project">
-          <span>Rename the project</span>
+          <span data-i18n="perm.renameProject">Rename the project</span>
         </label>
       </div>
 
       <div class="modal-actions">
-        <button type="button" id="invite-cancel-btn" class="btn">Cancel</button>
-        <button type="button" id="invite-send-btn" class="btn primary">Send invite</button>
+        <button type="button" id="invite-cancel-btn" class="btn" data-i18n="common.cancel">Cancel</button>
+        <button type="button" id="invite-send-btn" class="btn primary" data-i18n="invite.send">Send invite</button>
       </div>
     </div>
   </div>
@@ -780,14 +827,14 @@
     <div class="modal-card notif-modal-card">
       <div class="modal-header">
         <div>
-          <div class="modal-title">Notifications</div>
-          <div class="modal-sub">Invites, project activity, and updates.</div>
+          <div class="modal-title" data-i18n="notif.title">Notifications</div>
+          <div class="modal-sub" data-i18n="notif.sub">Invites, project activity, and updates.</div>
         </div>
-        <button type="button" id="notif-close-btn" class="icon-btn" aria-label="Close">&times;</button>
+        <button type="button" id="notif-close-btn" class="icon-btn" aria-label="Close" data-i18n-title="common.close">&times;</button>
       </div>
       <div id="notif-list" class="notif-list"></div>
       <div class="modal-actions">
-        <button type="button" id="notif-mark-all-btn" class="btn small">Mark all read</button>
+        <button type="button" id="notif-mark-all-btn" class="btn small" data-i18n="notif.markAllRead">Mark all read</button>
       </div>
     </div>
   </div>
@@ -804,48 +851,48 @@
     </div>
 
     <div id="profile-pop-name-edit" class="profile-pop-edit" style="display:none">
-      <label class="field-label small">Display name
-        <input type="text" id="profile-name-input" maxlength="40" placeholder="Your name">
+      <label class="field-label small"><span data-i18n="profile.displayName">Display name</span>
+        <input type="text" id="profile-name-input" maxlength="40" placeholder="Your name" data-i18n-placeholder="profile.namePlaceholder">
       </label>
       <div class="profile-pop-edit-actions">
-        <button type="button" id="profile-name-cancel" class="btn small">Cancel</button>
-        <button type="button" id="profile-name-save" class="btn primary small">Save</button>
+        <button type="button" id="profile-name-cancel" class="btn small" data-i18n="common.cancel">Cancel</button>
+        <button type="button" id="profile-name-save" class="btn primary small" data-i18n="common.save">Save</button>
       </div>
     </div>
 
     <div class="profile-pop-actions">
-      <button type="button" id="profile-edit-name-btn" class="profile-pop-action">Edit display name</button>
-      <button type="button" id="profile-settings-btn" class="profile-pop-action">Open settings</button>
-      <button type="button" id="profile-signout-btn" class="profile-pop-action danger">Sign out</button>
-      <button type="button" id="profile-signin-btn" class="profile-pop-action" style="display:none">Sign in / Create account</button>
+      <button type="button" id="profile-edit-name-btn" class="profile-pop-action" data-i18n="profile.editName">Edit display name</button>
+      <button type="button" id="profile-settings-btn" class="profile-pop-action" data-i18n="profile.openSettings">Open settings</button>
+      <button type="button" id="profile-signout-btn" class="profile-pop-action danger" data-i18n="profile.signOut">Sign out</button>
+      <button type="button" id="profile-signin-btn" class="profile-pop-action" style="display:none" data-i18n="settings.account.signin">Sign in / Create account</button>
     </div>
   </div>
 
   <!-- Permissions popover -->
   <div id="perm-popover" class="perm-popover" style="display:none" role="dialog" aria-label="Collaborator permissions">
     <div class="perm-popover-header">
-      <div class="perm-popover-title">Permissions</div>
+      <div class="perm-popover-title" data-i18n="perm.title">Permissions</div>
       <div class="perm-popover-email" id="perm-popover-email"></div>
     </div>
     <div class="perm-popover-list">
       <label class="perm-toggle">
         <input type="checkbox" data-perm="can_add_task">
-        <span>Add tasks</span>
+        <span data-i18n="perm.addTasks">Add tasks</span>
       </label>
       <label class="perm-toggle">
         <input type="checkbox" data-perm="can_rename_task">
-        <span>Rename tasks</span>
+        <span data-i18n="perm.renameTasks">Rename tasks</span>
       </label>
       <label class="perm-toggle">
         <input type="checkbox" data-perm="can_remove_task">
-        <span>Remove tasks</span>
+        <span data-i18n="perm.removeTasks">Remove tasks</span>
       </label>
       <label class="perm-toggle">
         <input type="checkbox" data-perm="can_rename_project">
-        <span>Rename the project</span>
+        <span data-i18n="perm.renameProject">Rename the project</span>
       </label>
     </div>
-    <div class="perm-popover-footer">
+    <div class="perm-popover-footer" data-i18n="perm.popoverFooter">
       Everyone can always view and check off tasks.
     </div>
   </div>
@@ -855,57 +902,64 @@
     <div class="modal-card welcome-card">
       <div class="welcome-hero">
         <img src="./favicon.png" alt="Aschertype" class="welcome-mark" width="56" height="56">
-        <div class="welcome-title">Welcome to Aschertype</div>
-        <div class="welcome-sub">Everything in one place. Here's the 30-second tour.</div>
+        <div class="welcome-title" data-i18n="welcome.title">Welcome to Aschertype</div>
+        <div class="welcome-sub" data-i18n="welcome.sub">Everything in one place. Here's the 30-second tour.</div>
       </div>
 
       <div class="welcome-list">
         <div class="welcome-item">
           <div class="welcome-item-icon">📝</div>
           <div class="welcome-item-text">
-            <div class="welcome-item-title">Tasks</div>
-            <div class="welcome-item-desc">Add them in the box at the top. Give a due date, priority, and project as you go.</div>
+            <div class="welcome-item-title" data-i18n="welcome.tasks.title">Tasks</div>
+            <div class="welcome-item-desc" data-i18n="welcome.tasks.desc">Add them in the box at the top. Give a due date, priority, and project as you go.</div>
           </div>
         </div>
         <div class="welcome-item">
           <div class="welcome-item-icon">📁</div>
           <div class="welcome-item-text">
-            <div class="welcome-item-title">Projects</div>
-            <div class="welcome-item-desc">Group related tasks. Create one from the sidebar with the small <strong>+</strong>.</div>
+            <div class="welcome-item-title" data-i18n="welcome.projects.title">Projects</div>
+            <div class="welcome-item-desc" data-i18n-html="welcome.projects.desc">Group related tasks. Create one from the sidebar with the small <strong>+</strong>.</div>
           </div>
         </div>
         <div class="welcome-item">
           <div class="welcome-item-icon">🤝</div>
           <div class="welcome-item-text">
-            <div class="welcome-item-title">Collaboration</div>
-            <div class="welcome-item-desc">Open a project and invite someone by email. They'll get it in their notification bell.</div>
+            <div class="welcome-item-title" data-i18n="welcome.collab.title">Collaboration</div>
+            <div class="welcome-item-desc" data-i18n="welcome.collab.desc">Open a project and invite someone by email. They'll get it in their notification bell.</div>
           </div>
         </div>
         <div class="welcome-item">
           <div class="welcome-item-icon">📅</div>
           <div class="welcome-item-text">
-            <div class="welcome-item-title">Calendar &amp; Notes</div>
-            <div class="welcome-item-desc">Keep dates and quick thoughts alongside your tasks. They sync to your account.</div>
+            <div class="welcome-item-title" data-i18n="welcome.calNotes.title">Calendar &amp; Notes</div>
+            <div class="welcome-item-desc" data-i18n="welcome.calNotes.desc">Keep dates and quick thoughts alongside your tasks. They sync to your account.</div>
           </div>
         </div>
         <div class="welcome-item">
           <div class="welcome-item-icon">🍅</div>
           <div class="welcome-item-text">
-            <div class="welcome-item-title">Pomodoro</div>
-            <div class="welcome-item-desc">25-minute focus blocks, with a soft chime when it's time to rest.</div>
+            <div class="welcome-item-title" data-i18n="pomodoro.title">Pomodoro</div>
+            <div class="welcome-item-desc" data-i18n="welcome.pomodoro.desc">Pick a task from the dropdown to time it. Mark it done mid-session to switch tasks without losing the countdown.</div>
+          </div>
+        </div>
+        <div class="welcome-item">
+          <div class="welcome-item-icon">✨</div>
+          <div class="welcome-item-text">
+            <div class="welcome-item-title" data-i18n="assistant.title">AI'scher</div>
+            <div class="welcome-item-desc" data-i18n="welcome.assistant.desc">Your built-in assistant. Ask it to add, reschedule, or undo things — it acts on your tasks, calendar, and notes for real.</div>
           </div>
         </div>
         <div class="welcome-item">
           <div class="welcome-item-icon">👤</div>
           <div class="welcome-item-text">
-            <div class="welcome-item-title">Your account</div>
-            <div class="welcome-item-desc">Tap the avatar in the corner to change your display name or sign out.</div>
+            <div class="welcome-item-title" data-i18n="welcome.account.title">Your account</div>
+            <div class="welcome-item-desc" data-i18n="welcome.account.desc">Tap the avatar in the corner to change your display name or sign out.</div>
           </div>
         </div>
       </div>
 
       <div class="modal-actions">
-        <button type="button" id="welcome-dismiss-btn" class="btn primary">Got it — let's go</button>
+        <button type="button" id="welcome-dismiss-btn" class="btn primary" data-i18n="welcome.dismiss">Got it — let's go</button>
       </div>
     </div>
   </div>
@@ -914,12 +968,12 @@
   <div id="tips-intro-overlay" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-label="Tips">
     <div class="modal-card tips-intro-card">
       <div class="tips-intro-mark">💡</div>
-      <div class="tips-intro-title">A small tip, every day</div>
-      <div class="tips-intro-text">
+      <div class="tips-intro-title" data-i18n="tipsIntro.title">A small tip, every day</div>
+      <div class="tips-intro-text" data-i18n-html="tipsIntro.text">
         The bar at the bottom of the screen shows short productivity tips. Tap the <strong>&#8635;</strong> next to it for a new one, or turn it off any time in <strong>Settings</strong>.
       </div>
       <div class="modal-actions">
-        <button type="button" id="tips-intro-dismiss-btn" class="btn primary">Nice — thanks</button>
+        <button type="button" id="tips-intro-dismiss-btn" class="btn primary" data-i18n="tipsIntro.dismiss">Nice — thanks</button>
       </div>
     </div>
   </div>
@@ -930,48 +984,52 @@
       <div class="task-detail-head">
         <div class="task-detail-title-row" style="flex:1">
           <input type="checkbox" id="task-detail-check" class="task-check">
-          <input type="text" id="task-detail-title" class="task-detail-title" placeholder="Task title">
+          <input type="text" id="task-detail-title" class="task-detail-title" placeholder="Task title" data-i18n-placeholder="task.titleField">
         </div>
-        <button type="button" id="task-detail-close" class="task-detail-close" aria-label="Close">&times;</button>
+        <button type="button" id="task-detail-close" class="task-detail-close" aria-label="Close" data-i18n-title="common.close">&times;</button>
       </div>
       <div class="task-detail-body">
         <div class="task-detail-field">
-          <span class="task-detail-label">Description</span>
-          <textarea id="task-detail-desc" class="task-detail-desc" placeholder="Add a description..."></textarea>
+          <span class="task-detail-label" data-i18n="taskDetail.description">Description</span>
+          <textarea id="task-detail-desc" class="task-detail-desc" placeholder="Add a description..." data-i18n-placeholder="taskDetail.descPlaceholder"></textarea>
+        </div>
+        <div class="task-detail-field" id="task-detail-time-field" style="display:none">
+          <span class="task-detail-label" data-i18n="taskDetail.timeSpent">Time spent</span>
+          <div id="task-detail-time" class="task-detail-time-spent">0m</div>
         </div>
         <div class="task-detail-row">
           <div class="task-detail-field">
-            <span class="task-detail-label">Due date</span>
+            <span class="task-detail-label" data-i18n="taskDetail.due">Due date</span>
             <input type="date" id="task-detail-due">
           </div>
           <div class="task-detail-field">
-            <span class="task-detail-label">Priority</span>
+            <span class="task-detail-label" data-i18n="taskDetail.priority">Priority</span>
             <select id="task-detail-priority">
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
+              <option value="low" data-i18n="priority.low">Low</option>
+              <option value="medium" data-i18n="priority.medium">Medium</option>
+              <option value="high" data-i18n="priority.high">High</option>
             </select>
           </div>
         </div>
         <div class="task-detail-field task-detail-project-field">
-          <span class="task-detail-label">Project</span>
+          <span class="task-detail-label" data-i18n="taskDetail.project">Project</span>
           <select id="task-detail-project">
-            <option value="">No project</option>
+            <option value="" data-i18n="project.none">No project</option>
           </select>
         </div>
         <div class="task-detail-field task-detail-centered-field">
-          <span class="task-detail-label">Category</span>
+          <span class="task-detail-label" data-i18n="taskDetail.category">Category</span>
           <div class="task-detail-category-row">
             <select id="task-detail-category">
-              <option value="">No category</option>
+              <option value="" data-i18n="category.none">No category</option>
             </select>
-            <button type="button" id="task-detail-add-category-btn" class="icon-btn plus" title="New category" aria-label="New category">+</button>
+            <button type="button" id="task-detail-add-category-btn" class="icon-btn plus" title="New category" aria-label="New category" data-i18n-title="common.addCategory">+</button>
           </div>
         </div>
       </div>
       <div class="task-detail-footer">
-        <button type="button" id="task-detail-delete-btn" class="btn danger small">Delete task</button>
-        <button type="button" id="task-detail-save-btn" class="btn primary small">Save</button>
+        <button type="button" id="task-detail-delete-btn" class="btn danger small" data-i18n="taskDetail.delete">Delete task</button>
+        <button type="button" id="task-detail-save-btn" class="btn primary small" data-i18n="common.save">Save</button>
       </div>
     </div>
   </div>
@@ -979,24 +1037,17 @@
   <!-- ===== Add category modal ===== -->
   <div id="category-modal-overlay" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-label="New category">
     <div class="modal-card category-modal-card">
-      <div class="category-modal-title">New category</div>
-      <input type="text" id="category-modal-input" class="category-modal-input" placeholder="e.g. Design, Marketing, Personal" maxlength="40" autocomplete="off">
+      <div class="category-modal-title" data-i18n="common.addCategory">New category</div>
+      <input type="text" id="category-modal-input" class="category-modal-input" placeholder="e.g. Design, Marketing, Personal" maxlength="40" autocomplete="off" data-i18n-placeholder="category.modalPlaceholder">
       <div id="category-modal-error" class="category-modal-error" style="display:none"></div>
       <div class="modal-actions">
-        <button type="button" id="category-modal-cancel" class="btn small">Cancel</button>
-        <button type="button" id="category-modal-save" class="btn primary small">Add category</button>
+        <button type="button" id="category-modal-cancel" class="btn small" data-i18n="common.cancel">Cancel</button>
+        <button type="button" id="category-modal-save" class="btn primary small" data-i18n="category.add">Add category</button>
       </div>
     </div>
   </div>
 
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
-
-  <footer class="tips-bar" id="tips-bar">
-    <span class="tips-label">Tip</span>
-    <span class="tips-divider">&middot;</span>
-    <span class="tips-text" id="tips-text">Loading a tip&hellip;</span>
-    <button type="button" id="tips-refresh-btn" class="tips-refresh" title="Next tip">&#8635;</button>
-  </footer>
 
   <script src="./loader.js"></script>
 </body>

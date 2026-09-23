@@ -30,6 +30,11 @@
   const actionsEl = document.getElementById('confirm-actions');
   const primaryLink = document.getElementById('confirm-primary');
   const secondaryLink = document.getElementById('confirm-secondary');
+  const resetForm = document.getElementById('reset-form');
+  const resetPasswordInput = document.getElementById('reset-password');
+  const resetPasswordConfirmInput = document.getElementById('reset-password-confirm');
+  const resetErrorEl = document.getElementById('reset-error');
+  const resetSubmitBtn = document.getElementById('reset-submit-btn');
 
   function showOk(title, text) {
     spinnerEl.style.display = 'none';
@@ -77,6 +82,67 @@
     document.title = 'Aschertype';
   }
 
+  // Shows the "set a new password" form instead of the usual ok/err panel.
+  // Used for the password-recovery link, which needs one more step (typing
+  // a new password) rather than just landing the user back in the app.
+  function showResetForm(recoveryClient) {
+    spinnerEl.style.display = 'none';
+    iconOk.style.display = 'none';
+    iconErr.style.display = 'none';
+    titleEl.textContent = 'Choose a new password';
+    textEl.textContent = 'Enter a new password for your Aschertype account.';
+    document.title = 'Reset password — Aschertype';
+    resetForm.style.display = 'flex';
+
+    resetForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      resetErrorEl.style.display = 'none';
+
+      const pw = resetPasswordInput.value;
+      const confirmPw = resetPasswordConfirmInput.value;
+      if (pw.length < 8) {
+        resetErrorEl.textContent = 'Password must be at least 8 characters.';
+        resetErrorEl.style.display = 'block';
+        return;
+      }
+      if (!/[a-zA-Z]/.test(pw) || !/[0-9]/.test(pw)) {
+        resetErrorEl.textContent = 'Use a mix of letters and numbers for a stronger password.';
+        resetErrorEl.style.display = 'block';
+        return;
+      }
+      if (pw !== confirmPw) {
+        resetErrorEl.textContent = 'Passwords do not match.';
+        resetErrorEl.style.display = 'block';
+        return;
+      }
+
+      resetSubmitBtn.disabled = true;
+      const originalText = resetSubmitBtn.textContent;
+      resetSubmitBtn.textContent = 'Saving…';
+
+      try {
+        const { error } = await recoveryClient.auth.updateUser({ password: pw });
+        if (error) {
+          resetErrorEl.textContent = error.message || 'Could not update your password. Try the reset link again.';
+          resetErrorEl.style.display = 'block';
+          return;
+        }
+        // Recovery tokens are single-use; sign this temporary session out so
+        // the reset link can't be replayed, and clean the tokens off the URL.
+        try { await recoveryClient.auth.signOut(); } catch (err) { /* ignore */ }
+        history.replaceState(null, '', window.location.pathname);
+        resetForm.style.display = 'none';
+        showOk('Password updated', 'Your password has been changed. Sign in with your new password.');
+      } catch (err) {
+        resetErrorEl.textContent = 'Something went wrong. Please try the reset link again.';
+        resetErrorEl.style.display = 'block';
+      } finally {
+        resetSubmitBtn.disabled = false;
+        resetSubmitBtn.textContent = originalText;
+      }
+    }, { once: true });
+  }
+
   function parseHash(hash) {
     const out = {};
     if (!hash || hash.length < 2) return out;
@@ -101,14 +167,14 @@
 
   if (hashError || queryError) {
     let title = 'This link isn\'t valid anymore';
-    let text = 'The confirmation link has already been used, has expired, or was cut off by your email provider. Try signing in — if your account is confirmed, it will just work. Otherwise, sign up again to get a fresh link.';
+    let text = 'The link has already been used, has expired, or was cut off by your email provider. Try signing in — if your account is confirmed, it will just work. Otherwise, request a fresh link.';
 
     if (errCode === 'otp_expired') {
       title = 'This link has expired';
-      text = 'Confirmation links are time-limited. Sign up again to get a fresh one, or try signing in — if your email was already confirmed, you don\'t need a new link.';
+      text = 'Confirmation and reset links are time-limited. Request a fresh one, or try signing in — if your email was already confirmed, you don\'t need a new link.';
     } else if (errCode === 'access_denied') {
       title = 'That link didn\'t work';
-      text = 'The confirmation link couldn\'t be verified. It may have already been used, or your email client may have shortened it.';
+      text = 'The link couldn\'t be verified. It may have already been used, or your email client may have shortened it.';
     } else if (errDesc) {
       // Fall back to Supabase's own description if we have one.
       text = errDesc;
@@ -117,6 +183,27 @@
     showErr(title, text);
     // Clean the URL so a reload doesn't re-trigger a stale error state.
     history.replaceState(null, '', window.location.pathname);
+    return;
+  }
+
+  // --- Password recovery branch ---------------------------------------
+  // Supabase sends type=recovery for a "forgot password" link. We need our
+  // own client here (detectSessionInUrl: true) so it consumes the token
+  // straight from the URL and gives us a session to call updateUser with —
+  // separate from the main app's client, which intentionally never reads
+  // the URL (see db.js).
+  const isRecovery = hashParams.type === 'recovery' || params.get('type') === 'recovery';
+  if (isRecovery) {
+    if (typeof window.supabase === 'undefined' || typeof SUPABASE_URL !== 'string' || SUPABASE_URL.indexOf('YOUR-PROJECT-REF') !== -1) {
+      showErr('Can\'t process this link', 'This deployment isn\'t connected to an account backend, so passwords can\'t be reset here.');
+      return;
+    }
+    const recoveryClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { detectSessionInUrl: true, persistSession: false, flowType: hashParams.access_token ? 'implicit' : 'pkce' },
+    });
+    // Give the client a tick to parse the hash/query and establish the
+    // recovery session before we show the form.
+    setTimeout(() => showResetForm(recoveryClient), 50);
     return;
   }
 

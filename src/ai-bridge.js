@@ -1,4 +1,31 @@
 (function () {
+  // ---- AI disabled short-circuit ----
+  // When AI_CONFIG.enabled isn't explicitly true, expose a no-op window.AI
+  // so every caller (assistant panel, ✨ parser, home widget, etc.) sees
+  // `available === false` and reports "AI is disabled right now." instead
+  // of trying to reach an endpoint.
+  const _cfg = () => (typeof window.AI_CONFIG === 'object' && window.AI_CONFIG) || {};
+  if (_cfg().enabled !== true) {
+    const MSG = 'AI is disabled right now.';
+    const disabledResult = () => ({ ok: false, error: MSG, disabled: true });
+    window.AI = {
+      available: false,
+      disabled: true,
+      transport: 'disabled',
+      health:    async () => ({ ok: false, error: MSG, disabled: true }),
+      chat:      async () => disabledResult(),
+      chatTools: async () => disabledResult(),
+      parseTask: async () => disabledResult(),
+      abort:     async () => ({ ok: false, disabled: true }),
+      chatStream: async () => ({ requestId: 'disabled_' + Date.now(), disabled: true }),
+      onChunk:   () => () => {},
+      onDone:    () => () => {},
+      abortAll:  () => {},
+    };
+    return;
+  }
+  // ---- end disabled short-circuit ----
+
   const hasNativeAI = typeof window.ai !== 'undefined' && typeof window.ai.chat === 'function';
 
   if (hasNativeAI) {

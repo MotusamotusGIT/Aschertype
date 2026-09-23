@@ -41,6 +41,13 @@ function safeRemoveItem(key) {
   try { localStorage.removeItem(key); } catch (err) { /* ignore */ }
 }
 
+// ===== AI availability =====
+// True only when the AI bridge is loaded and has not been disabled by
+// AI_CONFIG.enabled. Centralised so every AI entry point checks the same thing.
+function aiEnabled() {
+  return typeof window.AI !== 'undefined' && window.AI.available === true;
+}
+
 // ===== Theme =====
 const THEME_KEY = 'theme';
 function getTheme() {
@@ -106,6 +113,25 @@ accountSwitchBtn.addEventListener('click', () => {
   sessionStorage.removeItem('aschertypeGuest');
   location.reload();
 });
+
+// ===== AI system prompt viewer (Settings) =====
+const aiPromptToggleBtn = document.getElementById('ai-prompt-toggle-btn');
+const aiPromptViewEl = document.getElementById('ai-prompt-view');
+if (aiPromptToggleBtn && aiPromptViewEl) {
+  aiPromptToggleBtn.addEventListener('click', () => {
+    const showing = aiPromptViewEl.style.display !== 'none';
+    if (showing) {
+      aiPromptViewEl.style.display = 'none';
+      aiPromptToggleBtn.textContent = 'Show system prompt';
+    } else {
+      aiPromptViewEl.textContent = typeof assistantSystemPrompt === 'function'
+        ? assistantSystemPrompt()
+        : 'Not available yet.';
+      aiPromptViewEl.style.display = 'block';
+      aiPromptToggleBtn.textContent = 'Hide system prompt';
+    }
+  });
+}
 
 // ===== Focus mode =====
 let savedTheme = null;
@@ -518,6 +544,7 @@ document.getElementById('tips-enabled-input').addEventListener('change', (e) => 
 // ===== Pomodoro =====
 const pomodoro = {
   task: safeGetItem('pomodoroTask') || '',
+  taskId: (() => { const v = safeGetItem('pomodoroTaskId'); return v ? Number(v) : null; })(),
   workMin: parseInt(safeGetItem('pomodoroWorkMin')) || 25,
   breakMin: parseInt(safeGetItem('pomodoroBreakMin')) || 5,
   mode: 'work', remaining: 0, running: false,
@@ -525,8 +552,11 @@ const pomodoro = {
 };
 pomodoro.remaining = pomodoro.workMin * 60;
 let pomodoroInterval = null;
+let pomodoroUnflushedSec = 0;
 
 const pomodoroTaskInput = document.getElementById('pomodoro-task');
+const pomodoroTaskSelect = document.getElementById('pomodoro-task-select');
+const pomodoroMarkDoneBtn = document.getElementById('pomodoro-mark-done');
 const pomodoroTimerEl = document.getElementById('pomodoro-timer');
 const pomodoroModeLabel = document.getElementById('pomodoro-mode-label');
 const pomodoroStartBtn = document.getElementById('pomodoro-start');
@@ -541,6 +571,29 @@ function formatTime(sec) {
   const s = Math.floor(sec % 60).toString().padStart(2, '0');
   return `${m}:${s}`;
 }
+function formatDuration(sec) {
+  sec = Math.max(0, Math.round(sec || 0));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  if (m > 0) return `${m}m`;
+  return `${sec}s`;
+}
+
+function renderPomodoroTaskOptions() {
+  if (!pomodoroTaskSelect) return;
+  const prev = String(pomodoro.taskId || '');
+  pomodoroTaskSelect.innerHTML = '<option value="">Pick a task from your lists…</option>';
+  todos.filter((t) => !t.done).forEach((t) => {
+    const opt = document.createElement('option');
+    opt.value = String(t.id);
+    const proj = t.projectId ? getProject(t.projectId) : null;
+    opt.textContent = proj ? `${proj.name}: ${t.text}` : t.text;
+    pomodoroTaskSelect.appendChild(opt);
+  });
+  pomodoroTaskSelect.value = prev && todos.some((t) => String(t.id) === prev && !t.done) ? prev : '';
+}
+
 function renderPomodoro() {
   pomodoroTimerEl.textContent = formatTime(pomodoro.remaining);
   pomodoroModeLabel.textContent = pomodoro.mode === 'work' ? 'Focus session' : 'Break time';
@@ -550,16 +603,45 @@ function renderPomodoro() {
   pomodoroWorkInput.value = pomodoro.workMin;
   pomodoroBreakInput.value = pomodoro.breakMin;
   pomodoroTaskInput.value = pomodoro.task;
+  if (pomodoroMarkDoneBtn) pomodoroMarkDoneBtn.disabled = !pomodoro.taskId;
+  renderPomodoroTaskOptions();
 }
+
+function flushPomodoroTime() {
+  if (!pomodoro.taskId || pomodoroUnflushedSec <= 0) { pomodoroUnflushedSec = 0; return; }
+  const t = todos.find((x) => x.id === pomodoro.taskId);
+  if (t) {
+    t.timeSpentSec = (t.timeSpentSec || 0) + pomodoroUnflushedSec;
+    saveTodos();
+    if (currentUser) dbUpdate('todos', t.id, { time_spent_sec: t.timeSpentSec });
+  }
+  pomodoroUnflushedSec = 0;
+}
+
+function setPomodoroActiveTask(taskId) {
+  flushPomodoroTime();
+  const t = taskId ? todos.find((x) => x.id === Number(taskId)) : null;
+  pomodoro.taskId = t ? t.id : null;
+  pomodoro.task = t ? t.text : '';
+  safeSetItem('pomodoroTaskId', pomodoro.taskId || '');
+  safeSetItem('pomodoroTask', pomodoro.task);
+  renderPomodoro();
+}
+
 let pomodoroWarned = false;
 function tickPomodoro() {
   pomodoro.remaining--;
+  if (pomodoro.mode === 'work' && pomodoro.taskId) {
+    pomodoroUnflushedSec++;
+    if (pomodoroUnflushedSec >= 20) flushPomodoroTime();
+  }
   if (pomodoro.remaining === 60 && !pomodoroWarned) {
     pomodoroWarned = true;
     sendNotification(pomodoro.mode === 'work' ? 'Almost there' : 'Break ending soon',
       pomodoro.mode === 'work' ? 'One minute left in your focus session.' : 'One minute left in your break.');
   }
   if (pomodoro.remaining <= 0) {
+    flushPomodoroTime();
     clearInterval(pomodoroInterval); pomodoroInterval = null; pomodoro.running = false;
     pomodoroWarned = false;
     if (pomodoro.mode === 'work') {
@@ -586,19 +668,37 @@ pomodoroStartBtn.addEventListener('click', () => {
 });
 pomodoroPauseBtn.addEventListener('click', () => {
   if (!pomodoro.running) return;
+  flushPomodoroTime();
   clearInterval(pomodoroInterval); pomodoroInterval = null; pomodoro.running = false;
   setFocusMode(false); renderPomodoro();
 });
 pomodoroResetBtn.addEventListener('click', () => {
+  flushPomodoroTime();
   clearInterval(pomodoroInterval); pomodoroInterval = null; pomodoro.running = false;
   pomodoroWarned = false;
   pomodoro.mode = 'work'; pomodoro.remaining = pomodoro.workMin * 60;
   setFocusMode(false); renderPomodoro();
 });
-pomodoroTaskInput.addEventListener('input', (e) => {
-  pomodoro.task = e.target.value;
-  safeSetItem('pomodoroTask', pomodoro.task);
-});
+if (pomodoroTaskSelect) {
+  pomodoroTaskSelect.addEventListener('change', (e) => setPomodoroActiveTask(e.target.value));
+}
+if (pomodoroMarkDoneBtn) {
+  pomodoroMarkDoneBtn.addEventListener('click', () => {
+    if (!pomodoro.taskId) return;
+    flushPomodoroTime();
+    const t = todos.find((x) => x.id === pomodoro.taskId);
+    if (t && !t.done) {
+      t.done = true;
+      recordCompletion();
+      saveTodos(); renderTodos(); renderCounts(); renderViewHeader(); renderProjectNav();
+      if (typeof renderHomeSummary === 'function') renderHomeSummary();
+      if (currentUser) dbUpdate('todos', t.id, { done: true, time_spent_sec: t.timeSpentSec || 0 });
+      if (typeof showToast === 'function') showToast('pomodoro');
+      pomodoroTimerEl.title = `"${t.text}" done — ${formatDuration(t.timeSpentSec || 0)} tracked.`;
+    }
+    setPomodoroActiveTask(null);
+  });
+}
 pomodoroWorkInput.addEventListener('change', (e) => {
   const v = Math.min(Math.max(parseInt(e.target.value) || 25, 1), 120);
   pomodoro.workMin = v; safeSetItem('pomodoroWorkMin', v);
@@ -609,6 +709,8 @@ pomodoroBreakInput.addEventListener('change', (e) => {
   pomodoro.breakMin = v; safeSetItem('pomodoroBreakMin', v);
   if (!pomodoro.running && pomodoro.mode === 'break') { pomodoro.remaining = v * 60; renderPomodoro(); }
 });
+window.addEventListener('beforeunload', flushPomodoroTime);
+
 
 // ===== State =====
 let todos = safeParse('todos', []);
@@ -955,6 +1057,7 @@ function todoRemoteRow(t) {
     due: t.due,
     priority: t.priority,
     project_id: t.projectId || null,
+    time_spent_sec: t.timeSpentSec || 0,
   };
 }
 function projectRemoteRow(p) {
@@ -977,6 +1080,7 @@ function showView(view) {
 }
 
 function setView(view) {
+  if (view === 'assistant' && !aiEnabled()) return; // AI off — no-op
   const collabPanel = document.getElementById('project-collab-panel');
   const collabFab = document.getElementById('collab-fab');
   if (view !== 'project') {
@@ -1153,6 +1257,13 @@ function renderTodos() {
         meta.appendChild(tag);
       }
     }
+    if (t.done && t.timeSpentSec > 0) {
+      const timePill = document.createElement('span');
+      timePill.className = 'task-pill';
+      timePill.title = 'Time tracked in Pomodoro';
+      timePill.textContent = `⏱ ${formatDuration(t.timeSpentSec)}`;
+      meta.appendChild(timePill);
+    }
     if (t.category) {
       const cat = document.createElement('span');
       cat.className = 'task-card-category';
@@ -1273,6 +1384,17 @@ function openTaskDetail(taskId) {
   taskDetailDeleteBtn.style.display = canRemove ? '' : 'none';
   taskDetailSaveBtn.style.display = canRename ? '' : 'none';
 
+  const timeField = document.getElementById('task-detail-time-field');
+  const timeEl = document.getElementById('task-detail-time');
+  if (timeField && timeEl) {
+    if (t.timeSpentSec > 0) {
+      timeEl.textContent = formatDuration(t.timeSpentSec);
+      timeField.style.display = '';
+    } else {
+      timeField.style.display = 'none';
+    }
+  }
+
   taskDetailOverlay.classList.add('open');
 }
 
@@ -1345,8 +1467,7 @@ if (pomodoroNavItem) {
 }
 
 function sendTaskToPomodoro(t) {
-  pomodoro.task = t.text;
-  safeSetItem('pomodoroTask', pomodoro.task);
+  setPomodoroActiveTask(t.id);
   setView('pomodoro');
   renderPomodoro();
   showToast('pomodoro');
@@ -1603,7 +1724,7 @@ function renderHomeProgress() {
 
   const title = document.createElement('div');
   title.className = 'home-widget-title';
-  title.textContent = 'This week';
+  title.textContent = window.I18N ? window.I18N.t('widget.thisWeek', 'This week') : 'This week';
   el.appendChild(title);
 
   const log = loadCompletionLog();
@@ -1633,8 +1754,10 @@ function renderHomeProgress() {
   const caption = document.createElement('p');
   caption.className = 'home-widget-caption';
   caption.textContent = total > 0
-    ? `${total} task${total === 1 ? '' : 's'} done so far — nice pace.`
-    : 'A quiet week so far — that\u2019s okay.';
+    ? (window.I18N
+        ? window.I18N.t(total === 1 ? 'widget.thisWeek.captionCount_one' : 'widget.thisWeek.captionCount_other', '{n} tasks done so far — nice pace.').replace('{n}', total)
+        : `${total} task${total === 1 ? '' : 's'} done so far — nice pace.`)
+    : (window.I18N ? window.I18N.t('widget.thisWeek.captionEmpty', 'A quiet week so far — that\u2019s okay.') : 'A quiet week so far — that\u2019s okay.');
   el.appendChild(caption);
 }
 
@@ -1646,7 +1769,7 @@ function renderHomeMiniCal() {
 
   const title = document.createElement('div');
   title.className = 'home-widget-title';
-  title.textContent = 'Next 7 days';
+  title.textContent = window.I18N ? window.I18N.t('widget.next7days', 'Next 7 days') : 'Next 7 days';
   el.appendChild(title);
 
   const row = document.createElement('div');
@@ -1687,6 +1810,11 @@ function renderHomeMiniCal() {
   el.appendChild(row);
 }
 
+window.onLanguageChange = function () {
+  renderHomeProgress();
+  renderHomeMiniCal();
+};
+
 // ---------- Home: local-AI day plan ----------
 function initHomeAIPlan() {
   const btn = document.getElementById('home-ai-plan-btn');
@@ -1694,13 +1822,15 @@ function initHomeAIPlan() {
   btn.dataset.wired = '1';
 
   btn.addEventListener('click', async () => {
+    if (!aiEnabled()) return;
+
     const output = document.getElementById('home-ai-output');
     const bridge = (typeof window.AI !== 'undefined') ? window.AI : null;
 
     output.style.display = 'block';
 
     if (!bridge || !bridge.available) {
-      output.textContent = 'AI is only available in the desktop app.';
+      output.textContent = 'AI is disabled right now.';
       return;
     }
 
@@ -2257,6 +2387,7 @@ async function refreshSharedData() {
       id: t.id, text: t.text, desc: t.desc, done: t.done,
       due: t.due, priority: t.priority, projectId: t.project_id || null,
       category: localCategoryById.get(String(t.id)) || null,
+      timeSpentSec: t.time_spent_sec || 0,
     }));
     saveTodos();
   }
@@ -2363,6 +2494,14 @@ function renderCalendar() {
       dotRow.appendChild(dot);
     }
     cell.appendChild(dotRow);
+
+    const hasDue = todos.some((t) => !t.done && t.due === key);
+    if (hasDue) {
+      const marker = document.createElement('div');
+      marker.className = 'day-due-marker';
+      marker.title = 'Task due';
+      cell.appendChild(marker);
+    }
 
     cell.addEventListener('click', () => {
       selectedDateKey = key;
@@ -2970,9 +3109,6 @@ function detachRealtimeSubscriptions() {
 }
 
 // ===== AI: Assistant + ✨ task parsing =====
-// Model selection is intentionally not user-configurable — AI'scher always
-// runs the app's default local model. Simpler support story, and it means
-// every user's assistant behaves the same way.
 const AI_MODEL_DEFAULT = 'qwen2.5:3b';
 
 function getAIModel() {
@@ -2990,9 +3126,9 @@ async function checkAIHealth() {
   const statusEl = document.getElementById('assistant-status');
   const bridge = (typeof window.AI !== 'undefined') ? window.AI : null;
 
-  if (!bridge || !bridge.available) {
+  if (!aiEnabled() || !bridge) {
     aiHealthy = false;
-    if (statusEl) statusEl.textContent = 'AI is only available in the desktop app.';
+    if (statusEl) statusEl.textContent = 'AI is disabled right now.';
     return false;
   }
 
@@ -3104,9 +3240,6 @@ function buildAssistantContext() {
 }
 
 // ---------- Assistant tools (function calling) ----------
-// Lets the model actually act on the user's task list instead of only
-// talking about it: create, complete, update, delete, and list tasks.
-
 const ASSISTANT_TOOLS = [
   {
     type: 'function',
@@ -3237,7 +3370,152 @@ const ASSISTANT_TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'update_event',
+      description: 'Edit an existing calendar event\'s title, date, time, or notes, by its id or by matching its title text.',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'number', description: 'The event id, if known.' },
+          query: { type: 'string', description: 'Text to match against the event title, if id is unknown.' },
+          title: { type: 'string', description: 'New title, if changing it.' },
+          date: { type: 'string', description: 'New date, YYYY-MM-DD.' },
+          time: { type: 'string', description: 'New time, 24h HH:MM, or empty string to clear it (all-day).' },
+          notes: { type: 'string', description: 'New notes for the event.' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_event',
+      description: 'Remove a calendar event, by its id or by matching its title text.',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'number', description: 'The event id, if known.' },
+          query: { type: 'string', description: 'Text to match against the event title, if id is unknown.' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_note',
+      description: 'Create a new note.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Note title (required).' },
+          content: { type: 'string', description: 'The note body.' },
+          desc: { type: 'string', description: 'Optional short description/subtitle.' },
+          category: { type: 'string', description: 'Optional category name.' },
+        },
+        required: ['title'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_notes',
+      description: 'List the user\'s notes, optionally filtered by category or a text query.',
+      parameters: {
+        type: 'object',
+        properties: {
+          category: { type: 'string', description: 'Optional category filter.' },
+          query: { type: 'string', description: 'Optional text to search for in note titles/content.' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_note',
+      description: 'Delete a note, by its id or by matching its title text.',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'number', description: 'The note id, if known.' },
+          query: { type: 'string', description: 'Text to match against the note title, if id is unknown.' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'undo_last_action',
+      description: 'Undo the single most recent change you made this conversation (the last created/updated/deleted task, event, or note). Use this when the user says "undo", "undo that", or asks you to reverse your last action. There is only one level of undo — calling it a second time in a row has nothing left to undo.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
 ];
+
+const ASSISTANT_UNDOABLE_COLLECTION = {
+  create_task: 'todos', update_task: 'todos', delete_task: 'todos', complete_task: 'todos',
+  create_event: 'events', update_event: 'events', delete_event: 'events',
+  create_note: 'notes', delete_note: 'notes',
+};
+let assistantLastUndo = null;
+
+function assistantCollectionRef(name) {
+  if (name === 'todos') return todos;
+  if (name === 'events') return events;
+  if (name === 'notes') return notes;
+  return null;
+}
+function assistantRestoreCollection(name, snapshot) {
+  if (name === 'todos') { todos = snapshot; persistTodosChange(); if (currentUser) todos.forEach((t) => dbUpsert('todos', todoRemoteRow(t))); }
+  else if (name === 'events') { events = snapshot; saveEvents(); if (typeof renderCalendar === 'function') renderCalendar(); if (typeof renderDayPanel === 'function') renderDayPanel(); if (currentUser) events.forEach((e) => dbUpsert('events', eventRemoteRow(e))); }
+  else if (name === 'notes') { notes = snapshot; saveNotes(); if (typeof renderNotes === 'function') renderNotes(); if (currentUser) notes.forEach((n) => dbUpsert('notes', noteRemoteRow(n))); }
+}
+
+function findEventForTool({ id, query }) {
+  if (id !== undefined && id !== null) {
+    const byId = events.find((e) => String(e.id) === String(id));
+    if (byId) return byId;
+  }
+  if (query) {
+    const q = String(query).trim().toLowerCase();
+    if (q) {
+      const exact = events.find((e) => (e.title || '').toLowerCase() === q);
+      if (exact) return exact;
+      const partial = events.find((e) => (e.title || '').toLowerCase().includes(q));
+      if (partial) return partial;
+    }
+  }
+  return null;
+}
+
+function findNoteForTool({ id, query }) {
+  if (id !== undefined && id !== null) {
+    const byId = notes.find((n) => String(n.id) === String(id));
+    if (byId) return byId;
+  }
+  if (query) {
+    const q = String(query).trim().toLowerCase();
+    if (q) {
+      const exact = notes.find((n) => (n.title || '').toLowerCase() === q);
+      if (exact) return exact;
+      const partial = notes.find((n) => (n.title || '').toLowerCase().includes(q) || (n.content || '').toLowerCase().includes(q));
+      if (partial) return partial;
+    }
+  }
+  return null;
+}
+
+function refreshEventViews(date) {
+  if (typeof renderCalendar === 'function' && typeof calViewDate !== 'undefined') {
+    if (date && selectedDateKey === date) renderDayPanel();
+    if (date && calViewDate.getFullYear() === Number(date.slice(0, 4)) && calViewDate.getMonth() === Number(date.slice(5, 7)) - 1) renderCalendar();
+  }
+}
 
 function findTodoForTool({ id, query }) {
   if (id !== undefined && id !== null) {
@@ -3272,14 +3550,6 @@ function findProjectForTool(name) {
     || null;
 }
 
-// Runs one tool call requested by the model against the real app state.
-// Returns { result, label } where `label` is a short human-readable summary
-// shown in the chat as a visible "action" the assistant took.
-// Async because inviting a collaborator hits the network (Supabase).
-// Small hardening helper: local models can be nudged into over-long or
-// malformed arguments (accidentally or via injected text inside a task/
-// project name). Keep every field bounded and plain-text before it touches
-// storage or Supabase.
 function clampToolString(value, maxLen) {
   if (typeof value !== 'string') return '';
   return value.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, maxLen);
@@ -3362,6 +3632,74 @@ async function executeAssistantTool(name, args) {
       const when = time ? `${date} at ${time}` : date;
       return { result: { ok: true, id: savedEvent.id, event: savedEvent }, label: `Scheduled "${title}" · ${when}` };
     }
+    case 'update_event': {
+      const ev = findEventForTool(args);
+      if (!ev) return { result: { ok: false, error: 'No matching event found.' }, label: `Couldn't find an event matching "${args.query || args.id || ''}"` };
+      if (typeof args.title === 'string' && args.title.trim()) ev.title = clampToolString(args.title, 120);
+      if (typeof args.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(args.date)) ev.date = args.date;
+      if (typeof args.time === 'string') ev.time = /^\d{2}:\d{2}$/.test(args.time) ? args.time : (args.time === '' ? null : ev.time);
+      if (typeof args.notes === 'string') ev.notes = clampToolString(args.notes, 500);
+      saveEvents();
+      refreshEventViews(ev.date);
+      if (currentUser) dbUpsert('events', eventRemoteRow(ev));
+      const when = ev.time ? `${ev.date} at ${ev.time}` : ev.date;
+      return { result: { ok: true, id: ev.id, event: ev }, label: `Updated "${ev.title}" · ${when}` };
+    }
+    case 'delete_event': {
+      const ev = findEventForTool(args);
+      if (!ev) return { result: { ok: false, error: 'No matching event found.' }, label: `Couldn't find an event matching "${args.query || args.id || ''}"` };
+      events = events.filter((x) => x.id !== ev.id);
+      saveEvents();
+      refreshEventViews(ev.date);
+      if (currentUser) dbDelete('events', ev.id, currentUser.id);
+      return { result: { ok: true }, label: `Removed "${ev.title}"` };
+    }
+    case 'create_note': {
+      const title = clampToolString(args.title, 150);
+      if (!title) return { result: { ok: false, error: 'title is required' }, label: "Couldn't add note — no title given" };
+      let category = args.category ? clampToolString(args.category, 40) : (noteCategories[0] || 'General');
+      const exists = noteCategories.some((c) => c.toLowerCase() === category.toLowerCase());
+      if (!exists) { noteCategories.push(category); saveNoteCategories(); if (typeof renderCategoryTabs === 'function') renderCategoryTabs(); if (typeof renderNoteCategorySelect === 'function') renderNoteCategorySelect(); }
+      category = noteCategories.find((c) => c.toLowerCase() === category.toLowerCase()) || category;
+      const newNote = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        title, category,
+        desc: clampToolString(args.desc, 200),
+        content: clampToolString(args.content, 4000),
+        createdAt: new Date().toISOString(),
+      };
+      notes.push(newNote);
+      saveNotes();
+      if (typeof renderNotes === 'function') renderNotes();
+      if (currentUser) dbUpsert('notes', noteRemoteRow(newNote));
+      return { result: { ok: true, id: newNote.id, note: newNote }, label: `Added note "${title}"` };
+    }
+    case 'list_notes': {
+      let list = notes;
+      if (args.category) list = list.filter((n) => (n.category || '').toLowerCase() === String(args.category).toLowerCase());
+      if (args.query) {
+        const q = String(args.query).toLowerCase();
+        list = list.filter((n) => (n.title || '').toLowerCase().includes(q) || (n.content || '').toLowerCase().includes(q));
+      }
+      const compact = list.slice(0, 30).map((n) => ({ id: n.id, title: n.title, category: n.category, desc: n.desc }));
+      return { result: { ok: true, count: list.length, notes: compact }, label: null };
+    }
+    case 'delete_note': {
+      const n = findNoteForTool(args);
+      if (!n) return { result: { ok: false, error: 'No matching note found.' }, label: `Couldn't find a note matching "${args.query || args.id || ''}"` };
+      notes = notes.filter((x) => x.id !== n.id);
+      saveNotes();
+      if (typeof renderNotes === 'function') renderNotes();
+      if (currentUser) dbDelete('notes', n.id, currentUser.id);
+      return { result: { ok: true }, label: `Deleted note "${n.title}"` };
+    }
+    case 'undo_last_action': {
+      if (!assistantLastUndo) return { result: { ok: false, error: 'Nothing to undo.' }, label: "Nothing to undo" };
+      const { collection, before, label: prevLabel } = assistantLastUndo;
+      assistantRestoreCollection(collection, before);
+      assistantLastUndo = null;
+      return { result: { ok: true }, label: `Undid: ${prevLabel}` };
+    }
     case 'invite_collaborator': {
       const email = clampToolString(args.email, 254).toLowerCase();
       if (!isPlausibleEmail(email)) return { result: { ok: false, error: 'That is not a valid email address.' }, label: `Couldn't invite — "${args.email || ''}" isn't a valid email` };
@@ -3432,7 +3770,7 @@ function appendAssistantAction(label, ok = true) {
   const dot = document.createElement('span');
   dot.className = 'assistant-action-dot';
   const text = document.createElement('span');
-  text.textContent = ok ? label : `⚠ ${label}`; // textContent — never innerHTML — since labels can embed user-entered task/email text.
+  text.textContent = ok ? label : `⚠ ${label}`;
   el.append(dot, text);
   assistantMessagesEl.appendChild(el);
   assistantMessagesEl.scrollTop = assistantMessagesEl.scrollHeight;
@@ -3454,9 +3792,10 @@ function assistantSystemPrompt() {
     'Your name is AI\'scher, the built-in assistant of a desktop task-management app. You are warm, capable, ' +
     'and genuinely useful — like a sharp personal assistant who knows the user\'s workload well. You can both ' +
     'talk with the user AND take real action for them using the tools you\'ve been given: create_task, ' +
-    'complete_task, update_task, delete_task, list_tasks, create_event, list_events, and invite_collaborator. ' +
-    'Use a tool whenever the user asks you to add, finish, change, remove, or find a task, schedule or check ' +
-    'something on the calendar, or invite someone to collaborate — do not just describe what you would do, ' +
+    'complete_task, update_task, delete_task, list_tasks, create_event, update_event, delete_event, list_events, ' +
+    'create_note, list_notes, delete_note, undo_last_action, and invite_collaborator. ' +
+    'Use a tool whenever the user asks you to add, finish, change, remove, or find a task, schedule, reschedule, ' +
+    'or cancel something on the calendar, save or look up a note, undo your last change, or invite someone to collaborate — do not just describe what you would do, ' +
     'actually call the tool. You may call several tools in a row (e.g. adding multiple tasks from a list) ' +
     'before replying. When creating a task, pass a "project" name if the user mentions one, so it lands in the ' +
     'right project. When scheduling, use the exact date values given to you in "Date reference" below rather ' +
@@ -3476,10 +3815,6 @@ function assistantSystemPrompt() {
   );
 }
 
-// Some local models (notably qwen2.5 via Ollama) sometimes emit tool calls
-// as literal "<tool_call>{...}</tool_call>" text in `content` instead of
-// the structured `tool_calls` field. Detect and parse that as a fallback so
-// the model's intent still gets executed instead of leaking raw tags.
 function extractFallbackToolCalls(content) {
   if (!content || content.indexOf('tool_call') === -1) return null;
   const calls = [];
@@ -3496,25 +3831,17 @@ function extractFallbackToolCalls(content) {
   return calls.length ? calls : null;
 }
 
-// Strips any tool-call markup that leaked into visible text, as a safety net.
 function stripToolCallArtifacts(text) {
   if (!text) return text;
   return text.replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '').replace(/<\/?tool_call>/g, '').trim();
 }
 
-// Thrown internally when the user hits Stop; caught in sendAssistantMessage
-// so it's treated as a clean stop, not an error.
 class AssistantStoppedError extends Error {}
 
 function newClientRequestId() {
   return `ui_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-// Runs the tool-calling loop: sends the conversation with tools attached,
-// executes any tool calls the model makes against the real task list, feeds
-// the results back, and repeats until the model has no more tool calls left.
-// This part is silent (fast, non-streamed) — visible feedback comes from the
-// action pills, not typed text.
 async function resolveAssistantToolCalls(workingMessages) {
   const MAX_ROUNDS = 5;
   const actionsLog = [];
@@ -3540,8 +3867,13 @@ async function resolveAssistantToolCalls(workingMessages) {
       if (typeof args === 'string') {
         try { args = JSON.parse(args); } catch { args = {}; }
       }
+      const collectionName = ASSISTANT_UNDOABLE_COLLECTION[fn.name];
+      const snapshotBefore = collectionName ? JSON.parse(JSON.stringify(assistantCollectionRef(collectionName))) : null;
       const { result, label } = await executeAssistantTool(fn.name, args || {});
       const ok = result ? result.ok !== false : true;
+      if (ok && collectionName) {
+        assistantLastUndo = { collection: collectionName, before: snapshotBefore, label: label || fn.name };
+      }
       if (label) appendAssistantAction(label, ok);
       actionsLog.push({ ok, label, tool: fn.name });
       workingMessages.push({ role: 'tool', content: JSON.stringify(result) });
@@ -3550,8 +3882,6 @@ async function resolveAssistantToolCalls(workingMessages) {
   return actionsLog;
 }
 
-// Streams the model's reply chunk-by-chunk into `targetEl`, so it types out
-// live instead of appearing all at once. Resolves with the final text.
 function streamAssistantReply(workingMessages, targetEl) {
   return new Promise((resolve, reject) => {
     cleanupAssistantListeners();
@@ -3607,6 +3937,10 @@ function appendThinkingBubble() {
 async function sendAssistantMessage(text) {
   text = (text || '').trim();
   if (!text) return;
+  if (!aiEnabled()) {
+    appendAssistantMessage('assistant', 'AI is disabled right now.', { error: true });
+    return;
+  }
 
   const ok = await checkAIHealth();
   if (!ok) {
@@ -3624,13 +3958,8 @@ async function sendAssistantMessage(text) {
   const thinkingBubble = appendThinkingBubble();
 
   try {
-    // Phase 1: resolve any tool calls (add/complete/update/delete tasks,
-    // schedule events, send invites), showing an action pill for each as it
-    // happens, while the thinking bubble keeps bouncing.
     const actionsLog = await resolveAssistantToolCalls(workingMessages);
 
-    // Phase 2: turn the thinking bubble into the live reply and stream the
-    // text into it so it types out instead of appearing all at once.
     if (thinkingBubble) {
       thinkingBubble.classList.remove('assistant-thinking');
       thinkingBubble.innerHTML = '';
@@ -3642,10 +3971,6 @@ async function sendAssistantMessage(text) {
     replyEl.textContent = finalText || "Done — let me know what's next.";
     if (finalText) assistantHistory.push({ role: 'assistant', content: finalText });
 
-    // Safety net: if the reply *sounds* like it took action (added, created,
-    // scheduled, invited, updated, deleted, completed...) but no tool
-    // actually ran successfully this turn, warn instead of letting the
-    // model's claim stand unchecked.
     const claimsAction = /\b(added|created|scheduled|invited|updated|deleted|completed|marked|removed)\b/i.test(finalText || '');
     const hadSuccess = (actionsLog || []).some((a) => a.ok);
     if (claimsAction && !hadSuccess) {
@@ -3658,11 +3983,6 @@ async function sendAssistantMessage(text) {
         thinkingBubble.innerHTML = '';
         thinkingBubble.textContent = 'Stopped.';
       }
-      // Critical: keep history well-formed. Without this, the user's last
-      // message sits unanswered and the *next* question gets sent alongside
-      // it — models get confused by two user turns in a row and can answer
-      // the stale one instead of the new one. A short placeholder keeps the
-      // turn order sane for whatever comes next.
       assistantHistory.push({ role: 'assistant', content: '[Stopped before responding.]' });
     } else {
       if (thinkingBubble && thinkingBubble.parentElement) thinkingBubble.parentElement.remove();
@@ -3716,6 +4036,10 @@ const todoMagicBtn = document.getElementById('todo-magic-btn');
 
 if (todoMagicBtn) {
   todoMagicBtn.addEventListener('click', async () => {
+    if (!aiEnabled()) {
+      if (typeof showToast === 'function') showToast('permission');
+      return;
+    }
     const raw = input.value.trim();
     if (!raw) { input.focus(); return; }
     if (todoMagicBtn.disabled) return;
@@ -3950,6 +4274,7 @@ window.initApp = async function initApp(user) {
         id: t.id, text: t.text, desc: t.desc, done: t.done,
         due: t.due, priority: t.priority, projectId: t.project_id || null,
         category: localCategoryById.get(String(t.id)) || null,
+        timeSpentSec: t.time_spent_sec || 0,
       }));
       saveTodos();
     }
@@ -3987,6 +4312,17 @@ window.initApp = async function initApp(user) {
   tipsBarEl.style.display = areTipsEnabled() ? 'flex' : 'none';
   refreshTip();
 
+  // ===== Hide AI surfaces when AI is disabled =====
+  if (!aiEnabled()) {
+    document.querySelectorAll('.nav-item[data-view="assistant"]').forEach((el) => {
+      el.style.display = 'none';
+    });
+    const homeAiWidget = document.querySelector('.home-widget-ai');
+    if (homeAiWidget) homeAiWidget.style.display = 'none';
+    const magicBtn = document.getElementById('todo-magic-btn');
+    if (magicBtn) magicBtn.style.display = 'none';
+  }
+
   const deferRenderHiddenViews = () => {
     renderPomodoro();
     renderCalendar();
@@ -4009,7 +4345,7 @@ window.initApp = async function initApp(user) {
   markLoadingReady();
 
   maybeShowWelcome();
-  checkAIHealth();
+  if (aiEnabled()) checkAIHealth();
 
   let waited = 0;
   const tipsCheck = setInterval(() => {
