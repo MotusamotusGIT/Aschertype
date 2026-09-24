@@ -20,6 +20,41 @@ function clearGuestSession() {
   try { sessionStorage.removeItem(GUEST_KEY); } catch (err) {}
 }
 
+// ---- Pending-confirmation stash ------------------------------------------
+// Register used to keep the confirmation email, password, and handoff token
+// in plain closure variables. That works until the tab reloads — and a tab
+// reload between register and phone-confirm is exactly what happens when
+// the user comes back to the browser after tapping the link. So we stash
+// them in sessionStorage (dropped when the tab closes, which is the right
+// lifetime for a pre-confirmation secret) and rehydrate on load.
+const PENDING_EMAIL_KEY    = 'aschertypePendingEmail';
+const PENDING_PASSWORD_KEY = 'aschertypePendingPassword';
+const PENDING_TOKEN_KEY    = 'aschertypePendingToken';
+
+function stashPendingConfirmation(email, password, token) {
+  try {
+    sessionStorage.setItem(PENDING_EMAIL_KEY, email);
+    sessionStorage.setItem(PENDING_PASSWORD_KEY, password);
+    sessionStorage.setItem(PENDING_TOKEN_KEY, token);
+  } catch (err) { /* quota / private mode — in-memory fallback still works */ }
+}
+function loadPendingConfirmation() {
+  try {
+    const email = sessionStorage.getItem(PENDING_EMAIL_KEY);
+    const password = sessionStorage.getItem(PENDING_PASSWORD_KEY);
+    const token = sessionStorage.getItem(PENDING_TOKEN_KEY);
+    if (email && password && token) return { email, password, token };
+  } catch (err) { /* ignore */ }
+  return null;
+}
+function clearPendingConfirmation() {
+  try {
+    sessionStorage.removeItem(PENDING_EMAIL_KEY);
+    sessionStorage.removeItem(PENDING_PASSWORD_KEY);
+    sessionStorage.removeItem(PENDING_TOKEN_KEY);
+  } catch (err) { /* ignore */ }
+}
+
 let loginCaptchaToken = null;
 let registerCaptchaToken = null;
 
@@ -208,6 +243,7 @@ function startConfirmationPolling() {
             });
             if (!result.error && result.data && result.data.user) {
               pendingConfirmationPassword = '';
+              clearPendingConfirmation();
               currentUser = result.data.user;
               isGuest = false;
               clearGuestSession();
@@ -410,6 +446,7 @@ loginForm.addEventListener('submit', async (e) => {
     currentUser = data.user;
     isGuest = false;
     clearGuestSession();
+    clearPendingConfirmation();
     hideAuthScreen();
     window.initApp(currentUser);
   } catch (err) {
@@ -470,6 +507,9 @@ registerForm.addEventListener('submit', async (e) => {
     pendingConfirmationEmail = email;
     pendingConfirmationPassword = password;
     pendingConfirmationToken = makeConfirmationToken();
+    // Persist so a reload between register and confirm can resume the wait.
+    stashPendingConfirmation(pendingConfirmationEmail, pendingConfirmationPassword, pendingConfirmationToken);
+
     const handoffReady = await createConfirmationHandoff(email, pendingConfirmationToken);
     const redirectUrl = new URL(`${window.location.origin}/confirm.html`);
     if (handoffReady) redirectUrl.searchParams.set('handoff', pendingConfirmationToken);
@@ -487,11 +527,15 @@ registerForm.addEventListener('submit', async (e) => {
       recordFailure('register');
       console.error('[Auth] Sign-up error:', error);
       showAuthError(friendlyAuthError(error, 'Could not create your account.'));
+      // Registration failed — the stash is meaningless. Drop it.
+      clearPendingConfirmation();
       return;
     }
 
     recordSuccess('register');
     if (data.session) {
+      // Confirmation is off in this project — we already have a session.
+      clearPendingConfirmation();
       currentUser = data.user;
       isGuest = false;
       clearGuestSession();
@@ -504,6 +548,7 @@ registerForm.addEventListener('submit', async (e) => {
     console.error('[Auth] Sign-up threw:', err);
     recordFailure('register');
     showAuthError('Something went wrong creating your account. Please try again.');
+    clearPendingConfirmation();
   } finally {
     clearButtonBusy(submitBtn);
     resetCaptcha();
@@ -554,6 +599,12 @@ if (confirmationResendBtn) confirmationResendBtn.addEventListener('click', () =>
   pendingConfirmationEmail, confirmationResendBtn, confirmationStatusEl,
 ));
 if (confirmationBackBtn) confirmationBackBtn.addEventListener('click', () => {
+  // User chose to start over — drop the stash so we don't drag them back
+  // into the waiting panel on the next reload.
+  clearPendingConfirmation();
+  pendingConfirmationEmail = '';
+  pendingConfirmationPassword = '';
+  pendingConfirmationToken = '';
   hideConfirmationWaiting();
   setAuthTab('register');
 });
@@ -575,6 +626,7 @@ async function completeConfirmedSession() {
     const { data, error } = await supabaseClient.auth.getSession();
     if (error || !data.session) return;
     waitingForConfirmation = false;
+    clearPendingConfirmation();
     currentUser = data.session.user;
     isGuest = false;
     clearGuestSession();
@@ -643,6 +695,7 @@ async function signOutAndReset() {
     try { await supabaseClient.auth.signOut(); } catch (err) {}
   }
   clearGuestSession();
+  clearPendingConfirmation();
   location.reload();
 }
 
@@ -669,6 +722,19 @@ async function resolveInitialAuthState() {
     return;
   }
 
+  // ---- Resume a pending email confirmation across a reload ----
+  // If the user registered, we stashed email/password/token in
+  // sessionStorage. If the page reloaded before they tapped the link,
+  // land them straight back on the "Check your email" panel instead of
+  // dumping them on the login form where they can't do anything useful.
+  let resumedPending = null;
+  resumedPending = loadPendingConfirmation();
+  if (resumedPending) {
+    pendingConfirmationEmail = resumedPending.email;
+    pendingConfirmationPassword = resumedPending.password;
+    pendingConfirmationToken = resumedPending.token;
+  }
+
   if (window.secureStorageReady && typeof window.secureStorageReady.then === 'function') {
     try { await window.secureStorageReady; } catch (err) {}
   }
@@ -685,29 +751,52 @@ async function resolveInitialAuthState() {
   try {
     const { data, error } = await supabaseClient.auth.getSession();
     if (error && isAuthInvalidError(error)) {
+      if (resumedPending) {
+        // Stale/broken session but user is mid-confirmation — keep them on
+        // the waiting panel so the poller can still finish the job.
+        showAuthScreen();
+        showConfirmationWaiting(pendingConfirmationEmail);
+        return;
+      }
       showAuthScreen();
       return;
     }
     if (data && data.session) {
+      // Already signed in — drop any stale pending stash.
+      clearPendingConfirmation();
       currentUser = data.session.user;
       hideAuthScreen();
       window.initApp(currentUser);
-    } else {
-      showAuthScreen();
+      return;
     }
+
+    // No session. If we're mid-confirmation, restore the waiting panel.
+    if (resumedPending) {
+      showAuthScreen();
+      showConfirmationWaiting(pendingConfirmationEmail);
+      return;
+    }
+
+    showAuthScreen();
   } catch (err) {
     console.warn('[Supabase] Session check hit a network error — retrying once:', err && err.message);
     setTimeout(async () => {
       try {
         const { data, error } = await supabaseClient.auth.getSession();
         if (!error && data && data.session) {
+          clearPendingConfirmation();
           currentUser = data.session.user;
           hideAuthScreen();
           window.initApp(currentUser);
           return;
         }
       } catch (err2) {}
-      showAuthScreen();
+      if (resumedPending) {
+        showAuthScreen();
+        showConfirmationWaiting(pendingConfirmationEmail);
+      } else {
+        showAuthScreen();
+      }
     }, 1500);
   }
 }
