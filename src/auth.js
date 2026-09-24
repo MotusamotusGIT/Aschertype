@@ -148,8 +148,11 @@ const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
 const authErrorEl = document.getElementById('auth-error');
 const authNoticeEl = document.getElementById('auth-notice');
+const confirmationActionsEl = document.getElementById('auth-confirmation-actions');
+const resendConfirmationBtn = document.getElementById('resend-confirmation-btn');
 const authGuestLink = document.getElementById('auth-guest-link');
 const forgotPasswordBtn = document.getElementById('forgot-password-btn');
+let pendingConfirmationEmail = '';
 
 document.querySelectorAll('.password-toggle').forEach((btn) => {
   btn.addEventListener('mousedown', (e) => { e.preventDefault(); });
@@ -178,6 +181,9 @@ function showAuthNotice(msg) {
   authNoticeEl.textContent = msg || '';
   authNoticeEl.style.display = msg ? 'block' : 'none';
 }
+function showConfirmationActions(show) {
+  if (confirmationActionsEl) confirmationActionsEl.style.display = show ? 'block' : 'none';
+}
 function setAuthTab(tab) {
   const isLogin = tab === 'login';
   authTabLogin.classList.toggle('active', isLogin);
@@ -186,6 +192,7 @@ function setAuthTab(tab) {
   registerForm.style.display = isLogin ? 'none' : 'flex';
   showAuthError('');
   showAuthNotice('');
+  showConfirmationActions(false);
 }
 authTabLogin.addEventListener('click', () => setAuthTab('login'));
 authTabRegister.addEventListener('click', () => setAuthTab('register'));
@@ -392,8 +399,12 @@ registerForm.addEventListener('submit', async (e) => {
       hideAuthScreen();
       window.initApp(currentUser);
     } else {
+      pendingConfirmationEmail = email;
+      document.getElementById('login-email').value = email;
+      document.getElementById('login-password').value = '';
       setAuthTab('login');
-      showAuthNotice('Account created — check your email to confirm it, then sign in.');
+      showAuthNotice('Account created. Check your email to confirm it, then sign in with your password.');
+      showConfirmationActions(true);
     }
   } catch (err) {
     console.error('[Auth] Sign-up threw:', err);
@@ -405,6 +416,42 @@ registerForm.addEventListener('submit', async (e) => {
     registerCaptchaToken = null;
   }
 });
+
+if (resendConfirmationBtn) {
+  resendConfirmationBtn.addEventListener('click', async () => {
+    const email = pendingConfirmationEmail || document.getElementById('login-email').value.trim();
+    if (!isPlausibleEmail(email)) {
+      showAuthError('Enter the email you used to create your account.');
+      return;
+    }
+
+    const rl = checkRateLimit('resend_confirmation', 3, 60000);
+    if (rl.limited) {
+      showAuthError(`Too many requests. Please wait ${formatWait(rl.waitMs)}.`);
+      return;
+    }
+
+    resendConfirmationBtn.disabled = true;
+    try {
+      recordAttempt('resend_confirmation', 60000);
+      const { error } = await supabaseClient.auth.resend({
+        type: 'signup',
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/confirm.html` },
+      });
+      if (error) {
+        showAuthError('Could not resend the confirmation email. Please try again shortly.');
+        return;
+      }
+      showAuthError('');
+      showAuthNotice('Confirmation email sent again. Check your inbox and spam folder.');
+    } catch (err) {
+      showAuthError('Could not resend the confirmation email. Please try again shortly.');
+    } finally {
+      resendConfirmationBtn.disabled = false;
+    }
+  });
+}
 
 // -------- Forgot password --------------------------------------------------
 if (forgotPasswordBtn) {

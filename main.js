@@ -40,7 +40,7 @@ try {
 // which blocks Chromium's namespace sandbox. The failure happens inside the
 // zygote process *before* any runtime probe could apply a flag, so we apply
 // the flags unconditionally from the very start.
-if (process.platform === 'linux') {
+if (process.platform === 'linux' && app.commandLine && typeof app.commandLine.appendSwitch === 'function') {
   app.commandLine.appendSwitch('no-sandbox');
   app.commandLine.appendSwitch('disable-gpu-sandbox');
   app.commandLine.appendSwitch('disable-setuid-sandbox');
@@ -59,12 +59,17 @@ function keyToFilename(key) {
 }
 
 async function ensureStoreDir() {
-  await fsp.mkdir(getStoreDir(), { recursive: true });
+  await fsp.mkdir(getStoreDir(), { recursive: true, mode: 0o700 });
 }
 
 function isTrustedSender(frame) {
   if (!frame || !frame.url) return false;
-  return frame.url.startsWith('file://');
+  try {
+    const senderUrl = new URL(frame.url);
+    return senderUrl.protocol === 'file:' && !senderUrl.hostname;
+  } catch (err) {
+    return false;
+  }
 }
 
 if (ipcMain && typeof ipcMain.handle === 'function') {
@@ -92,8 +97,8 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
     await ensureStoreDir();
     const file = path.join(getStoreDir(), keyToFilename(key));
     const encrypted = safeStorage.encryptString(value);
-    const tmp = `${file}.tmp`;
-    await fsp.writeFile(tmp, encrypted, { mode: 0o600 });
+    const tmp = `${file}.${process.pid}.${crypto.randomBytes(8).toString('hex')}.tmp`;
+    await fsp.writeFile(tmp, encrypted, { mode: 0o600, flag: 'wx' });
     await fsp.rename(tmp, file);
     return true;
   });
@@ -140,8 +145,10 @@ function createWindow() {
     icon: path.join(__dirname, 'src', 'favicon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
+      enableRemoteModule: false,
       webSecurity: true,
     },
   });
@@ -161,6 +168,9 @@ function isExternalSafe(url) {
 }
 
 app.on('web-contents-created', (_event, contents) => {
+  contents.on('will-attach-webview', (event) => {
+    event.preventDefault();
+  });
   contents.on('will-navigate', (event, url) => {
     if (isAllowedNavigation(url)) return;
     event.preventDefault();

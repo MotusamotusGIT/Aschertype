@@ -358,6 +358,9 @@
 
       <div id="auth-error" class="auth-message error" style="display:none"></div>
       <div id="auth-notice" class="auth-message notice" style="display:none"></div>
+      <div id="auth-confirmation-actions" class="auth-confirmation-actions" style="display:none">
+        <button type="button" id="resend-confirmation-btn" class="auth-link-btn">Resend confirmation email</button>
+      </div>
 
       <form id="login-form" class="auth-form">
         <label class="field-label">Email
@@ -1241,7 +1244,7 @@
       <div class="welcome-hero">
         <img src="./favicon.png" alt="Aschertype" class="welcome-mark" width="56" height="56">
         <div class="welcome-title" data-i18n="welcome.title">Welcome to Aschertype</div>
-        <div class="welcome-sub" id="welcome-sub">A quick look at the parts that help you plan your day.</div>
+        <div class="welcome-sub" id="welcome-sub" data-i18n="welcome.quickSub">A quick look at the parts that help you plan your day.</div>
       </div>
 
       <div class="welcome-list">
@@ -1255,36 +1258,36 @@
         <div class="welcome-item">
           <div class="welcome-item-icon">📅</div>
           <div class="welcome-item-text">
-            <div class="welcome-item-title">Calendar</div>
-            <div class="welcome-item-desc">Add events, see the next seven days, and get reminders when you need them.</div>
+            <div class="welcome-item-title" data-i18n="welcome.calendar.title">Calendar</div>
+            <div class="welcome-item-desc" data-i18n="welcome.calendar.desc">Add events, see the next seven days, and get reminders when you need them.</div>
           </div>
         </div>
         <div class="welcome-item">
           <div class="welcome-item-icon">🗒</div>
           <div class="welcome-item-text">
-            <div class="welcome-item-title">Notes</div>
-            <div class="welcome-item-desc">Keep quick thoughts and useful details close to your tasks.</div>
+            <div class="welcome-item-title" data-i18n="welcome.notes.title">Notes</div>
+            <div class="welcome-item-desc" data-i18n="welcome.notes.desc">Keep quick thoughts and useful details close to your tasks.</div>
           </div>
         </div>
         <div class="welcome-item">
           <div class="welcome-item-icon">🍅</div>
           <div class="welcome-item-text">
             <div class="welcome-item-title" data-i18n="pomodoro.title">Pomodoro</div>
-            <div class="welcome-item-desc">Choose a task, start a focus session, and take a proper break.</div>
+            <div class="welcome-item-desc" data-i18n="welcome.pomodoro.simpleDesc">Choose a task, start a focus session, and take a proper break.</div>
           </div>
         </div>
         <div class="welcome-item">
           <div class="welcome-item-icon">📁</div>
           <div class="welcome-item-text">
-            <div class="welcome-item-title">Projects</div>
-            <div class="welcome-item-desc">Group related tasks when a project helps you stay organized.</div>
+            <div class="welcome-item-title" data-i18n="welcome.projects.title">Projects</div>
+            <div class="welcome-item-desc" data-i18n="welcome.projects.simpleDesc">Group related tasks when a project helps you stay organized.</div>
           </div>
         </div>
         <div class="welcome-item">
           <div class="welcome-item-icon">🔒</div>
           <div class="welcome-item-text">
-            <div class="welcome-item-title" id="welcome-data-title">Your data</div>
-            <div class="welcome-item-desc" id="welcome-data-desc">Your work is saved on this device. You can create an account later if you want sync.</div>
+            <div class="welcome-item-title" id="welcome-data-title" data-i18n="welcome.data.localTitle">Your data stays local</div>
+            <div class="welcome-item-desc" id="welcome-data-desc" data-i18n="welcome.data.localDesc">Your work is saved on this device. Create an account later if you want sync.</div>
           </div>
         </div>
       </div>

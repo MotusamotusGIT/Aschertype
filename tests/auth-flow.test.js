@@ -17,6 +17,7 @@ const mockSignUp = vi.fn();
 const mockSignOut = vi.fn();
 const mockGetSession = vi.fn().mockResolvedValue({ data: { session: null }, error: null });
 const mockResetPassword = vi.fn();
+const mockResend = vi.fn();
 const mockOnAuthStateChange = vi.fn(() => ({
   data: { subscription: { unsubscribe: vi.fn() } },
 }));
@@ -29,6 +30,7 @@ function makeMockClient() {
       signOut: (...a) => mockSignOut(...a),
       getSession: (...a) => mockGetSession(...a),
       resetPasswordForEmail: (...a) => mockResetPassword(...a),
+      resend: (...a) => mockResend(...a),
       onAuthStateChange: (...a) => mockOnAuthStateChange(...a),
     },
   };
@@ -238,6 +240,7 @@ describe('auth flow — register', () => {
     localStorage.clear();
     sessionStorage.clear();
     mockSignUp.mockReset();
+    mockResend.mockReset();
     vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
@@ -272,6 +275,28 @@ describe('auth flow — register', () => {
     await flush();
     expect(authNoticeText()).toMatch(/check your email/i);
     expect(window.initApp).not.toHaveBeenCalled();
+  });
+
+  it('can resend the confirmation email after registration', async () => {
+    mockSignUp.mockResolvedValue({
+      data: { user: { id: 'u2', email: 'new@b.co' }, session: null },
+      error: null,
+    });
+    mockResend.mockResolvedValue({ error: null });
+    mountAuth();
+    document.getElementById('auth-tab-register').click();
+    fillRegister('new@b.co', 'password123', 'password123');
+    submitRegister();
+    await flush();
+    document.getElementById('resend-confirmation-btn').click();
+    await flush();
+
+    expect(mockResend).toHaveBeenCalledWith({
+      type: 'signup',
+      email: 'new@b.co',
+      options: { emailRedirectTo: expect.stringContaining('/confirm.html') },
+    });
+    expect(authNoticeText()).toMatch(/sent again/i);
   });
 
   it('registration with an immediate session calls initApp', async () => {

@@ -189,6 +189,7 @@
     "pomodoro.sessions": "Sessions completed:",
     "pomodoro.task.pick": "Pick a task from your lists…",
     "pomodoro.task.placeholder": "What are you working on?",
+    "pomodoro.task.upNext": "Nothing queued next",
     "pomodoro.title": "Pomodoro",
     "pomodoro.almostThere": "Almost there",
     "pomodoro.breakEndingSoon": "Break ending soon",
@@ -362,7 +363,19 @@
     "welcome.sub": "Everything in one place. Here's the 30-second tour.",
     "welcome.tasks.desc": "Add them in the box at the top. Give a due date, priority, and project as you go.",
     "welcome.tasks.title": "Tasks",
-    "welcome.title": "Welcome to Aschertype"
+    "welcome.title": "Welcome to Aschertype",
+    "welcome.quickSub": "A quick look at the parts that help you plan your day.",
+    "welcome.quickSubGuest": "A quick look at the parts that help you plan your day. No account required.",
+    "welcome.calendar.title": "Calendar",
+    "welcome.calendar.desc": "Add events, see the next seven days, and get reminders when you need them.",
+    "welcome.notes.title": "Notes",
+    "welcome.notes.desc": "Keep quick thoughts and useful details close to your tasks.",
+    "welcome.pomodoro.simpleDesc": "Choose a task, start a focus session, and take a proper break.",
+    "welcome.projects.simpleDesc": "Group related tasks when a project helps you stay organized.",
+    "welcome.data.localTitle": "Your data stays local",
+    "welcome.data.localDesc": "Your work is saved on this device. Create an account later if you want sync.",
+    "welcome.data.syncTitle": "Sync when you want",
+    "welcome.data.syncDesc": "Your tasks, dates, and notes sync to your account across devices."
   },
 
   "id": {
@@ -405,7 +418,7 @@
     "widget.ai.desktopOnly": "AI hanya tersedia di aplikasi desktop.",
     "widget.ai.couldNotReach": "Tidak dapat menjangkau model lokal.",
     "widget.ai.noSuggestion": "Tidak ada saran yang kembali — coba lagi.",
-    "widget.tip": "Tip",
+    "widget.tip": "Kiat",
 
     "task.addBtn": "Tambah tugas",
     "task.addTask": "Tambah tugas",
@@ -500,7 +513,7 @@
     "common.delete": "Hapus",
     "common.detailsPlaceholder": "Detail...",
     "common.pause": "Jeda",
-    "common.reset": "Reset",
+    "common.reset": "Atur ulang",
     "common.save": "Simpan",
     "common.send": "Kirim",
     "common.start": "Mulai",
@@ -555,6 +568,7 @@
     "pomodoro.sessions": "Sesi selesai:",
     "pomodoro.task.pick": "Pilih tugas dari daftarmu…",
     "pomodoro.task.placeholder": "Apa yang sedang kamu kerjakan?",
+    "pomodoro.task.upNext": "Belum ada tugas berikutnya",
     "pomodoro.title": "Pomodoro",
     "pomodoro.almostThere": "Hampir selesai",
     "pomodoro.breakEndingSoon": "Istirahat hampir berakhir",
@@ -728,6 +742,18 @@
     "welcome.sub": "Semua dalam satu tempat. Ini tur 30 detiknya.",
     "welcome.tasks.desc": "Tambahkan di kotak bagian atas. Beri tanggal jatuh tempo, prioritas, dan proyek sambil jalan.",
     "welcome.tasks.title": "Tugas",
-    "welcome.title": "Selamat datang di Aschertype"
+    "welcome.title": "Selamat datang di Aschertype",
+    "welcome.quickSub": "Berikut bagian-bagian yang membantu kamu merencanakan harimu.",
+    "welcome.quickSubGuest": "Berikut bagian-bagian yang membantu kamu merencanakan harimu. Tidak perlu akun.",
+    "welcome.calendar.title": "Kalender",
+    "welcome.calendar.desc": "Tambahkan acara, lihat tujuh hari ke depan, dan dapatkan pengingat saat diperlukan.",
+    "welcome.notes.title": "Catatan",
+    "welcome.notes.desc": "Simpan pemikiran singkat dan detail penting di dekat tugasmu.",
+    "welcome.pomodoro.simpleDesc": "Pilih tugas, mulai sesi fokus, lalu istirahat dengan baik.",
+    "welcome.projects.simpleDesc": "Kelompokkan tugas terkait saat proyek membantumu tetap teratur.",
+    "welcome.data.localTitle": "Datamu tetap lokal",
+    "welcome.data.localDesc": "Pekerjaanmu disimpan di perangkat ini. Buat akun nanti jika ingin menyinkronkan.",
+    "welcome.data.syncTitle": "Sinkronkan kapan saja",
+    "welcome.data.syncDesc": "Tugas, tanggal, dan catatanmu tersinkron ke akun di seluruh perangkat."
   }
 }

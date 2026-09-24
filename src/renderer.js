@@ -664,8 +664,11 @@ function refreshPomodoroQueue() {
 }
 
 function renderPomodoro() {
+  const translate = (key, fallback) => window.I18N ? window.I18N.t(key, fallback) : fallback;
   pomodoroTimerEl.textContent = formatTime(pomodoro.remaining);
-  pomodoroModeLabel.textContent = pomodoro.mode === 'work' ? 'Focus session' : 'Break time';
+  pomodoroModeLabel.textContent = pomodoro.mode === 'work'
+    ? translate('pomodoro.mode.focus', 'Focus session')
+    : translate('pomodoro.breakTime', 'Break time');
   pomodoroSessionsEl.textContent = pomodoro.sessions;
   pomodoroStartBtn.disabled = pomodoro.running;
   pomodoroPauseBtn.disabled = !pomodoro.running;
@@ -674,11 +677,15 @@ function renderPomodoro() {
 
   const { current, next } = refreshPomodoroQueue();
   if (pomodoroStackCurrentText) {
-    pomodoroStackCurrentText.textContent = current ? pomodoroTaskLabel(current) : 'What are you working on?';
+    pomodoroStackCurrentText.textContent = current
+      ? pomodoroTaskLabel(current)
+      : translate('pomodoro.task.placeholder', 'What are you working on?');
     pomodoroStackCurrentText.classList.toggle('placeholder', !current);
   }
   if (pomodoroStackNextText) {
-    pomodoroStackNextText.textContent = next ? pomodoroTaskLabel(next) : 'Nothing queued next';
+    pomodoroStackNextText.textContent = next
+      ? pomodoroTaskLabel(next)
+      : translate('pomodoro.task.upNext', 'Nothing queued next');
     pomodoroStackNextText.classList.toggle('placeholder', !next);
   }
   if (pomodoroMarkDoneBtn) pomodoroMarkDoneBtn.disabled = !current;
@@ -3593,13 +3600,19 @@ function maybeShowWelcome() {
   const dataTitle = document.getElementById('welcome-data-title');
   const dataDesc = document.getElementById('welcome-data-desc');
   const signedIn = typeof currentUser !== 'undefined' && currentUser;
-  if (welcomeSub) welcomeSub.textContent = signedIn
-    ? 'A quick look at the parts that help you plan your day.'
-    : 'A quick look at the parts that help you plan your day. No account required.';
-  if (dataTitle) dataTitle.textContent = signedIn ? 'Sync when you want' : 'Your data stays local';
-  if (dataDesc) dataDesc.textContent = signedIn
-    ? 'Your tasks, dates, and notes sync to your account across devices.'
-    : 'Your work is saved on this device. Create an account later if you want sync.';
+  const translate = (key, fallback) => window.I18N ? window.I18N.t(key, fallback) : fallback;
+  if (welcomeSub) welcomeSub.textContent = translate(
+    signedIn ? 'welcome.quickSub' : 'welcome.quickSubGuest',
+    signedIn ? 'A quick look at the parts that help you plan your day.' : 'A quick look at the parts that help you plan your day. No account required.',
+  );
+  if (dataTitle) dataTitle.textContent = translate(
+    signedIn ? 'welcome.data.syncTitle' : 'welcome.data.localTitle',
+    signedIn ? 'Sync when you want' : 'Your data stays local',
+  );
+  if (dataDesc) dataDesc.textContent = translate(
+    signedIn ? 'welcome.data.syncDesc' : 'welcome.data.localDesc',
+    signedIn ? 'Your tasks, dates, and notes sync to your account across devices.' : 'Your work is saved on this device. Create an account later if you want sync.',
+  );
   setTimeout(() => {
     welcomeOverlay.style.display = 'flex';
   }, 900);
