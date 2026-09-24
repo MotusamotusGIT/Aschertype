@@ -476,7 +476,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   -webkit-backdrop-filter: blur(12px);
   display: flex; align-items: center; justify-content: center; padding: 20px;
   transition: opacity .3s ease, visibility .3s ease;
-  overflow-y: auto;
+  overflow: hidden;
 }
 #auth-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
 .auth-card {
@@ -484,7 +484,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   background: var(--card); border: 1px solid var(--border); border-radius: 20px;
   box-shadow: var(--shadow-lg);
   padding: 32px 28px; display: flex; flex-direction: column; gap: 18px;
-  margin: auto;
+  margin: auto; max-height: calc(100dvh - 40px); overflow-y: auto;
 }
 .auth-brand { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 4px; }
 .auth-brand-img { width: 34px; height: 34px; border-radius: 10px; }
@@ -516,6 +516,11 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 }
 .auth-link-btn:hover { color: var(--accent-ink); text-decoration: underline; }
 .auth-confirmation-actions { margin-top: -6px; text-align: center; }
+.confirmation-panel { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.confirmation-icon { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; background: var(--accent-soft); color: var(--accent-ink); font-size: 25px; }
+.confirmation-panel h2 { margin: 0; color: var(--ink); font-family: var(--font-display); font-size: 23px; }
+.confirmation-panel p { margin: 0; color: var(--ink-light); font-size: 13px; line-height: 1.55; }
+.confirmation-panel strong { color: var(--ink-2); overflow-wrap: anywhere; }
 .auth-divider { display: flex; align-items: center; gap: 12px; color: var(--ink-light); font-size: 12px; font-weight: 500; }
 .auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 .auth-guest-link { text-align: center; font-size: 13px; color: var(--ink-light); text-decoration: none; padding: 4px; line-height: 1.4; }

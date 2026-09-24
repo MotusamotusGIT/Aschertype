@@ -263,7 +263,7 @@ describe('auth flow — register', () => {
     });
   });
 
-  it('registration without a session shows the check-email notice', async () => {
+  it('registration without a session shows the confirmation panel', async () => {
     mockSignUp.mockResolvedValue({
       data: { user: { id: 'u2', email: 'new@b.co' }, session: null },
       error: null,
@@ -273,7 +273,8 @@ describe('auth flow — register', () => {
     fillRegister('new@b.co', 'password123', 'password123');
     submitRegister();
     await flush();
-    expect(authNoticeText()).toMatch(/check your email/i);
+    expect(document.getElementById('confirmation-panel').style.display).toBe('flex');
+    expect(document.getElementById('confirmation-email').textContent).toBe('new@b.co');
     expect(window.initApp).not.toHaveBeenCalled();
   });
 

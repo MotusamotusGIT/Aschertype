@@ -82,6 +82,27 @@
     document.title = 'Aschertype';
   }
 
+  async function notifyConfirmedSession(mode, code) {
+    if (typeof window.supabase === 'undefined' || typeof SUPABASE_URL !== 'string' || SUPABASE_URL.indexOf('YOUR-PROJECT-REF') !== -1) return;
+    try {
+      const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { detectSessionInUrl: mode === 'implicit', persistSession: true, flowType: mode === 'implicit' ? 'implicit' : 'pkce' },
+      });
+      if (mode === 'pkce' && code) await client.auth.exchangeCodeForSession(code);
+      const { data } = await client.auth.getSession();
+      if (!data || !data.session) return;
+      const signal = JSON.stringify({ at: Date.now() });
+      localStorage.setItem('aschertypeEmailConfirmed', signal);
+      if (typeof BroadcastChannel !== 'undefined') {
+        const channel = new BroadcastChannel('aschertype-auth');
+        channel.postMessage({ type: 'email-confirmed' });
+        channel.close();
+      }
+    } catch (err) {
+      console.warn('[Confirm] Could not hand session to the app tab:', err.message);
+    }
+  }
+
   // Shows the "set a new password" form instead of the usual ok/err panel.
   // Used for the password-recovery link, which needs one more step (typing
   // a new password) rather than just landing the user back in the app.
@@ -209,9 +230,10 @@
 
   // --- Success branch: an access_token in the hash means confirmed ----
   if (hashParams.access_token) {
+    notifyConfirmedSession('implicit');
     showOk(
       'Email confirmed',
-      'You\'re all set. Sign in to start using Aschertype.'
+      'You\'re all set. Return to the Aschertype tab and we will finish signing you in.'
     );
     // Clean the URL. The token was already consumed by the SDK during
     // the initial load on index.html; here we just don't want it
@@ -222,9 +244,10 @@
 
   // --- PKCE branch (future-proofing; not used by default) ------------
   if (params.get('code')) {
+    notifyConfirmedSession('pkce', params.get('code'));
     showOk(
       'Email confirmed',
-      'You\'re all set. Sign in to start using Aschertype.'
+      'You\'re all set. Return to the Aschertype tab and we will finish signing you in.'
     );
     history.replaceState(null, '', window.location.pathname);
     return;

@@ -150,6 +150,11 @@ const authErrorEl = document.getElementById('auth-error');
 const authNoticeEl = document.getElementById('auth-notice');
 const confirmationActionsEl = document.getElementById('auth-confirmation-actions');
 const resendConfirmationBtn = document.getElementById('resend-confirmation-btn');
+const confirmationPanel = document.getElementById('confirmation-panel');
+const confirmationEmailEl = document.getElementById('confirmation-email');
+const confirmationResendBtn = document.getElementById('confirmation-resend-btn');
+const confirmationBackBtn = document.getElementById('confirmation-back-btn');
+const confirmationStatusEl = document.getElementById('confirmation-status');
 const authGuestLink = document.getElementById('auth-guest-link');
 const forgotPasswordBtn = document.getElementById('forgot-password-btn');
 let pendingConfirmationEmail = '';
@@ -184,6 +189,23 @@ function showAuthNotice(msg) {
 function showConfirmationActions(show) {
   if (confirmationActionsEl) confirmationActionsEl.style.display = show ? 'block' : 'none';
 }
+function showConfirmationWaiting(email) {
+  pendingConfirmationEmail = email;
+  beginConfirmationWait(email);
+  if (confirmationEmailEl) confirmationEmailEl.textContent = email;
+  loginForm.style.display = 'none';
+  registerForm.style.display = 'none';
+  document.querySelector('.auth-tabs').style.display = 'none';
+  document.querySelector('.auth-divider').style.display = 'none';
+  authGuestLink.style.display = 'none';
+  if (confirmationPanel) confirmationPanel.style.display = 'flex';
+}
+function hideConfirmationWaiting() {
+  if (confirmationPanel) confirmationPanel.style.display = 'none';
+  document.querySelector('.auth-tabs').style.display = 'flex';
+  document.querySelector('.auth-divider').style.display = 'flex';
+  authGuestLink.style.display = '';
+}
 function setAuthTab(tab) {
   const isLogin = tab === 'login';
   authTabLogin.classList.toggle('active', isLogin);
@@ -193,6 +215,7 @@ function setAuthTab(tab) {
   showAuthError('');
   showAuthNotice('');
   showConfirmationActions(false);
+  hideConfirmationWaiting();
 }
 authTabLogin.addEventListener('click', () => setAuthTab('login'));
 authTabRegister.addEventListener('click', () => setAuthTab('register'));
@@ -399,12 +422,7 @@ registerForm.addEventListener('submit', async (e) => {
       hideAuthScreen();
       window.initApp(currentUser);
     } else {
-      pendingConfirmationEmail = email;
-      document.getElementById('login-email').value = email;
-      document.getElementById('login-password').value = '';
-      setAuthTab('login');
-      showAuthNotice('Account created. Check your email to confirm it, then sign in with your password.');
-      showConfirmationActions(true);
+      showConfirmationWaiting(email);
     }
   } catch (err) {
     console.error('[Auth] Sign-up threw:', err);
@@ -417,21 +435,19 @@ registerForm.addEventListener('submit', async (e) => {
   }
 });
 
-if (resendConfirmationBtn) {
-  resendConfirmationBtn.addEventListener('click', async () => {
-    const email = pendingConfirmationEmail || document.getElementById('login-email').value.trim();
+async function resendConfirmation(email, button, statusEl) {
     if (!isPlausibleEmail(email)) {
       showAuthError('Enter the email you used to create your account.');
-      return;
+      return false;
     }
 
     const rl = checkRateLimit('resend_confirmation', 3, 60000);
     if (rl.limited) {
       showAuthError(`Too many requests. Please wait ${formatWait(rl.waitMs)}.`);
-      return;
+      return false;
     }
 
-    resendConfirmationBtn.disabled = true;
+    button.disabled = true;
     try {
       recordAttempt('resend_confirmation', 60000);
       const { error } = await supabaseClient.auth.resend({
@@ -441,17 +457,62 @@ if (resendConfirmationBtn) {
       });
       if (error) {
         showAuthError('Could not resend the confirmation email. Please try again shortly.');
-        return;
+        return false;
       }
       showAuthError('');
-      showAuthNotice('Confirmation email sent again. Check your inbox and spam folder.');
+      const message = 'Confirmation email sent again. Check your inbox and spam folder.';
+      if (statusEl) { statusEl.textContent = message; statusEl.style.display = 'block'; }
+      else showAuthNotice(message);
+      return true;
     } catch (err) {
       showAuthError('Could not resend the confirmation email. Please try again shortly.');
+      return false;
     } finally {
-      resendConfirmationBtn.disabled = false;
+      button.disabled = false;
     }
-  });
 }
+if (resendConfirmationBtn) resendConfirmationBtn.addEventListener('click', () => resendConfirmation(
+  pendingConfirmationEmail || document.getElementById('login-email').value.trim(), resendConfirmationBtn, null,
+));
+if (confirmationResendBtn) confirmationResendBtn.addEventListener('click', () => resendConfirmation(
+  pendingConfirmationEmail, confirmationResendBtn, confirmationStatusEl,
+));
+if (confirmationBackBtn) confirmationBackBtn.addEventListener('click', () => {
+  hideConfirmationWaiting();
+  setAuthTab('register');
+});
+
+let waitingForConfirmation = false;
+function beginConfirmationWait(email) {
+  waitingForConfirmation = true;
+  pendingConfirmationEmail = email;
+}
+async function completeConfirmedSession() {
+  if (!waitingForConfirmation || !supabaseReady) return;
+  try {
+    const { data, error } = await supabaseClient.auth.getSession();
+    if (error || !data.session) return;
+    waitingForConfirmation = false;
+    currentUser = data.session.user;
+    isGuest = false;
+    clearGuestSession();
+    hideAuthScreen();
+    window.initApp(currentUser);
+  } catch (err) { /* confirmation can be retried by the next signal */ }
+}
+function listenForConfirmation() {
+  const onSignal = () => completeConfirmedSession();
+  window.addEventListener('storage', (event) => {
+    if (event.key === 'aschertypeEmailConfirmed') onSignal();
+  });
+  if (typeof BroadcastChannel !== 'undefined') {
+    const channel = new BroadcastChannel('aschertype-auth');
+    channel.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'email-confirmed') onSignal();
+    });
+  }
+}
+listenForConfirmation();
 
 // -------- Forgot password --------------------------------------------------
 if (forgotPasswordBtn) {

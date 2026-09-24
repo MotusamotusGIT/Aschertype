@@ -428,6 +428,15 @@
         <div class="h-captcha" data-sitekey="1b028ed2-db84-4806-8394-324c67987b3a" data-callback="onRegisterCaptcha"></div>
       </form>
 
+      <section id="confirmation-panel" class="confirmation-panel" style="display:none" aria-live="polite">
+        <div class="confirmation-icon" aria-hidden="true">✉</div>
+        <h2>Check your email</h2>
+        <p>We sent a confirmation link to <strong id="confirmation-email"></strong>. Keep this tab open. After you confirm, we will finish signing you in here.</p>
+        <button type="button" id="confirmation-resend-btn" class="btn primary auth-submit">Resend confirmation email</button>
+        <button type="button" id="confirmation-back-btn" class="auth-link-btn">Use a different email</button>
+        <div id="confirmation-status" class="auth-message notice" style="display:none"></div>
+      </section>
+
       <div class="auth-divider"><span>or</span></div>
       <a href="#" id="auth-guest-link" class="auth-guest-link">Continue without an account (data stays on this device only)</a>
 
