@@ -123,6 +123,7 @@
       }
       console.log('[Confirm] session after wait:', session ? 'GOT IT' : 'NONE');
       if (!session) return;
+      console.log('[Confirm] session.refresh_token present?', !!session.refresh_token, 'length:', session.refresh_token ? session.refresh_token.length : 'n/a', 'access_token exp:', session.expires_at);
 
       if (handoffToken && session.access_token) {
         const at = session.access_token;
