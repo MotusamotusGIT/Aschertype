@@ -87,6 +87,10 @@
   // after an await — the previous version read it *after* `history.
   // replaceState` had already stripped the query string, so it was always
   // null and the waiting desktop tab never learned the email was confirmed.
+  //
+  // We also retry the `complete_*` RPC a few times: the Supabase SDK's
+  // `detectSessionInUrl` parse is asynchronous, so the very first call can
+  // land before `auth.uid()` is available server-side.
   async function notifyConfirmedSession(mode, code, handoffToken) {
     if (typeof window.supabase === 'undefined' || typeof SUPABASE_URL !== 'string' || SUPABASE_URL.indexOf('YOUR-PROJECT-REF') !== -1) return;
     try {
@@ -94,11 +98,30 @@
         auth: { detectSessionInUrl: mode === 'implicit', persistSession: true, flowType: mode === 'implicit' ? 'implicit' : 'pkce' },
       });
       if (mode === 'pkce' && code) await client.auth.exchangeCodeForSession(code);
-      const { data } = await client.auth.getSession();
-      if (!data || !data.session) return;
-      if (handoffToken && typeof client.rpc === 'function') {
-        await client.rpc('complete_email_confirmation_handoff', { p_token: handoffToken });
+
+      // Wait until the SDK has actually established a session before we
+      // try the handoff RPC — the first `getSession()` call can return
+      // null if the hash parse hasn't finished yet.
+      let session = null;
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const { data } = await client.auth.getSession();
+        if (data && data.session) { session = data.session; break; }
+        await new Promise((r) => setTimeout(r, 150));
       }
+      if (!session) return;
+
+      if (handoffToken && typeof client.rpc === 'function') {
+        // Retry up to 5 times over ~1s. `auth.uid()` on the server is
+        // derived from the Authorization header; the SDK attaches it
+        // as soon as the session exists, but giving it a beat avoids
+        // the rare "called before the token was attached" case.
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const { data, error } = await client.rpc('complete_email_confirmation_handoff', { p_token: handoffToken });
+          if (!error && data === true) break;
+          await new Promise((r) => setTimeout(r, 200));
+        }
+      }
+
       const signal = JSON.stringify({ at: Date.now() });
       localStorage.setItem('aschertypeEmailConfirmed', signal);
       if (typeof BroadcastChannel !== 'undefined') {
