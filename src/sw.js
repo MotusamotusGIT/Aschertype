@@ -2,18 +2,21 @@
 // Caches the app shell for offline use. Does NOT cache Supabase API calls,
 // auth responses, or anything user-specific.
 
-const VERSION = 'v9'; // bump this on every deploy that changes cached files
+const VERSION = 'v11'; // bumped: style.css back to normal <link>, no inline onload
 const CACHE_NAME = `aschertype-${VERSION}`;
 
 const APP_SHELL = [
   '/',
   '/index.html',
   '/style.css',
-  '/loader.js',
+  '/theme-init.js',
+  '/vendor/supabase.min.js',
   '/supabase-config.js',
   '/utils.js',
   '/ai-config.js',
   '/ai-bridge.js',
+  '/i18n.js',
+  '/language.json',
   '/db.js',
   '/renderer.js',
   '/auth.js',

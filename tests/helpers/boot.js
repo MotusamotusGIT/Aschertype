@@ -34,27 +34,34 @@ export function loadIndexHtml() {
 /* methods per-test via the returned object (they're vi.fn()s already   */
 /* except where a caller wires its own vi.fn(), e.g. signInWithPassword */
 /* in rate-limit-integration.test.js).                                  */
+/*                                                                      */
+/* IMPORTANT: overrides are spread FIRST, then `auth` is rebuilt from   */
+/* base + authOverrides. If the caller passes `{ auth: { signIn } }`,   */
+/* we still keep every other base auth method (onAuthStateChange,       */
+/* getSession, signUp, signOut, etc.) that auth.js relies on at module  */
+/* load time.                                                           */
 /* ------------------------------------------------------------------ */
 export function makeMockSupabaseClient(overrides = {}) {
-  const base = {
-    auth: {
-      signInWithPassword: vi.fn(async () => ({
-        data: { user: null, session: null },
-        error: { message: 'not stubbed' },
-      })),
-      signUp: vi.fn(async () => ({ data: { user: null, session: null }, error: null })),
-      signOut: vi.fn(async () => ({ error: null })),
-      resetPasswordForEmail: vi.fn(async () => ({ data: null, error: null })),
-      getUser: vi.fn(async () => ({ data: { user: null }, error: null })),
-      getSession: vi.fn(async () => ({ data: { session: null }, error: null })),
-      onAuthStateChange: vi.fn(() => ({
-        data: { subscription: { unsubscribe: vi.fn() } },
-      })),
-    },
+  const { auth: authOverrides, ...restOverrides } = overrides || {};
+
+  const baseAuth = {
+    signInWithPassword: vi.fn(async () => ({
+      data: { user: null, session: null },
+      error: { message: 'not stubbed' },
+    })),
+    signUp: vi.fn(async () => ({ data: { user: null, session: null }, error: null })),
+    signOut: vi.fn(async () => ({ error: null })),
+    resetPasswordForEmail: vi.fn(async () => ({ data: null, error: null })),
+    getUser: vi.fn(async () => ({ data: { user: null }, error: null })),
+    getSession: vi.fn(async () => ({ data: { session: null }, error: null })),
+    onAuthStateChange: vi.fn(() => ({
+      data: { subscription: { unsubscribe: vi.fn() } },
+    })),
   };
+
   return {
-    auth: { ...base.auth, ...(overrides.auth || {}) },
-    ...overrides,
+    ...restOverrides,
+    auth: { ...baseAuth, ...(authOverrides || {}) },
   };
 }
 
@@ -99,6 +106,14 @@ export function mountAuthOnly({
   window.supabaseReady = supabaseReady;
   loadUtilsSource();
   loadAuthSource();
+  // The real captcha widget can't load in jsdom (no network to
+  // hcaptcha.com), so its onLoad/onCallback never fires and
+  // loginCaptchaToken/registerCaptchaToken stay null forever, dead-ending
+  // every submit at "Please complete the captcha." Simulate the widget
+  // completing, the same way a real solve would call these global
+  // callbacks — this only affects the test harness, not auth.js itself.
+  window.onLoginCaptcha('test-token');
+  window.onRegisterCaptcha('test-token');
   return supabaseClient;
 }
 

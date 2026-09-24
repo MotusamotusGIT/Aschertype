@@ -24,6 +24,7 @@
   --low-bg: rgba(148, 162, 174, 0.10);
   --medium-bg: rgba(187, 138, 67, 0.10);
   --high-bg: rgba(184, 95, 82, 0.09);
+  --event-mark: #2f8a4f;
 
   --task-bg: #dfe0dd;
   --task-bg-hover: #d2d4d0;
@@ -59,6 +60,7 @@
   --low-bg: rgba(148, 163, 184, 0.14);
   --medium-bg: rgba(212, 167, 95, 0.16);
   --high-bg: rgba(217, 124, 112, 0.16);
+  --event-mark: #4cb579;
 
   --task-bg: #1e2a3d;
   --task-bg-hover: #263346;
@@ -867,6 +869,112 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 }
 .task-add-form input:focus,
 .task-add-form select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.task-add-form select {
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23808d9e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; background-size: 13px;
+  padding-right: 34px;
+  cursor: pointer;
+}
+
+.project-announcement {
+  /* display is set inline by JS (flex/none) so it doesn't fight [hidden] rules */
+  align-items: flex-start; gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  margin-bottom: 28px;
+}
+.project-announcement-icon {
+  flex-shrink: 0; width: 20px; height: 20px; margin-top: 1px; color: var(--accent);
+}
+.project-announcement-icon svg { width: 100%; height: 100%; }
+.project-announcement-body { flex: 1; min-width: 0; }
+.project-announcement-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--accent); margin-bottom: 3px;
+}
+.project-announcement-text {
+  font-size: 14px; line-height: 1.5; color: var(--ink); white-space: pre-wrap; word-break: break-word;
+}
+.project-announcement-text strong { font-weight: 700; }
+.project-announcement-text em { font-style: italic; }
+.project-announcement-text del { text-decoration: line-through; opacity: .8; }
+.project-announcement-text code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px; background: var(--card); border: 1px solid var(--border);
+  border-radius: 5px; padding: 1px 5px;
+}
+.project-announcement-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+
+.announcement-format-bar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-bottom: 2px;
+}
+.announcement-format-btn {
+  display: flex; align-items: center; justify-content: center;
+  min-width: 26px; height: 26px; padding: 0 7px; border-radius: 7px;
+  background: var(--bg); border: 1px solid var(--border); color: var(--ink-2);
+  font-size: 12.5px; font-family: inherit; cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+.announcement-format-btn:hover { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--border-hover); }
+.announcement-format-hint {
+  font-size: 11px; color: var(--ink-light); margin-left: 2px;
+}
+
+.announcement-add-toggle { margin-bottom: 28px; }
+.announcement-add-toggle .task-add-plus { display: flex; }
+.announcement-add-toggle .task-add-plus svg { width: 16px; height: 16px; }
+.announcement-form { margin-bottom: 28px; }
+.announcement-form textarea {
+  width: 100%; resize: vertical; border-radius: 10px; border: 1px solid var(--border);
+  padding: 8px 10px; font: inherit; font-size: 13.5px; background: var(--card); color: var(--ink);
+}
+.announcement-form textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* ===== Task toolbar: plain icon-only controls for sort & category filter =====
+   No background/border on the row itself — sits tucked under the add-task
+   box, aligned to the bottom-right, just the two icons. */
+.task-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: -8px;
+  margin-bottom: 18px;
+  position: relative;
+  z-index: 5;
+  background: transparent;
+}
+.task-toolbar-dropdown { position: relative; }
+.task-toolbar-icon-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 8px;
+  background: transparent; border: none; color: var(--ink-light);
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease;
+}
+.task-toolbar-icon-btn svg { width: 16px; height: 16px; }
+.task-toolbar-icon-btn:hover { background: var(--accent-soft); color: var(--ink); }
+.task-toolbar-icon-btn.active { background: var(--accent-soft); color: var(--accent); }
+
+.task-toolbar-menu {
+  display: none;
+  position: absolute; top: calc(100% + 6px); right: 0; left: auto; z-index: 30;
+  min-width: 172px; max-height: 240px; overflow-y: auto;
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: var(--shadow-lg); padding: 6px; flex-direction: column; gap: 2px;
+}
+.task-toolbar-menu.open { display: flex; }
+.task-toolbar-menu-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 10px; border-radius: 8px; border: none; background: transparent;
+  font: inherit; font-size: 13px; color: var(--ink); text-align: left; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.task-toolbar-menu-item:hover { background: var(--accent-soft); }
+.task-toolbar-menu-item.active { color: var(--accent); font-weight: 700; }
+.task-toolbar-menu-item.active::after { content: '\2713'; font-weight: 700; flex-shrink: 0; }
 
 .task-add-form input::placeholder { color: var(--ink-light); }
 
@@ -876,10 +984,10 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   gap: 8px;
 }
 .task-add-row input,
-.task-add-row select { font-size: 13.5px; padding: 9px 12px; }
+.task-add-row select { font-size: 13.5px; padding: 9px 34px 9px 12px; background-position: right 10px center; background-size: 12px; }
 
 .task-add-category-row { display: flex; align-items: center; gap: 8px; }
-.task-add-category-row select { flex: 1; font-size: 13.5px; padding: 9px 12px; }
+.task-add-category-row select { flex: 1; font-size: 13.5px; padding: 9px 34px 9px 12px; background-position: right 10px center; background-size: 12px; }
 .task-add-category-row .icon-btn.plus { flex-shrink: 0; }
 
 .task-add-actions {
@@ -902,31 +1010,52 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   border: 1px solid var(--border);
   border-radius: 16px; position: relative;
   box-shadow:
-    0 1px 2px rgba(30, 41, 59, 0.04),
-    0 3px 8px -2px rgba(30, 41, 59, 0.05);
+    0 2px 4px rgba(30, 41, 59, 0.065),
+    0 8px 20px -4px rgba(30, 41, 59, 0.13);
   cursor: pointer;
   transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease, opacity .15s ease;
 }
 .task-card:hover {
   border-color: var(--border-hover);
   box-shadow:
-    0 2px 4px rgba(30, 41, 59, 0.06),
-    0 10px 20px -4px rgba(30, 41, 59, 0.08);
+    0 4px 8px rgba(30, 41, 59, 0.095),
+    0 16px 32px -6px rgba(30, 41, 59, 0.19);
   transform: translateY(-2px);
 }
 [data-theme="dark"] .task-card {
   box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.35),
-    0 3px 8px -2px rgba(0, 0, 0, 0.3);
+    0 2px 4px rgba(0, 0, 0, 0.43),
+    0 10px 24px -4px rgba(0, 0, 0, 0.48);
 }
 [data-theme="dark"] .task-card:hover {
   box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.4),
-    0 10px 20px -4px rgba(0, 0, 0, 0.5);
+    0 4px 8px rgba(0, 0, 0, 0.48),
+    0 18px 36px -6px rgba(0, 0, 0, 0.63);
 }
 .task-card.completed { opacity: 0.55; }
 .task-card.completed .task-title { text-decoration: line-through; }
 .task-card.dragging { opacity: 0.4; transform: scale(0.97); }
+
+/* Brief highlight while a task card is being pressed-and-held to queue it
+   into Pomodoro — same visual language as focus rings elsewhere. */
+.task-card.hold-armed {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Minimal right-click menu for adding a task to the Pomodoro stack */
+.task-context-menu {
+  position: fixed; z-index: 200; background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: var(--shadow-lg); padding: 6px; min-width: 176px;
+  animation: taskAddIn .12s cubic-bezier(.16,1,.3,1);
+}
+.task-context-menu-item {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  padding: 8px 10px; border-radius: 8px; border: none; background: transparent;
+  font: inherit; font-size: 13px; font-weight: 500; color: var(--ink); cursor: pointer;
+}
+.task-context-menu-item:hover { background: var(--accent-soft); color: var(--accent-ink); }
+.task-context-menu-icon { font-size: 14px; }
 .task-card.touch-dragging { opacity: 0.45; }
 
 .task-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
@@ -1027,13 +1156,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .task-icon-btn:hover { color: var(--accent-ink); background: var(--accent-soft); }
 .task-icon-btn.delete-btn:hover { color: var(--high); background: var(--high-bg); }
 
-.nav-item.drop-target {
-  outline: 2px dashed var(--accent);
-  outline-offset: -2px;
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-}
-
 .touch-drag-ghost {
   position: fixed; top: 0; left: 0; z-index: 200;
   transform: translate(-50%, -130%);
@@ -1043,23 +1165,57 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   box-shadow: var(--shadow-lg); pointer-events: none;
 }
 
-.mobile-pomodoro-dropzone {
-  position: fixed; left: 50%; top: 14px; z-index: 199;
-  transform: translate(-50%, -140%);
+/* ---- Floating Pomodoro / Trash drop targets shown while dragging a task ----
+   NOTE: the zones are kept in their final on-screen position at all times and
+   only fade in/out via opacity — they used to slide in with a `transform:
+   translate()` entrance, which meant getBoundingClientRect() briefly returned
+   a rect that was still mid-animation (off-screen), so a fast drag could miss
+   the hitbox entirely depending on timing. Opacity doesn't affect layout, so
+   the hit-test rect is always correct from the first frame. */
+.drag-dropzones {
+  position: fixed; left: 50%; bottom: 26px; z-index: 199;
+  transform: translate(-50%, 0) scale(0.92);
+  display: flex; gap: 10px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease;
+}
+.drag-dropzones.show { transform: translate(-50%, 0) scale(1); opacity: 1; pointer-events: auto; }
+.drag-dropzone {
   display: flex; align-items: center; gap: 8px;
-  padding: 12px 20px; border-radius: 9999px;
+  padding: 14px 18px; border-radius: 9999px;
   background: var(--card); border: 1px dashed var(--border-hover); color: var(--ink-light);
   font-size: 13px; font-weight: 600; box-shadow: var(--shadow-lg);
-  opacity: 0; transition: transform .18s ease, opacity .18s ease, background-color .15s ease, border-color .15s ease, color .15s ease;
-  pointer-events: none;
+  min-height: 44px; box-sizing: border-box;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
 }
-.mobile-pomodoro-dropzone-icon { font-size: 16px; }
-.mobile-pomodoro-dropzone.show { transform: translate(-50%, 0); opacity: 1; }
-.mobile-pomodoro-dropzone.drop-target {
+.drag-dropzone-icon { font-size: 16px; line-height: 1; display: flex; }
+.drag-dropzone-icon svg { width: 16px; height: 16px; }
+.drag-dropzone.drop-target {
   border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent-ink);
+  animation: dropzonePop .3s ease 1;
 }
-@media (min-width: 761px) {
-  .mobile-pomodoro-dropzone { display: none; }
+.drag-dropzone.danger.drop-target {
+  border: 1px solid var(--high); background: var(--high-bg); color: var(--high);
+}
+/* Shown when dragging a completed task over the Pomodoro zone — it can't
+   accept it, so it visibly looks disabled instead of silently doing nothing. */
+.drag-dropzone.zone-invalid {
+  opacity: 0.45; cursor: not-allowed;
+  border-style: solid; border-color: var(--border);
+}
+.drag-dropzone.zone-invalid.drop-target {
+  border-color: var(--high); background: var(--high-bg); color: var(--high);
+  animation: none;
+}
+.touch-drag-ghost.ghost-over-invalid { border-color: var(--high); color: var(--high); }
+@keyframes dropzonePop {
+  0%, 100% { transform: scale(1); }
+  35% { transform: scale(1.1); }
+  60% { transform: scale(0.98); }
+}
+@media (max-width: 520px) {
+  .drag-dropzone-label { display: none; }
+  .drag-dropzone { padding: 16px; border-radius: 9999px; }
 }
 
 /* ===== Task detail side panel ===== */
@@ -1197,25 +1353,56 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 /* ===== Pomodoro ===== */
 .pomodoro-card {
   background: var(--card); border: 1px solid var(--border); border-radius: 20px;
-  padding: 36px 32px; display: flex; flex-direction: column; align-items: center; gap: 24px;
-  box-shadow: var(--shadow); max-width: 480px; margin: 0 auto;
+  padding: 36px 32px; display: flex; flex-direction: column; align-items: center; gap: 26px;
+  box-shadow: var(--shadow); max-width: 480px; margin: 0 auto; position: relative;
 }
-.pomodoro-task-input {
-  width: 100%; border: 1px solid var(--border); background: var(--bg); color: var(--ink);
-  padding: 12px 16px; border-radius: 12px; font-size: 15px; font-weight: 500; text-align: center;
+/* ---- Current / up-next task strip — minimal, no card-stack illusion ---- */
+.pomodoro-stack {
+  width: 100%; display: flex; flex-direction: column; gap: 10px;
+  border-top: 1px solid var(--border); padding-top: 22px;
 }
+.pomodoro-stack-card {
+  display: flex; align-items: center; gap: 10px;
+  transition: opacity .25s ease, transform .25s ease;
+}
+.pomodoro-stack-card.active {
+  border: 1px solid var(--border); background: var(--bg); border-radius: 14px; padding: 13px 14px 13px 16px;
+}
+.pomodoro-stack-card.active.leaving { opacity: 0; transform: translateY(-6px); }
+.pomodoro-stack-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; text-align: left; }
+.pomodoro-stack-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-light);
+}
+.pomodoro-stack-card.next { padding: 0 2px; gap: 6px; opacity: 0.75; }
+.pomodoro-stack-card.next .pomodoro-stack-label { flex-shrink: 0; }
+.pomodoro-stack-card.next .pomodoro-stack-text { font-size: 12.5px; font-weight: 500; }
+.pomodoro-stack-card.next.promoting { opacity: 1; }
+.pomodoro-stack-text {
+  min-width: 0; text-align: left; font-size: 14.5px; font-weight: 600; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pomodoro-stack-text.placeholder { color: var(--ink-light); font-weight: 500; }
+.pomodoro-stack-done {
+  flex-shrink: 0; width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: var(--card); color: var(--ink-light); cursor: pointer;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.pomodoro-stack-done svg { width: 15px; height: 15px; }
+.pomodoro-stack-done:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.pomodoro-stack-done:disabled { opacity: .4; cursor: not-allowed; }
 .pomodoro-timer {
   font-family: var(--font-display);
   font-optical-sizing: auto;
   font-size: 78px; font-weight: 500; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: var(--ink);
 }
 .pomodoro-controls { display: flex; gap: 12px; }
-.pomodoro-task-picker-row { display: flex; gap: 8px; align-items: center; width: 100%; }
-.pomodoro-task-picker-row select {
-  flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border);
-  background: var(--bg); color: var(--ink); font-size: 13px;
+.pomodoro-active-task { display: flex; gap: 8px; align-items: center; width: 100%; }
+.pomodoro-active-icon { font-size: 15px; flex-shrink: 0; opacity: .75; }
+.pomodoro-active-task .pomodoro-task-input {
+  flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.pomodoro-task-picker-row .btn.small { font-size: 12px; padding: 8px 10px; white-space: nowrap; }
+.pomodoro-active-task .pomodoro-task-input::placeholder { color: var(--ink-light); font-weight: 500; }
+.pomodoro-active-task .btn.small { font-size: 12px; padding: 8px 10px; white-space: nowrap; flex-shrink: 0; }
 .task-detail-time-spent { font-size: 14px; font-weight: 600; color: var(--ink); }
 .pomodoro-settings-row { display: flex; gap: 20px; font-size: 12px; color: var(--ink-light); font-weight: 600; }
 .pomodoro-settings-row label { display: flex; flex-direction: column; gap: 6px; text-align: center; }
@@ -1224,6 +1411,33 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   border-radius: 8px; font-size: 16px; text-align: center; font-weight: 600;
 }
 .pomodoro-sessions { font-size: 13px; color: var(--ink-light); font-weight: 500; }
+
+/* ---- Pomodoro focus stack: minimal queued-task list, "up next" first ---- */
+.pomodoro-queue { width: 100%; border-top: 1px solid var(--border); padding-top: 18px; }
+.pomodoro-queue-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.pomodoro-queue-title {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-light);
+}
+.pomodoro-queue-count {
+  font-size: 11px; font-weight: 700; color: var(--ink-light); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px; min-width: 18px; text-align: center;
+}
+.pomodoro-queue-list { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+.pomodoro-queue-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  width: 100%; text-align: left; padding: 9px 10px; border-radius: 10px;
+  background: var(--bg); border: 1px solid var(--border); color: var(--ink);
+  font: inherit; font-size: 13px; cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease, transform .12s ease;
+}
+.pomodoro-queue-item:hover { border-color: var(--accent); background: var(--accent-soft); transform: translateX(2px); }
+.pomodoro-queue-item-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pomodoro-queue-item-remove {
+  flex-shrink: 0; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; color: var(--ink-light); font-size: 15px; line-height: 1;
+}
+.pomodoro-queue-item-remove:hover { background: var(--high-bg); color: var(--high); }
+.pomodoro-queue-empty { font-size: 12.5px; color: var(--ink-light); text-align: center; padding: 6px 4px; margin: 0; }
 
 /* ===== Calendar ===== */
 .calendar-layout { display: grid; grid-template-columns: 1fr 340px; gap: 24px; }
@@ -1263,7 +1477,8 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .day-cell.selected { background: var(--accent-soft); border-color: var(--accent); }
 .day-number { font-size: 12px; font-weight: 600; }
 .day-dot-row { display: flex; gap: 3px; justify-content: center; }
-.day-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+.day-dot { display: flex; width: 11px; height: 11px; color: var(--event-mark); }
+.day-dot svg { width: 100%; height: 100%; }
 .day-due-marker {
   width: 6px; height: 6px; margin: 2px auto 0; border-radius: 1px;
   background: var(--high, #e0575b); transform: rotate(45deg);
@@ -1357,6 +1572,13 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .note-form .form-row { margin: 0; }
 .note-form input, .note-form select, .note-form textarea {
   padding: 11px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--ink); font-size: 16px; font-family: inherit;
+}
+.note-form select {
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23808d9e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; background-size: 13px;
+  padding-right: 34px;
+  cursor: pointer;
 }
 .note-submit { align-self: flex-end; }
 .notes-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; }
@@ -1573,6 +1795,59 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 @keyframes toastOut { to { opacity: 0; transform: translateY(-8px) scale(.95); } }
 .toast-emoji { font-size: 16px; }
 .toast-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+.toast-text { flex: 1; }
+.toast-action-btn {
+  flex-shrink: 0; border: none; background: none; cursor: pointer;
+  color: var(--accent-ink); font-weight: 700; font-size: 13px;
+  padding: 4px 8px; margin: -4px -6px -4px 0; border-radius: 8px;
+}
+.toast-action-btn:hover { background: var(--accent-soft); }
+
+/* ===== Confirm modal (e.g. trash confirmation) ===== */
+.confirm-modal-card { max-width: 380px; gap: 16px; }
+.confirm-modal-card .modal-title { font-size: 17px; }
+.confirm-modal-card .modal-sub { margin: 0; }
+
+/* ===== Pomodoro queue button + modal ===== */
+.pomodoro-queue-link {
+  position: absolute; top: 16px; right: 18px;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: none; border: none; padding: 6px 4px; margin: 0;
+  color: var(--ink-light); font-size: 12.5px; font-weight: 600;
+  font-family: inherit; cursor: pointer; border-radius: 8px;
+  transition: color .15s ease;
+}
+.pomodoro-queue-link:hover { color: var(--accent-ink); }
+.pomodoro-queue-link svg { flex-shrink: 0; }
+.pomodoro-queue-card { max-width: 420px; }
+.pomodoro-queue-list { display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto; }
+.pomodoro-queue-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; text-align: left; padding: 12px 14px; border-radius: 12px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--ink-2);
+  font-size: 13.5px; font-weight: 500; cursor: pointer; font-family: inherit;
+  transition: border-color .15s ease, background-color .15s ease;
+}
+.pomodoro-queue-item:hover { border-color: var(--border-hover); }
+.pomodoro-queue-item.is-current {
+  border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink);
+  cursor: default; font-weight: 700;
+}
+.pomodoro-queue-item-text { flex: 1; overflow-wrap: anywhere; }
+.pomodoro-queue-current-badge {
+  flex-shrink: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+  text-transform: uppercase; color: var(--accent-ink); background: var(--card);
+  border: 1px solid var(--accent); border-radius: 9999px; padding: 3px 9px;
+}
+.pomodoro-queue-empty { font-size: 13.5px; color: var(--ink-light); text-align: center; padding: 20px 0; }
+
+@media (max-width: 520px) {
+  .pomodoro-card { padding: 30px 20px 26px; }
+  .pomodoro-queue-link { top: 8px; right: 8px; padding: 10px; }
+  .pomodoro-queue-link span { display: none; }
+  .pomodoro-queue-card { max-width: 92vw; padding: 20px; }
+  .confirm-modal-card { max-width: 92vw; padding: 22px; }
+}
 
 /* ===== Tip (home widget) ===== */
 .home-widget.tips-bar { justify-content: flex-start; }
@@ -1911,6 +2186,15 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 
   .task-add-row { grid-template-columns: 1fr; }
   .task-add-form { padding: 12px; gap: 8px; }
+
+  .project-announcement { margin-bottom: 20px; padding: 12px 14px; }
+  .announcement-add-toggle,
+  .announcement-form { margin-bottom: 20px; }
+  .announcement-format-hint { display: none; }
+
+  .task-add { margin-bottom: 10px; }
+  .task-toolbar { margin-top: -4px; margin-bottom: 14px; }
+
   .task-list { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .task-card { padding: 14px 14px 12px; border-radius: 12px; }
   .task-title { font-size: 13px; -webkit-line-clamp: 2; }
@@ -1926,7 +2210,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   .calendar-grid { gap: 4px; }
   .day-cell { border-radius: 9px; padding: 4px; }
   .day-number { font-size: 11px; }
-  .day-dot { width: 4px; height: 4px; }
+  .day-dot { width: 9px; height: 9px; }
   .cal-badge { width: 34px; height: 34px; border-radius: 9px; }
   .cal-badge svg { width: 16px; height: 16px; }
   .day-panel-header { gap: 10px; }
@@ -1946,8 +2230,8 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   .pomodoro-card { padding: 28px 20px; gap: 20px; }
   .pomodoro-timer { font-size: 58px; }
   .pomodoro-settings-row { gap: 14px; }
-  .pomodoro-task-picker-row { flex-direction: column; align-items: stretch; }
-  .pomodoro-task-picker-row .btn.small { width: 100%; }
+  .pomodoro-active-task { flex-direction: column; align-items: stretch; }
+  .pomodoro-active-task .btn.small { width: 100%; }
 
   .settings-block .color-picker-row a.btn { flex: 1; text-align: center; }
 
@@ -2562,20 +2846,30 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .home-focus-item.is-overdue .home-focus-due { color: var(--high); background: var(--high-bg); }
 .home-focus-more { padding-top: 6px; font-size: 13px; color: var(--ink-light); }
 
+/* Home widgets must only ever appear on the home view. Enforced at the CSS
+   layer (not just JS) via #task-view.is-home, the single source of truth
+   toggled in renderTodos(), so a missed render call can never leave these
+   visible on a project or other view. */
+#home-summary, #home-focus, #home-widgets { display: none !important; }
+#task-view.is-home #home-summary { display: block !important; }
+#task-view.is-home #home-focus { display: flex !important; }
+#task-view.is-home #home-widgets { display: flex !important; }
+
 /* Widgets */
 .home-widgets {
-  grid-template-columns: 1fr 1fr;
-  grid-template-areas:
-    "week week"
-    "cal cal"
-    "ai tip";
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   margin-bottom: 32px;
 }
-#home-progress { grid-area: week; }
-#home-minical { grid-area: cal; }
-.home-widget-ai { grid-area: ai; }
-.home-widget.tips-bar { grid-area: tip; }
+.home-widgets-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.home-widgets-row .home-widget {
+  flex: 1 1 260px;
+}
 .home-widget {
   display: flex; flex-direction: column; gap: 12px; min-width: 0;
   padding: 18px 20px;
@@ -2583,6 +2877,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   border: 1px solid var(--border);
   border-radius: 18px;
   box-shadow: var(--shadow-sm);
+  contain: layout style;
 }
 .home-widget-title { font-size: 12.5px; font-weight: 600; color: var(--ink-light); }
 .home-widget-caption { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ink-light); max-width: 46ch; }
@@ -2615,13 +2910,16 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .home-minical-dow { font-size: 10.5px; color: var(--ink-light); }
 .home-minical-num { font-size: 14px; font-weight: 500; }
 .home-minical-dot {
-  position: absolute; bottom: 3px; left: 50%;
-  width: 4px; height: 4px; margin-left: -2px;
-  border-radius: 50%; background: var(--accent);
+  position: absolute; bottom: 2px; left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  width: 10px; height: 10px;
+  color: var(--event-mark);
 }
+.home-minical-dot svg { width: 100%; height: 100%; }
 .home-minical-cell.is-today { background: var(--accent); color: var(--accent-contrast); }
 .home-minical-cell.is-today .home-minical-dow { color: rgba(255, 255, 255, 0.75); }
-.home-minical-cell.is-today .home-minical-dot { background: var(--accent-contrast); }
+.home-minical-cell.is-today .home-minical-dot { color: var(--accent-contrast); }
 
 .home-widget-ai { align-items: flex-start; }
 .home-ai-output {
@@ -2657,10 +2955,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   .home-progress-dot { width: 27px; height: 27px; }
   .home-widget-ai .home-widget-caption { display: none; }
   .home-ai-plan-btn { width: 100%; justify-content: center; }
-}
-
-@media (max-width: 420px) {
-  .home-widgets { grid-template-columns: 1fr; grid-template-areas: "week" "cal" "ai" "tip"; }
 }
 
 /* ===== Home polish: softer lines, flatter surfaces ===== */
@@ -2701,7 +2995,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 
 .home-minical-cell.is-today { background: var(--accent-soft); color: var(--accent-ink); }
 .home-minical-cell.is-today .home-minical-dow { color: var(--accent-ink); }
-.home-minical-cell.is-today .home-minical-dot { background: var(--accent); }
 
 #task-view.is-home .task-card { border-color: var(--home-line); }
 #task-view.is-home .task-card:hover { border-color: var(--border-hover); }

@@ -61,7 +61,7 @@ const REQUIRED_IDS = [
   'task-detail-project', 'task-detail-category', 'task-detail-add-category-btn',
   'task-detail-close', 'task-detail-save-btn', 'task-detail-delete-btn',
   // pomodoro
-  'pomodoro-view', 'pomodoro-task', 'pomodoro-timer', 'pomodoro-mode-label',
+  'pomodoro-view', 'pomodoro-stack-current-text', 'pomodoro-stack-next-text', 'pomodoro-timer', 'pomodoro-mode-label',
   'pomodoro-start', 'pomodoro-pause', 'pomodoro-reset',
   'pomodoro-work-min', 'pomodoro-break-min', 'pomodoro-sessions',
   // calendar

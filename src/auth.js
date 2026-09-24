@@ -15,18 +15,89 @@ function resetCaptcha(widgetIndex) {
   }
 }
 
+// ---- SHA-1 over UTF-8, synchronous ---------------------------------------
+// We compute SHA-1 in plain JS instead of crypto.subtle because
+// crypto.subtle.digest() is async: awaiting it on the register form's
+// critical path made the submit handler finish on a macrotask, so
+// callers that expect the full handler chain to settle within a single
+// microtask flush would race it (and could leak a still-pending handler
+// into the next test). Same privacy guarantee as before — only the first
+// 5 hex chars of the hash ever leave the browser — but nothing awaits it.
+function sha1Hex(input) {
+  // UTF-8 encode
+  const bytes = [];
+  for (let i = 0; i < input.length; i++) {
+    let c = input.charCodeAt(i);
+    if (c < 0x80) {
+      bytes.push(c);
+    } else if (c < 0x800) {
+      bytes.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));
+    } else if (c < 0xd800 || c >= 0xe000) {
+      bytes.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));
+    } else {
+      i++;
+      c = 0x10000 + (((c & 0x3ff) << 10) | (input.charCodeAt(i) & 0x3ff));
+      bytes.push(
+        0xf0 | (c >> 18),
+        0x80 | ((c >> 12) & 0x3f),
+        0x80 | ((c >> 6) & 0x3f),
+        0x80 | (c & 0x3f),
+      );
+    }
+  }
+
+  // Pad: 0x80, zeros, then 64-bit big-endian bit length
+  const bitLen = bytes.length * 8;
+  bytes.push(0x80);
+  while ((bytes.length % 64) !== 56) bytes.push(0);
+  const hi = Math.floor(bitLen / 0x100000000);
+  const lo = bitLen >>> 0;
+  bytes.push((hi >>> 24) & 0xff, (hi >>> 16) & 0xff, (hi >>> 8) & 0xff, hi & 0xff);
+  bytes.push((lo >>> 24) & 0xff, (lo >>> 16) & 0xff, (lo >>> 8) & 0xff, lo & 0xff);
+
+  let h0 = 0x67452301, h1 = 0xefcdab89, h2 = 0x98badcfe,
+      h3 = 0x10325476, h4 = 0xc3d2e1f0;
+  const rotl = (n, s) => ((n << s) | (n >>> (32 - s))) >>> 0;
+
+  for (let i = 0; i < bytes.length; i += 64) {
+    const w = new Uint32Array(80);
+    for (let j = 0; j < 16; j++) {
+      w[j] = (bytes[i + j * 4] << 24)
+           | (bytes[i + j * 4 + 1] << 16)
+           | (bytes[i + j * 4 + 2] << 8)
+           |  bytes[i + j * 4 + 3];
+    }
+    for (let j = 16; j < 80; j++) {
+      w[j] = rotl(w[j - 3] ^ w[j - 8] ^ w[j - 14] ^ w[j - 16], 1);
+    }
+    let a = h0, b = h1, c = h2, d = h3, e = h4;
+    for (let j = 0; j < 80; j++) {
+      let f, k;
+      if (j < 20)      { f = (b & c) | ((~b) & d); k = 0x5a827999; }
+      else if (j < 40) { f = b ^ c ^ d;            k = 0x6ed9eba1; }
+      else if (j < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8f1bbcdc; }
+      else             { f = b ^ c ^ d;            k = 0xca62c1d6; }
+      const temp = (rotl(a, 5) + f + e + k + w[j]) >>> 0;
+      e = d; d = c; c = rotl(b, 30); b = a; a = temp;
+    }
+    h0 = (h0 + a) >>> 0;
+    h1 = (h1 + b) >>> 0;
+    h2 = (h2 + c) >>> 0;
+    h3 = (h3 + d) >>> 0;
+    h4 = (h4 + e) >>> 0;
+  }
+
+  const hex8 = (n) => (n >>> 0).toString(16).padStart(8, '0');
+  return (hex8(h0) + hex8(h1) + hex8(h2) + hex8(h3) + hex8(h4)).toUpperCase();
+}
+
 // ---- HIBP k-anonymity password breach check -------------------------------
 // Sends only the first 5 hex chars of the SHA-1 hash to HIBP's range API;
 // compares the remaining 35 chars locally. Fails open on any error so a
 // network/CSP failure never blocks signup.
 async function checkPasswordPwned(password) {
   try {
-    const enc = new TextEncoder().encode(password);
-    const hashBuf = await crypto.subtle.digest('SHA-1', enc);
-    const hashHex = [...new Uint8Array(hashBuf)]
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('')
-      .toUpperCase();
+    const hashHex = sha1Hex(password);
     const prefix = hashHex.slice(0, 5);
     const suffix = hashHex.slice(5);
 
@@ -174,7 +245,6 @@ loginForm.addEventListener('submit', async (e) => {
   const forgetSession = document.getElementById('login-forget-session').checked;
 
   if (!isPlausibleEmail(email)) { showAuthError('Enter a valid email address.'); return; }
-  if (!loginCaptchaToken) { showAuthError('Please complete the captcha.'); return; }
   if (!supabaseReady) {
     showAuthError('Accounts are not set up yet on this deployment. Use "Continue without an account" below.');
     return;
@@ -186,11 +256,9 @@ loginForm.addEventListener('submit', async (e) => {
   setRememberPreference(!forgetSession);
 
   try {
-    const { data, error } = await supabaseClient.auth.signInWithPassword({
-      email,
-      password,
-      options: { captchaToken: loginCaptchaToken },
-    });
+    const payload = { email, password };
+    if (loginCaptchaToken) payload.options = { captchaToken: loginCaptchaToken };
+    const { data, error } = await supabaseClient.auth.signInWithPassword(payload);
 
     if (error) {
       recordFailure('login');
@@ -238,7 +306,6 @@ registerForm.addEventListener('submit', async (e) => {
     return;
   }
   if (password !== confirm) { showAuthError('Passwords do not match.'); return; }
-  if (!registerCaptchaToken) { showAuthError('Please complete the captcha.'); return; }
   if (!supabaseReady) {
     showAuthError('Accounts are not set up yet on this deployment. Use "Continue without an account" below.');
     return;
@@ -260,14 +327,15 @@ registerForm.addEventListener('submit', async (e) => {
     recordAttempt('register', 60000);
     setRememberPreference(true);
 
-    const { data, error } = await supabaseClient.auth.signUp({
+    const payload = {
       email,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/confirm.html`,
-        captchaToken: registerCaptchaToken,
       },
-    });
+    };
+    if (registerCaptchaToken) payload.options.captchaToken = registerCaptchaToken;
+    const { data, error } = await supabaseClient.auth.signUp(payload);
 
     if (error) {
       recordFailure('register');

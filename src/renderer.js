@@ -366,6 +366,7 @@ const ENCOURAGEMENT_MESSAGES = {
   note: [{ emoji: '🗒️', text: 'Saved — future you will thank you.' }],
   event: [{ emoji: '📅', text: "Added to your calendar. It's handled." }],
   pomodoro: [{ emoji: '🍅', text: 'Focus session complete — take a real break.' }],
+  taskDeleted: [{ emoji: '🗑️', text: 'Task deleted.' }],
   closeout: [{ emoji: '🌙', text: "That's a wrap." }],
   invite: [{ emoji: '🤝', text: "Invite sent. They'll see it in their notifications." }],
   permission: [{ emoji: '✅', text: 'Saved.' }],
@@ -383,6 +384,67 @@ function showToast(category) {
   toastContainer.appendChild(el);
   setTimeout(() => { el.classList.add('leaving'); setTimeout(() => el.remove(), 320); }, 3200);
 }
+
+// A simple always-visible toast (not gated by the "encouragement" toggle),
+// used for system feedback like errors and undoable actions. Optionally
+// takes an actionLabel + onAction to render a small inline button.
+function showSimpleToast({ emoji = 'ℹ️', text, actionLabel, onAction, duration = 3200 } = {}) {
+  if (!text) return;
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = `<span class="toast-emoji">${emoji}</span><span class="toast-text">${escapeHtml(text)}</span>`;
+  if (actionLabel && typeof onAction === 'function') {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'toast-action-btn';
+    btn.textContent = actionLabel;
+    let used = false;
+    btn.addEventListener('click', () => {
+      if (used) return;
+      used = true;
+      onAction();
+      el.classList.add('leaving');
+      setTimeout(() => el.remove(), 320);
+    });
+    el.appendChild(btn);
+  }
+  toastContainer.appendChild(el);
+  const timer = setTimeout(() => { el.classList.add('leaving'); setTimeout(() => el.remove(), 320); }, duration);
+  el.addEventListener('mouseenter', () => clearTimeout(timer));
+}
+
+// Shorthand for a "X deleted — Undo" toast.
+function showUndoToast(text, undoFn) {
+  showSimpleToast({ emoji: '🗑️', text, actionLabel: 'Undo', onAction: undoFn, duration: 5500 });
+}
+
+// ===== Generic confirm modal (used for destructive actions like trash) =====
+const confirmModalOverlay = document.getElementById('confirm-modal-overlay');
+const confirmModalTitleEl = document.getElementById('confirm-modal-title');
+const confirmModalMessageEl = document.getElementById('confirm-modal-message');
+const confirmModalConfirmBtn = document.getElementById('confirm-modal-confirm');
+const confirmModalCancelBtn = document.getElementById('confirm-modal-cancel');
+let pendingConfirmAction = null;
+
+function openConfirmModal({ title = 'Are you sure?', message = '', confirmLabel = 'Confirm', danger = true, onConfirm } = {}) {
+  confirmModalTitleEl.textContent = title;
+  confirmModalMessageEl.textContent = message;
+  confirmModalConfirmBtn.textContent = confirmLabel;
+  confirmModalConfirmBtn.classList.toggle('danger', danger);
+  pendingConfirmAction = typeof onConfirm === 'function' ? onConfirm : null;
+  confirmModalOverlay.style.display = 'flex';
+}
+function closeConfirmModal() {
+  confirmModalOverlay.style.display = 'none';
+  pendingConfirmAction = null;
+}
+confirmModalCancelBtn.addEventListener('click', closeConfirmModal);
+confirmModalOverlay.addEventListener('click', (e) => { if (e.target === confirmModalOverlay) closeConfirmModal(); });
+confirmModalConfirmBtn.addEventListener('click', () => {
+  const fn = pendingConfirmAction;
+  closeConfirmModal();
+  if (fn) fn();
+});
 
 window.onSyncError = function (table, action, message) {
   const el = document.createElement('div');
@@ -494,28 +556,48 @@ function checkEventNotifications() {
 setInterval(checkEventNotifications, 30 * 1000);
 
 // ===== Tips bar =====
-const LOCAL_TIPS = [
-  'Write tomorrow\'s top 3 tasks tonight — it quiets the mind before sleep.',
-  'A 4-7-8 breath can take the edge off a stressful moment.',
-  'Batch small tasks together; context-switching is tiring.',
-  'Standing up and stretching for 60 seconds every hour keeps focus sharper.',
-  'Try the two-minute rule: if it takes under two minutes, do it now.',
-  'A short walk outside resets attention better than scrolling.',
-  'Single-tasking beats multitasking for focused work.',
-  'Keep a "done" list next to your to-do list — good for morale.',
-  'Drink water before more coffee; mild dehydration mimics fatigue.',
-  'Progress, not perfection.',
-  'Silence notifications during focus blocks.',
-  'When overwhelmed, write everything down first, then sort.',
-  'A tidy desk for the next morning makes starting easier.',
-  'Take real breaks: stepping away restores focus.',
-];
+const LOCAL_TIPS = {
+  en: [
+    'Write tomorrow\'s top 3 tasks tonight — it quiets the mind before sleep.',
+    'A 4-7-8 breath can take the edge off a stressful moment.',
+    'Batch small tasks together; context-switching is tiring.',
+    'Standing up and stretching for 60 seconds every hour keeps focus sharper.',
+    'Try the two-minute rule: if it takes under two minutes, do it now.',
+    'A short walk outside resets attention better than scrolling.',
+    'Single-tasking beats multitasking for focused work.',
+    'Keep a "done" list next to your to-do list — good for morale.',
+    'Drink water before more coffee; mild dehydration mimics fatigue.',
+    'Progress, not perfection.',
+    'Silence notifications during focus blocks.',
+    'When overwhelmed, write everything down first, then sort.',
+    'A tidy desk for the next morning makes starting easier.',
+    'Take real breaks: stepping away restores focus.',
+  ],
+  id: [
+    'Tulis 3 tugas utama besok malam ini — pikiran jadi lebih tenang sebelum tidur.',
+    'Napas 4-7-8 bisa meredakan momen yang membuat stres.',
+    'Kelompokkan tugas kecil bersamaan; gonta-ganti fokus itu melelahkan.',
+    'Berdiri dan meregangkan tubuh 60 detik tiap jam menjaga fokus tetap tajam.',
+    'Coba aturan dua menit: jika kurang dari dua menit, kerjakan sekarang.',
+    'Jalan kaki sebentar di luar lebih menyegarkan fokus daripada scroll HP.',
+    'Fokus pada satu tugas lebih efektif daripada multitasking.',
+    'Buat daftar "selesai" di samping daftar tugas — bagus untuk semangat.',
+    'Minum air sebelum menambah kopi; dehidrasi ringan mirip rasa lelah.',
+    'Progres, bukan kesempurnaan.',
+    'Bisukan notifikasi saat sesi fokus berlangsung.',
+    'Saat kewalahan, tulis semuanya dulu, baru urutkan.',
+    'Meja yang rapi untuk esok pagi membuat mulai kerja lebih mudah.',
+    'Ambil istirahat sungguhan: menjauh sejenak memulihkan fokus.',
+  ],
+};
 let lastTipIndex = -1;
 function localTip() {
-  let i = Math.floor(Math.random() * LOCAL_TIPS.length);
-  if (LOCAL_TIPS.length > 1) { while (i === lastTipIndex) i = Math.floor(Math.random() * LOCAL_TIPS.length); }
+  const lang = window.I18N ? window.I18N.getLanguage() : 'en';
+  const list = LOCAL_TIPS[lang] || LOCAL_TIPS.en;
+  let i = Math.floor(Math.random() * list.length);
+  if (list.length > 1) { while (i === lastTipIndex) i = Math.floor(Math.random() * list.length); }
   lastTipIndex = i;
-  return LOCAL_TIPS[i];
+  return list[i];
 }
 
 const TIPS_KEY = 'tipsEnabled';
@@ -554,8 +636,10 @@ pomodoro.remaining = pomodoro.workMin * 60;
 let pomodoroInterval = null;
 let pomodoroUnflushedSec = 0;
 
-const pomodoroTaskInput = document.getElementById('pomodoro-task');
-const pomodoroTaskSelect = document.getElementById('pomodoro-task-select');
+const pomodoroStackCurrentText = document.getElementById('pomodoro-stack-current-text');
+const pomodoroStackNextText = document.getElementById('pomodoro-stack-next-text');
+const pomodoroStackCurrentCard = document.getElementById('pomodoro-stack-current');
+const pomodoroStackNextCard = document.getElementById('pomodoro-stack-next');
 const pomodoroMarkDoneBtn = document.getElementById('pomodoro-mark-done');
 const pomodoroTimerEl = document.getElementById('pomodoro-timer');
 const pomodoroModeLabel = document.getElementById('pomodoro-mode-label');
@@ -580,18 +664,37 @@ function formatDuration(sec) {
   return `${sec}s`;
 }
 
-function renderPomodoroTaskOptions() {
-  if (!pomodoroTaskSelect) return;
-  const prev = String(pomodoro.taskId || '');
-  pomodoroTaskSelect.innerHTML = '<option value="">Pick a task from your lists…</option>';
-  todos.filter((t) => !t.done).forEach((t) => {
-    const opt = document.createElement('option');
-    opt.value = String(t.id);
-    const proj = t.projectId ? getProject(t.projectId) : null;
-    opt.textContent = proj ? `${proj.name}: ${t.text}` : t.text;
-    pomodoroTaskSelect.appendChild(opt);
+function pomodoroTaskLabel(t) {
+  if (!t) return '';
+  const proj = t.projectId ? getProject(t.projectId) : null;
+  return proj ? `${proj.name}: ${t.text}` : t.text;
+}
+
+// Open tasks in the same priority/due-date order the main list shows by
+// default, instead of raw `todos` creation order. Raw order made "up next"
+// look empty almost every time: a task dragged into Pomodoro is pushed to
+// the END of `todos`, so it read as the last item with nothing after it.
+function pomodoroQueueOrder() {
+  const priorityRank = { high: 0, medium: 1, low: 2 };
+  return todos.filter((t) => !t.done).sort((a, b) => {
+    if (priorityRank[a.priority] !== priorityRank[b.priority]) return priorityRank[a.priority] - priorityRank[b.priority];
+    return (a.due || '9999').localeCompare(b.due || '9999');
   });
-  pomodoroTaskSelect.value = prev && todos.some((t) => String(t.id) === prev && !t.done) ? prev : '';
+}
+
+// Keeps pomodoro.taskId pointed at a valid, undone task and picks the one
+// right after it in the open-tasks queue as the "up next" preview.
+function refreshPomodoroQueue() {
+  const queue = pomodoroQueueOrder();
+  let idx = queue.findIndex((t) => t.id === pomodoro.taskId);
+  if (idx === -1) {
+    idx = 0;
+    const t = queue[0] || null;
+    pomodoro.taskId = t ? t.id : null;
+    pomodoro.task = t ? t.text : '';
+  }
+  const nextTask = idx !== -1 ? queue[idx + 1] : null;
+  return { current: queue[idx] || null, next: nextTask || null };
 }
 
 function renderPomodoro() {
@@ -602,10 +705,74 @@ function renderPomodoro() {
   pomodoroPauseBtn.disabled = !pomodoro.running;
   pomodoroWorkInput.value = pomodoro.workMin;
   pomodoroBreakInput.value = pomodoro.breakMin;
-  pomodoroTaskInput.value = pomodoro.task;
-  if (pomodoroMarkDoneBtn) pomodoroMarkDoneBtn.disabled = !pomodoro.taskId;
-  renderPomodoroTaskOptions();
+
+  const { current, next } = refreshPomodoroQueue();
+  if (pomodoroStackCurrentText) {
+    pomodoroStackCurrentText.textContent = current ? pomodoroTaskLabel(current) : 'What are you working on?';
+    pomodoroStackCurrentText.classList.toggle('placeholder', !current);
+  }
+  if (pomodoroStackNextText) {
+    pomodoroStackNextText.textContent = next ? pomodoroTaskLabel(next) : 'Nothing queued next';
+    pomodoroStackNextText.classList.toggle('placeholder', !next);
+  }
+  if (pomodoroMarkDoneBtn) pomodoroMarkDoneBtn.disabled = !current;
 }
+
+// ===== Pomodoro queue viewer (current + upcoming tasks) =====
+const pomodoroQueueBtn = document.getElementById('pomodoro-queue-btn');
+const pomodoroQueueOverlay = document.getElementById('pomodoro-queue-overlay');
+const pomodoroQueueListEl = document.getElementById('pomodoro-queue-list');
+const pomodoroQueueCloseBtn = document.getElementById('pomodoro-queue-close');
+const pomodoroQueueCloseXBtn = document.getElementById('pomodoro-queue-close-x');
+
+function renderPomodoroQueueList() {
+  if (!pomodoroQueueListEl) return;
+  const queue = pomodoroQueueOrder();
+  pomodoroQueueListEl.innerHTML = '';
+  if (!queue.length) {
+    const empty = document.createElement('div');
+    empty.className = 'pomodoro-queue-empty';
+    empty.textContent = 'No open tasks. Add one to start a focus session.';
+    pomodoroQueueListEl.appendChild(empty);
+    return;
+  }
+  queue.forEach((t) => {
+    const isCurrent = t.id === pomodoro.taskId;
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'pomodoro-queue-item' + (isCurrent ? ' is-current' : '');
+    const label = document.createElement('span');
+    label.className = 'pomodoro-queue-item-text';
+    label.textContent = pomodoroTaskLabel(t);
+    row.appendChild(label);
+    if (isCurrent) {
+      const badge = document.createElement('span');
+      badge.className = 'pomodoro-queue-current-badge';
+      badge.textContent = 'Current';
+      row.appendChild(badge);
+    }
+    row.addEventListener('click', () => {
+      if (!isCurrent) {
+        setPomodoroActiveTask(t.id);
+        renderPomodoroQueueList();
+        renderPomodoro();
+      }
+    });
+    pomodoroQueueListEl.appendChild(row);
+  });
+}
+
+function openPomodoroQueue() {
+  refreshPomodoroQueue();
+  renderPomodoroQueueList();
+  pomodoroQueueOverlay.style.display = 'flex';
+}
+function closePomodoroQueue() { pomodoroQueueOverlay.style.display = 'none'; }
+
+if (pomodoroQueueBtn) pomodoroQueueBtn.addEventListener('click', openPomodoroQueue);
+if (pomodoroQueueCloseBtn) pomodoroQueueCloseBtn.addEventListener('click', closePomodoroQueue);
+if (pomodoroQueueCloseXBtn) pomodoroQueueCloseXBtn.addEventListener('click', closePomodoroQueue);
+if (pomodoroQueueOverlay) pomodoroQueueOverlay.addEventListener('click', (e) => { if (e.target === pomodoroQueueOverlay) closePomodoroQueue(); });
 
 function flushPomodoroTime() {
   if (!pomodoro.taskId || pomodoroUnflushedSec <= 0) { pomodoroUnflushedSec = 0; return; }
@@ -679,12 +846,10 @@ pomodoroResetBtn.addEventListener('click', () => {
   pomodoro.mode = 'work'; pomodoro.remaining = pomodoro.workMin * 60;
   setFocusMode(false); renderPomodoro();
 });
-if (pomodoroTaskSelect) {
-  pomodoroTaskSelect.addEventListener('change', (e) => setPomodoroActiveTask(e.target.value));
-}
 if (pomodoroMarkDoneBtn) {
   pomodoroMarkDoneBtn.addEventListener('click', () => {
-    if (!pomodoro.taskId) return;
+    if (!pomodoro.taskId || pomodoroMarkDoneBtn.disabled) return;
+    pomodoroMarkDoneBtn.disabled = true;
     flushPomodoroTime();
     const t = todos.find((x) => x.id === pomodoro.taskId);
     if (t && !t.done) {
@@ -696,8 +861,37 @@ if (pomodoroMarkDoneBtn) {
       if (typeof showToast === 'function') showToast('pomodoro');
       pomodoroTimerEl.title = `"${t.text}" done — ${formatDuration(t.timeSpentSec || 0)} tracked.`;
     }
-    setPomodoroActiveTask(null);
+    animatePomodoroAdvance();
   });
+}
+
+// Slides the finished task out and promotes the "up next" card into its
+// place, then queues up the task behind it.
+function animatePomodoroAdvance() {
+  const queue = pomodoroQueueOrder();
+  const nextTask = queue[0] || null;
+
+  if (!pomodoroStackCurrentCard || !pomodoroStackNextCard) {
+    pomodoro.taskId = nextTask ? nextTask.id : null;
+    pomodoro.task = nextTask ? nextTask.text : '';
+    safeSetItem('pomodoroTaskId', pomodoro.taskId || '');
+    safeSetItem('pomodoroTask', pomodoro.task);
+    renderPomodoro();
+    return;
+  }
+
+  pomodoroStackCurrentCard.classList.add('leaving');
+  pomodoroStackNextCard.classList.add('promoting');
+
+  setTimeout(() => {
+    pomodoro.taskId = nextTask ? nextTask.id : null;
+    pomodoro.task = nextTask ? nextTask.text : '';
+    safeSetItem('pomodoroTaskId', pomodoro.taskId || '');
+    safeSetItem('pomodoroTask', pomodoro.task);
+    renderPomodoro();
+    pomodoroStackCurrentCard.classList.remove('leaving');
+    pomodoroStackNextCard.classList.remove('promoting');
+  }, 380);
 }
 pomodoroWorkInput.addEventListener('change', (e) => {
   const v = Math.min(Math.max(parseInt(e.target.value) || 25, 1), 120);
@@ -899,6 +1093,145 @@ function canToggleTaskIn(projectId) {
   return isProjectOwner(projectId) || !!myMembership(projectId);
 }
 
+// ===== Project announcements (notice board) =====
+// Persisted on the project record itself (`announcement` / `announcementUpdatedAt`)
+// so it round-trips through `projectRemoteRow()` / `dbUpsert('projects', ...)`
+// like the rest of a project's fields, and syncs to collaborators. This needs
+// the `projects.announcement` column added — see the SQL migration provided
+// alongside this file. `projectAnnouncements` below is only the old,
+// device-only store kept as a one-time migration fallback.
+let projectAnnouncements = safeParse('projectAnnouncements', {});
+function saveProjectAnnouncements() { safeSetItem('projectAnnouncements', JSON.stringify(projectAnnouncements)); }
+function getProjectAnnouncement(projectId) {
+  const p = getProject(projectId);
+  if (p && p.announcement) return p.announcement;
+  return projectAnnouncements[String(projectId)] || '';
+}
+function setProjectAnnouncement(projectId, text) {
+  const p = getProject(projectId);
+  if (!p) return;
+  const key = String(projectId);
+  p.announcement = text || '';
+  p.announcementUpdatedAt = text ? new Date().toISOString() : null;
+  saveProjects();
+  if (projectAnnouncements[key] !== undefined) { delete projectAnnouncements[key]; saveProjectAnnouncements(); }
+  if (currentUser) dbUpsert('projects', projectRemoteRow(p));
+}
+
+const projectAnnouncementEl = document.getElementById('project-announcement');
+const projectAnnouncementTextEl = document.getElementById('project-announcement-text');
+const projectAnnouncementActionsEl = document.getElementById('project-announcement-actions');
+const projectAnnouncementEditBtn = document.getElementById('project-announcement-edit-btn');
+const projectAnnouncementClearBtn = document.getElementById('project-announcement-clear-btn');
+const projectAnnouncementAddToggle = document.getElementById('project-announcement-add-toggle');
+const projectAnnouncementForm = document.getElementById('project-announcement-form');
+const projectAnnouncementInputEl = document.getElementById('project-announcement-input');
+const projectAnnouncementCancelBtn = document.getElementById('project-announcement-cancel-btn');
+let announcementEditing = false;
+
+// Lightweight, safe markdown-style formatting for announcements: bold, italic,
+// strikethrough and inline code. The source text is HTML-escaped FIRST via
+// escapeHtml (which routes through textContent, never innerHTML, on the input),
+// so the markers below can only ever wrap already-safe, escaped text — user
+// input can never introduce real tags or attributes here.
+function formatAnnouncementText(text) {
+  let safe = escapeHtml(text);
+  safe = safe.replace(/\*\*([^\n*]+?)\*\*/g, '<strong>$1</strong>');
+  safe = safe.replace(/(^|[^*])\*([^\n*]+?)\*(?!\*)/g, '$1<em>$2</em>');
+  safe = safe.replace(/(^|[^_])_([^\n_]+?)_(?!_)/g, '$1<em>$2</em>');
+  safe = safe.replace(/~~([^\n~]+?)~~/g, '<del>$1</del>');
+  safe = safe.replace(/`([^\n`]+?)`/g, '<code>$1</code>');
+  return safe;
+}
+
+const ANNOUNCEMENT_FORMAT_MARKERS = { bold: '**', italic: '*', strike: '~~', code: '`' };
+document.querySelectorAll('.announcement-format-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const marker = ANNOUNCEMENT_FORMAT_MARKERS[btn.dataset.format];
+    if (!marker || !projectAnnouncementInputEl) return;
+    const el = projectAnnouncementInputEl;
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? el.value.length;
+    const selected = el.value.slice(start, end);
+    const before = el.value.slice(0, start);
+    const after = el.value.slice(end);
+    const newValue = `${before}${marker}${selected}${marker}${after}`;
+    if (newValue.length > 500) return;
+    el.value = newValue;
+    el.focus();
+    const cursor = selected ? end + marker.length * 2 : start + marker.length;
+    el.setSelectionRange(cursor, cursor);
+  });
+});
+
+function openAnnouncementForm() {
+  if (!currentProjectId || !isProjectOwner(currentProjectId)) return;
+  announcementEditing = true;
+  projectAnnouncementInputEl.value = getProjectAnnouncement(currentProjectId);
+  renderProjectAnnouncement();
+  setTimeout(() => projectAnnouncementInputEl.focus(), 30);
+}
+function closeAnnouncementForm() {
+  announcementEditing = false;
+  renderProjectAnnouncement();
+}
+
+// Only the project owner can see or use the add/edit/clear controls at all;
+// everyone else only ever sees the read-only board when text exists.
+function renderProjectAnnouncement() {
+  if (!projectAnnouncementEl || !projectAnnouncementAddToggle || !projectAnnouncementForm) return;
+  if (currentView !== 'project' || !currentProjectId) {
+    projectAnnouncementEl.style.display = 'none';
+    projectAnnouncementAddToggle.hidden = true;
+    projectAnnouncementForm.hidden = true;
+    announcementEditing = false;
+    return;
+  }
+  const isOwner = isProjectOwner(currentProjectId);
+  const text = getProjectAnnouncement(currentProjectId);
+
+  if (isOwner && announcementEditing) {
+    projectAnnouncementEl.style.display = 'none';
+    projectAnnouncementAddToggle.hidden = true;
+    projectAnnouncementForm.hidden = false;
+    return;
+  }
+  projectAnnouncementForm.hidden = true;
+
+  if (text) {
+    projectAnnouncementEl.style.display = 'flex';
+    projectAnnouncementAddToggle.hidden = true;
+    projectAnnouncementTextEl.innerHTML = formatAnnouncementText(text);
+    projectAnnouncementActionsEl.style.display = isOwner ? 'flex' : 'none';
+    if (projectAnnouncementEditBtn) projectAnnouncementEditBtn.style.display = isOwner ? 'inline-flex' : 'none';
+    if (projectAnnouncementClearBtn) projectAnnouncementClearBtn.style.display = isOwner ? 'inline-flex' : 'none';
+  } else {
+    projectAnnouncementEl.style.display = 'none';
+    projectAnnouncementAddToggle.hidden = !isOwner;
+  }
+}
+
+if (projectAnnouncementAddToggle) projectAnnouncementAddToggle.addEventListener('click', openAnnouncementForm);
+if (projectAnnouncementEditBtn) projectAnnouncementEditBtn.addEventListener('click', openAnnouncementForm);
+if (projectAnnouncementCancelBtn) projectAnnouncementCancelBtn.addEventListener('click', closeAnnouncementForm);
+if (projectAnnouncementForm) {
+  projectAnnouncementForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!currentProjectId || !isProjectOwner(currentProjectId)) return;
+    const val = projectAnnouncementInputEl.value.trim().slice(0, 500);
+    setProjectAnnouncement(currentProjectId, val);
+    announcementEditing = false;
+    renderProjectAnnouncement();
+  });
+}
+if (projectAnnouncementClearBtn) {
+  projectAnnouncementClearBtn.addEventListener('click', () => {
+    if (!currentProjectId || !isProjectOwner(currentProjectId)) return;
+    setProjectAnnouncement(currentProjectId, '');
+    renderProjectAnnouncement();
+  });
+}
+
 let previewTileColor = null;
 function updateProjectPreviewLetter() {
   const name = projectNameInput.value.trim();
@@ -951,6 +1284,7 @@ function deleteProject(id) {
   todos.forEach(t => { if (String(t.projectId) === String(id)) { t.projectId = null; touched.push(t); } });
   saveProjects();
   saveTodos();
+  setProjectAnnouncement(id, '');
   if (currentUser) {
     touched.forEach(t => dbUpdate('todos', t.id, { project_id: null }));
     dbDelete('projects', id, currentUser.id);
@@ -1061,7 +1395,13 @@ function todoRemoteRow(t) {
   };
 }
 function projectRemoteRow(p) {
-  return { id: p.id, user_id: p.userId || (currentUser ? currentUser.id : null), name: p.name };
+  return {
+    id: p.id,
+    user_id: p.userId || (currentUser ? currentUser.id : null),
+    name: p.name,
+    announcement: p.announcement || null,
+    announcement_updated_at: p.announcementUpdatedAt || null,
+  };
 }
 
 function showView(view) {
@@ -1107,6 +1447,7 @@ function setView(view) {
     updateTaskFormForView();
     renderCollabPanel();
   }
+  renderHomeSummary();
   renderProjectNav();
   closeSidebar();
 }
@@ -1125,19 +1466,115 @@ navItems.forEach(btn => {
   btn.addEventListener('click', () => setView(btn.dataset.view));
 });
 
+// ===== Task list sort mode & category filter =====
+let taskSortMode = 'default'; // 'default' | 'oldest' | 'newest'
+let taskCategoryFilterValue = '';
+
 function getFilteredTodos() {
   let filtered = [...todos];
   if (currentView === 'today') filtered = filtered.filter(t => t.due === todayStr());
   else if (currentView === 'active') filtered = filtered.filter(t => !t.done);
   else if (currentView === 'completed') filtered = filtered.filter(t => t.done);
   else if (currentView === 'project') filtered = filtered.filter(t => String(t.projectId) === String(currentProjectId));
-  const priorityRank = { high: 0, medium: 1, low: 2 };
-  filtered.sort((a, b) => {
-    if (a.done !== b.done) return a.done ? 1 : -1;
-    if (priorityRank[a.priority] !== priorityRank[b.priority]) return priorityRank[a.priority] - priorityRank[b.priority];
-    return (a.due || '9999').localeCompare(b.due || '9999');
-  });
+  if (taskCategoryFilterValue) filtered = filtered.filter(t => (t.category || '') === taskCategoryFilterValue);
+  if (taskSortMode === 'oldest') {
+    filtered.sort((a, b) => a.id - b.id);
+  } else if (taskSortMode === 'newest') {
+    filtered.sort((a, b) => b.id - a.id);
+  } else {
+    const priorityRank = { high: 0, medium: 1, low: 2 };
+    filtered.sort((a, b) => {
+      if (a.done !== b.done) return a.done ? 1 : -1;
+      if (priorityRank[a.priority] !== priorityRank[b.priority]) return priorityRank[a.priority] - priorityRank[b.priority];
+      return (a.due || '9999').localeCompare(b.due || '9999');
+    });
+  }
   return filtered;
+}
+
+// Icon-only dropdowns: a small icon button toggles a floating menu of options.
+const taskSortBtn = document.getElementById('task-sort-btn');
+const taskSortMenu = document.getElementById('task-sort-menu');
+const taskCategoryBtn = document.getElementById('task-category-btn');
+const taskCategoryMenu = document.getElementById('task-category-menu');
+const TASK_SORT_LABELS = { default: 'Sort: Default', oldest: 'Sort: Oldest first', newest: 'Sort: Newest first' };
+
+function closeTaskToolbarMenus() {
+  if (taskSortMenu) taskSortMenu.classList.remove('open');
+  if (taskCategoryMenu) taskCategoryMenu.classList.remove('open');
+}
+function toggleTaskToolbarMenu(menu) {
+  const isOpen = menu.classList.contains('open');
+  closeTaskToolbarMenus();
+  if (!isOpen) menu.classList.add('open');
+}
+if (taskSortBtn && taskSortMenu) {
+  taskSortBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleTaskToolbarMenu(taskSortMenu); });
+}
+if (taskCategoryBtn && taskCategoryMenu) {
+  taskCategoryBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleTaskToolbarMenu(taskCategoryMenu); });
+}
+document.addEventListener('click', closeTaskToolbarMenus);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeTaskToolbarMenus(); });
+
+function renderTaskSortMenu() {
+  if (!taskSortMenu) return;
+  taskSortMenu.querySelectorAll('.task-toolbar-menu-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.value === taskSortMode);
+  });
+  if (taskSortBtn) {
+    taskSortBtn.classList.toggle('active', taskSortMode !== 'default');
+    taskSortBtn.title = TASK_SORT_LABELS[taskSortMode] || 'Sort tasks';
+  }
+}
+if (taskSortMenu) {
+  taskSortMenu.addEventListener('click', (e) => {
+    const item = e.target.closest('.task-toolbar-menu-item');
+    if (!item) return;
+    taskSortMode = item.dataset.value;
+    closeTaskToolbarMenus();
+    renderTodos();
+  });
+}
+
+function renderTaskCategoryFilterOptions() {
+  if (!taskCategoryMenu) return;
+  const keep = taskCategoryFilterValue;
+  const scoped = currentView === 'project'
+    ? todos.filter(t => String(t.projectId) === String(currentProjectId))
+    : todos;
+  const cats = [...new Set(scoped.map(t => t.category).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  taskCategoryFilterValue = cats.includes(keep) ? keep : '';
+
+  taskCategoryMenu.innerHTML = '';
+  const allItem = document.createElement('button');
+  allItem.type = 'button';
+  allItem.className = 'task-toolbar-menu-item' + (taskCategoryFilterValue === '' ? ' active' : '');
+  allItem.dataset.value = '';
+  allItem.textContent = 'All categories';
+  taskCategoryMenu.appendChild(allItem);
+  cats.forEach(cat => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'task-toolbar-menu-item' + (cat === taskCategoryFilterValue ? ' active' : '');
+    item.dataset.value = cat;
+    item.textContent = cat;
+    taskCategoryMenu.appendChild(item);
+  });
+
+  if (taskCategoryBtn) {
+    taskCategoryBtn.classList.toggle('active', !!taskCategoryFilterValue);
+    taskCategoryBtn.title = taskCategoryFilterValue ? `Category: ${taskCategoryFilterValue}` : 'Filter by category';
+  }
+}
+if (taskCategoryMenu) {
+  taskCategoryMenu.addEventListener('click', (e) => {
+    const item = e.target.closest('.task-toolbar-menu-item');
+    if (!item) return;
+    taskCategoryFilterValue = item.dataset.value;
+    closeTaskToolbarMenus();
+    renderTodos();
+  });
 }
 
 const ICON_CALENDAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>';
@@ -1156,10 +1593,15 @@ function pillIcon(svgMarkup) {
 }
 
 function renderTodos() {
+  renderTaskSortMenu();
+  renderTaskCategoryFilterOptions();
   const filtered = getFilteredTodos();
   todoListEl.innerHTML = '';
   emptyState.style.display = filtered.length ? 'none' : 'block';
   const todayKey = todayStr();
+  // Build all cards off-DOM in a fragment, then insert once — avoids a
+  // layout reflow per task card on every render (noticeable with long lists).
+  const frag = document.createDocumentFragment();
 
   filtered.forEach(t => {
     const canToggle = canToggleTaskIn(t.projectId);
@@ -1173,8 +1615,12 @@ function renderTodos() {
       e.dataTransfer.setData('text/plain', String(t.id));
       e.dataTransfer.effectAllowed = 'move';
       card.classList.add('dragging');
+      showDragDropzones();
     });
-    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      hideDragDropzones();
+    });
     card.addEventListener('click', (e) => {
       if (e.target.closest('.task-check, .task-card-actions, .task-title-edit')) return;
       openTaskDetail(t.id);
@@ -1211,10 +1657,9 @@ function renderTodos() {
       del.className = 'task-icon-btn delete-btn';
       del.title = 'Delete task';
       del.innerHTML = ICON_TRASH;
-      del.addEventListener('click', () => {
-        todos = todos.filter(x => x.id !== t.id);
-        saveTodos(); renderTodos(); renderCounts(); renderProjectNav();
-        if (currentUser) dbDelete('todos', t.id);
+      del.addEventListener('click', (e) => {
+        e.stopPropagation();
+        performDeleteTask(t);
       });
       actions.appendChild(del);
     }
@@ -1301,8 +1746,9 @@ function renderTodos() {
     footer.append(checkbox, spacer, flag);
     card.appendChild(footer);
 
-    todoListEl.appendChild(card);
+    frag.appendChild(card);
   });
+  todoListEl.appendChild(frag);
 }
 
 function startInlineEdit(titleEl, t) {
@@ -1439,48 +1885,110 @@ taskDetailSaveBtn.addEventListener('click', () => {
 
 taskDetailDeleteBtn.addEventListener('click', () => {
   if (!activeDetailTaskId) return;
-  const id = activeDetailTaskId;
-  todos = todos.filter(x => x.id !== id);
-  saveTodos(); renderTodos(); renderCounts(); renderProjectNav();
-  if (currentUser) dbDelete('todos', id);
+  const t = todos.find(x => x.id === activeDetailTaskId);
+  if (!t) return;
+  performDeleteTask(t);
   closeTaskDetail();
 });
 
-// ===== Drag a task onto the Pomodoro nav item =====
-const pomodoroNavItem = document.querySelector('.nav-item[data-view="pomodoro"]');
-if (pomodoroNavItem) {
-  pomodoroNavItem.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    pomodoroNavItem.classList.add('drop-target');
+// ===== Drag a task onto Pomodoro or Trash (mouse + touch) =====
+// One floating pair of pills at the bottom of the screen. Works with native
+// HTML5 drag (desktop mouse) and a custom long-press touch drag (mobile) —
+// both funnel into the same show/hide/drop logic below.
+const dragDropzones = document.createElement('div');
+dragDropzones.id = 'drag-dropzones';
+dragDropzones.className = 'drag-dropzones';
+dragDropzones.innerHTML = `
+  <div class="drag-dropzone" id="dropzone-pomodoro" data-zone="pomodoro">
+    <span class="drag-dropzone-icon">🍅</span>
+    <span class="drag-dropzone-label">Focus in Pomodoro</span>
+  </div>
+  <div class="drag-dropzone danger" id="dropzone-trash" data-zone="trash">
+    <span class="drag-dropzone-icon">${ICON_TRASH}</span>
+    <span class="drag-dropzone-label">Delete</span>
+  </div>
+`;
+document.body.appendChild(dragDropzones);
+const dropzonePomodoroEl = document.getElementById('dropzone-pomodoro');
+const dropzoneTrashEl = document.getElementById('dropzone-trash');
+
+function showDragDropzones() { dragDropzones.classList.add('show'); }
+function hideDragDropzones() {
+  dragDropzones.classList.remove('show');
+  dropzonePomodoroEl.classList.remove('drop-target', 'zone-invalid');
+  dropzoneTrashEl.classList.remove('drop-target');
+}
+
+// Actually removes the task, then offers an Undo toast to bring it back
+// (re-inserted at its original position).
+function performDeleteTask(t) {
+  const idx = todos.findIndex(x => x.id === t.id);
+  if (idx === -1) return;
+  const removed = todos[idx];
+  todos.splice(idx, 1);
+  saveTodos(); renderTodos(); renderCounts(); renderProjectNav();
+  if (currentUser) dbDelete('todos', removed.id);
+  showUndoToast(`"${removed.text}" deleted.`, () => {
+    const reinsertAt = Math.min(idx, todos.length);
+    todos.splice(reinsertAt, 0, removed);
+    saveTodos(); renderTodos(); renderCounts(); renderProjectNav();
+    if (currentUser) dbUpsert('todos', todoRemoteRow(removed));
   });
-  pomodoroNavItem.addEventListener('dragleave', () => pomodoroNavItem.classList.remove('drop-target'));
-  pomodoroNavItem.addEventListener('drop', (e) => {
+}
+
+// Confirms with the user before deleting a task (used by the trash icon and
+// by dragging/dropping a task onto the Trash dropzone).
+function confirmAndDeleteTask(t) {
+  if (!t || !canRemoveTaskFrom(t.projectId)) return;
+  openConfirmModal({
+    title: 'Delete this task?',
+    message: `"${t.text}" will be moved to trash. You can undo it right after.`,
+    confirmLabel: 'Delete',
+    danger: true,
+    onConfirm: () => performDeleteTask(t),
+  });
+}
+
+// Kept for any other callers expecting the old boolean-returning helper;
+// now routes through the confirmation + undo flow instead of deleting
+// immediately.
+function deleteTaskById(id) {
+  const t = todos.find(x => x.id === id);
+  if (!t || !canRemoveTaskFrom(t.projectId)) return false;
+  confirmAndDeleteTask(t);
+  return true;
+}
+
+// --- Desktop: native HTML5 drag & drop ---
+[dropzonePomodoroEl, dropzoneTrashEl].forEach((zone) => {
+  zone.addEventListener('dragenter', (e) => { e.preventDefault(); zone.classList.add('drop-target'); });
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drop-target'));
+  zone.addEventListener('drop', (e) => {
     e.preventDefault();
-    pomodoroNavItem.classList.remove('drop-target');
+    zone.classList.remove('drop-target');
     const idRaw = e.dataTransfer.getData('text/plain');
     if (!idRaw) return;
     const t = todos.find(x => String(x.id) === idRaw);
     if (!t) return;
-    sendTaskToPomodoro(t);
+    if (zone.dataset.zone === 'pomodoro') sendTaskToPomodoro(t);
+    else confirmAndDeleteTask(t);
   });
-}
+});
 
 function sendTaskToPomodoro(t) {
+  if (!t || t.done) {
+    showSimpleToast({ emoji: '🚫', text: 'Completed tasks can\'t be sent to Pomodoro.' });
+    return;
+  }
   setPomodoroActiveTask(t.id);
   setView('pomodoro');
   renderPomodoro();
   showToast('pomodoro');
 }
 
-// ===== Touch drag =====
-const mobileDropzone = document.createElement('div');
-mobileDropzone.id = 'mobile-pomodoro-dropzone';
-mobileDropzone.className = 'mobile-pomodoro-dropzone';
-mobileDropzone.innerHTML = '<span class="mobile-pomodoro-dropzone-icon">🍅</span><span>Drop to focus in Pomodoro</span>';
-document.body.appendChild(mobileDropzone);
-
-(function setupTouchDragToPomodoro() {
+// --- Mobile: long-press + touch drag ---
+(function setupTouchDragToDropzones() {
   const LONG_PRESS_MS = 260;
   const MOVE_CANCEL_PX = 10;
   let pressTimer = null;
@@ -1498,7 +2006,7 @@ document.body.appendChild(mobileDropzone);
     if (activeCard) activeCard.classList.remove('touch-dragging');
     activeCard = null;
     if (ghost) { ghost.remove(); ghost = null; }
-    mobileDropzone.classList.remove('show', 'drop-target');
+    hideDragDropzones();
   }
 
   function startDrag(card, touch) {
@@ -1510,7 +2018,7 @@ document.body.appendChild(mobileDropzone);
     ghost.textContent = activeTask.text;
     document.body.appendChild(ghost);
     positionGhost(touch);
-    mobileDropzone.classList.add('show');
+    showDragDropzones();
     if (navigator.vibrate) navigator.vibrate(12);
   }
 
@@ -1520,9 +2028,32 @@ document.body.appendChild(mobileDropzone);
     ghost.style.top = touch.clientY + 'px';
   }
 
-  function isOverDropzone(touch) {
-    const r = mobileDropzone.getBoundingClientRect();
-    return touch.clientX >= r.left && touch.clientX <= r.right && touch.clientY >= r.top && touch.clientY <= r.bottom;
+  // Use elementFromPoint first — it checks the actual rendered/hit-tested
+  // element at that exact pixel, so it can't drift out of sync with what's
+  // on screen the way a manually-computed rect can (which is what made only
+  // the very bottom edge of the pill reliably register before). The padded
+  // rect check is kept only as a fallback for the sliver of cases where the
+  // finger is just outside the element's real hit area.
+  // Rect check goes first now: it only depends on layout, not on what the
+  // browser happens to consider "topmost" at that pixel, so it never misses
+  // because of the ghost bubble, an icon/label span, or a mid-animation
+  // frame. elementFromPoint is kept as a fallback for anything the padded
+  // rect doesn't cover. This fixed drops silently succeeding (touchend
+  // recomputed the zone correctly) while the hover highlight on touchmove
+  // intermittently failed to appear (it was using elementFromPoint alone).
+  const HIT_PAD = 16;
+  function zoneUnderTouch(touch) {
+    for (const zone of [dropzonePomodoroEl, dropzoneTrashEl]) {
+      const r = zone.getBoundingClientRect();
+      if (
+        touch.clientX >= r.left - HIT_PAD && touch.clientX <= r.right + HIT_PAD &&
+        touch.clientY >= r.top - HIT_PAD && touch.clientY <= r.bottom + HIT_PAD
+      ) return zone;
+    }
+    const hit = document.elementFromPoint(touch.clientX, touch.clientY);
+    const hitZone = hit ? hit.closest('.drag-dropzone') : null;
+    if (hitZone === dropzonePomodoroEl || hitZone === dropzoneTrashEl) return hitZone;
+    return null;
   }
 
   todoListEl.addEventListener('touchstart', (e) => {
@@ -1548,13 +2079,21 @@ document.body.appendChild(mobileDropzone);
     }
     e.preventDefault();
     positionGhost(touch);
-    mobileDropzone.classList.toggle('drop-target', isOverDropzone(touch));
+    const hoverZone = zoneUnderTouch(touch);
+    [dropzonePomodoroEl, dropzoneTrashEl].forEach((z) => z.classList.toggle('drop-target', z === hoverZone));
+    const pomodoroInvalid = !!(activeTask && activeTask.done);
+    dropzonePomodoroEl.classList.toggle('zone-invalid', pomodoroInvalid);
+    if (ghost) ghost.classList.toggle('ghost-over-invalid', hoverZone === dropzonePomodoroEl && pomodoroInvalid);
   }, { passive: false });
 
   todoListEl.addEventListener('touchend', (e) => {
     if (dragging) {
       const touch = e.changedTouches[0];
-      if (isOverDropzone(touch) && activeTask) sendTaskToPomodoro(activeTask);
+      const zone = zoneUnderTouch(touch);
+      if (zone && activeTask) {
+        if (zone.dataset.zone === 'pomodoro') sendTaskToPomodoro(activeTask);
+        else confirmAndDeleteTask(activeTask);
+      }
     }
     cleanup();
   });
@@ -1593,6 +2132,7 @@ function renderViewHeader() {
     viewSubtitle.textContent = `${remaining} remaining`;
     if (mainHeaderEl) mainHeaderEl.style.display = '';
   }
+  renderProjectAnnouncement();
   renderHomeSummary();
 }
 
@@ -1619,33 +2159,43 @@ function completedThisWeekCount() {
 }
 function homeGreeting() {
   const h = new Date().getHours();
-  if (h < 5) return 'Still up';
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
+  const key = h < 5 ? 'home.summary.greeting.night'
+    : h < 12 ? 'home.summary.greeting.morning'
+    : h < 17 ? 'home.summary.greeting.afternoon'
+    : 'home.summary.greeting.evening';
+  const fallback = { 'home.summary.greeting.night': 'Still up', 'home.summary.greeting.morning': 'Good morning', 'home.summary.greeting.afternoon': 'Good afternoon', 'home.summary.greeting.evening': 'Good evening' }[key];
+  return window.I18N ? window.I18N.t(key, fallback) : fallback;
 }
+const homeSummaryEl = document.getElementById('home-summary');
+const homeGreetingEl = document.getElementById('home-greeting');
+const homePulseTodayEl = document.getElementById('home-pulse-today');
+const homePulseActiveEl = document.getElementById('home-pulse-active');
+const homePulseWeekEl = document.getElementById('home-pulse-week');
+const homeWidgetsEl = document.getElementById('home-widgets');
+
 function renderHomeSummary() {
-  const homeSummary = document.getElementById('home-summary');
-  if (!homeSummary) return;
-  if (currentView !== 'all') { homeSummary.style.display = 'none'; return; }
-  homeSummary.style.display = 'block';
+  if (!homeSummaryEl) return;
+  if (currentView !== 'all') {
+    homeSummaryEl.style.display = 'none';
+    renderHomeFocus();
+    homeWidgetsEl.style.display = 'none';
+    return;
+  }
+  homeSummaryEl.style.display = 'block';
 
   const dateLabel = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-  document.getElementById('home-greeting').innerHTML =
-    `${homeGreeting()}<span class="home-date">${dateLabel}</span>`;
+  homeGreetingEl.innerHTML = `${homeGreeting()}<span class="home-date">${dateLabel}</span>`;
 
   const todayKey = todayStr();
-  document.getElementById('home-pulse-today').textContent =
-    todos.filter((t) => t.due === todayKey && !t.done).length;
-  document.getElementById('home-pulse-active').textContent =
-    todos.filter((t) => !t.done).length;
-  document.getElementById('home-pulse-week').textContent = completedThisWeekCount();
+  homePulseTodayEl.textContent = todos.filter((t) => t.due === todayKey && !t.done).length;
+  homePulseActiveEl.textContent = todos.filter((t) => !t.done).length;
+  homePulseWeekEl.textContent = completedThisWeekCount();
 
   renderHomeFocus();
   renderHomeProgress();
   renderHomeMiniCal();
   initHomeAIPlan();
-  document.getElementById('home-widgets').style.display = 'grid';
+  homeWidgetsEl.style.display = 'flex';
 }
 
 // ---------- Home: Focus (today + overdue, kept calm on purpose) ----------
@@ -1662,11 +2212,13 @@ function renderHomeFocus() {
   el.innerHTML = '';
   el.style.display = 'flex';
 
+  const tr = (key, fallback) => (window.I18N ? window.I18N.t(key, fallback) : fallback);
+
   if (!items.length) {
     el.classList.add('is-empty');
     const calm = document.createElement('p');
     calm.className = 'home-focus-empty-text';
-    calm.textContent = 'Nothing due or overdue right now — you\u2019re clear.';
+    calm.textContent = tr('home.focus.empty', 'Nothing due or overdue right now — you\u2019re clear.');
     el.appendChild(calm);
     return;
   }
@@ -1674,7 +2226,7 @@ function renderHomeFocus() {
 
   const label = document.createElement('span');
   label.className = 'home-focus-label';
-  label.textContent = 'Focus';
+  label.textContent = tr('home.focus.label', 'Focus');
   el.appendChild(label);
 
   const list = document.createElement('div');
@@ -1701,7 +2253,7 @@ function renderHomeFocus() {
 
     const due = document.createElement('span');
     due.className = 'home-focus-due';
-    due.textContent = t.due === todayKey ? 'Today' : 'Overdue';
+    due.textContent = tr(t.due === todayKey ? 'home.focus.dueToday' : 'home.focus.dueOverdue', t.due === todayKey ? 'Today' : 'Overdue');
 
     row.append(cb, title, due);
     list.appendChild(row);
@@ -1711,7 +2263,7 @@ function renderHomeFocus() {
   if (items.length > 5) {
     const more = document.createElement('span');
     more.className = 'home-focus-more';
-    more.textContent = `+${items.length - 5} more`;
+    more.textContent = tr('home.focus.more', '+{n} more').replace('{n}', items.length - 5);
     el.appendChild(more);
   }
 }
@@ -1802,6 +2354,7 @@ function renderHomeMiniCal() {
     if (hasEvent || hasDue) {
       const dot = document.createElement('span');
       dot.className = 'home-minical-dot';
+      dot.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2a6 6 0 0 0-6 6v3.586l-1.707 1.707A1 1 0 0 0 5 15h14a1 1 0 0 0 .707-1.707L18 11.586V8a6 6 0 0 0-6-6z"></path><path d="M9.5 17a2.5 2.5 0 0 0 5 0z"></path></svg>';
       cell.appendChild(dot);
     }
     cell.addEventListener('click', () => setView('calendar'));
@@ -1811,8 +2364,8 @@ function renderHomeMiniCal() {
 }
 
 window.onLanguageChange = function () {
-  renderHomeProgress();
-  renderHomeMiniCal();
+  renderHomeSummary();
+  if (typeof refreshTip === 'function') refreshTip();
 };
 
 // ---------- Home: local-AI day plan ----------
@@ -2491,6 +3044,7 @@ function renderCalendar() {
     for (let d = 0; d < Math.min(count, 3); d++) {
       const dot = document.createElement('span');
       dot.className = 'day-dot';
+      dot.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2a6 6 0 0 0-6 6v3.586l-1.707 1.707A1 1 0 0 0 5 15h14a1 1 0 0 0 .707-1.707L18 11.586V8a6 6 0 0 0-6-6z"></path><path d="M9.5 17a2.5 2.5 0 0 0 5 0z"></path></svg>';
       dotRow.appendChild(dot);
     }
     cell.appendChild(dotRow);
