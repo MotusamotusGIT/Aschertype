@@ -1,24 +1,4 @@
 // ===== Email confirmation result page =====
-// Supabase redirects here after a user clicks the link in their
-// confirmation email. Depending on how the link was crafted and what
-// state the project is in, the result can arrive in several forms:
-//
-//   1. Implicit flow (default for the JS SDK):
-//        #access_token=...&type=signup
-//      Success — no error in the hash.
-//
-//   2. Error case:
-//        #error=access_denied&error_code=otp_expired&error_description=...
-//      The link was already used, expired, or invalid.
-//
-//   3. PKCE flow (if you enable it later):
-//        ?code=...
-//      We don't currently enable PKCE, but handling it means the page
-//      still does something sensible if you switch later.
-//
-//   4. No params at all — someone navigated here directly, or the
-//      browser stripped the fragment. We can't confirm anything, so
-//      we show a neutral "open the app" state.
 
 (function () {
   const markEl = document.getElementById('confirm-mark');
@@ -82,14 +62,11 @@
     document.title = 'Aschertype';
   }
 
-  // `handoffToken` is passed in explicitly (captured from the URL before
-  // anything clears it) instead of being re-read from `window.location`
-  // after an await — otherwise `history.replaceState` strips the query
-  // string before we can read the token, and the waiting desktop tab
-  // never learns the email was confirmed.
-  //
-  // We also wait longer and log the outcome so the phone's console tells
-  // us exactly what happened if the RPC still doesn't fire.
+  // `handoffToken` is captured from the URL before anything clears it.
+  // After the SDK has established a session from the hash, we send the
+  // access_token + refresh_token to the handoff row so the waiting PC can
+  // adopt the same session without a password grant (which is what was
+  // failing with 400 because hCaptcha is required for password grants).
   async function notifyConfirmedSession(mode, code, handoffToken) {
     console.log('[Confirm] notifyConfirmedSession start', { mode, hasCode: !!code, hasHandoff: !!handoffToken });
     if (typeof window.supabase === 'undefined' || typeof SUPABASE_URL !== 'string' || SUPABASE_URL.indexOf('YOUR-PROJECT-REF') !== -1) {
@@ -98,28 +75,51 @@
     }
     try {
       const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: { detectSessionInUrl: mode === 'implicit', persistSession: true, flowType: mode === 'implicit' ? 'implicit' : 'pkce' },
+        auth: { detectSessionInUrl: false, persistSession: false, flowType: mode === 'implicit' ? 'implicit' : 'pkce' },
       });
-      if (mode === 'pkce' && code) await client.auth.exchangeCodeForSession(code);
 
-      // Wait until the SDK has actually established a session before we
-      // try the handoff RPC — the first `getSession()` call can return
-      // null if the hash parse hasn't finished yet. Bumped from 10 × 150ms
-      // to 30 × 150ms (4.5s) because some mobile browsers are slow.
       let session = null;
-      for (let attempt = 0; attempt < 30; attempt++) {
-        const { data } = await client.auth.getSession();
-        if (data && data.session) { session = data.session; break; }
-        await new Promise((r) => setTimeout(r, 150));
+
+      if (mode === 'implicit') {
+        // Read tokens straight from the hash. Firefox's bounce-tracker
+        // protection can purge Supabase's storage, so we can't rely on
+        // detectSessionInUrl having persisted anything.
+        const hash = parseHash(window.location.hash);
+        if (hash.access_token && hash.refresh_token) {
+          const { data, error } = await client.auth.setSession({
+            access_token: hash.access_token,
+            refresh_token: hash.refresh_token,
+          });
+          if (!error && data && data.session) session = data.session;
+          console.log('[Confirm] setSession from hash:', session ? 'OK' : (error && error.message));
+        }
+      } else if (mode === 'pkce' && code) {
+        const { data, error } = await client.auth.exchangeCodeForSession(code);
+        if (!error && data && data.session) session = data.session;
+        console.log('[Confirm] exchangeCodeForSession:', session ? 'OK' : (error && error.message));
+      }
+
+      // Fallback: if for any reason setSession failed, try getSession briefly.
+      if (!session) {
+        for (let attempt = 0; attempt < 30; attempt++) {
+          const { data } = await client.auth.getSession();
+          if (data && data.session) { session = data.session; break; }
+          await new Promise((r) => setTimeout(r, 150));
+        }
       }
       console.log('[Confirm] session after wait:', session ? 'GOT IT' : 'NONE');
       if (!session) return;
 
       if (handoffToken && typeof client.rpc === 'function') {
-        // Retry up to 5 times over ~1s.
+        const at = session.access_token;
+        const rt = session.refresh_token;
         for (let attempt = 0; attempt < 5; attempt++) {
-          const { data, error } = await client.rpc('complete_email_confirmation_handoff', { p_token: handoffToken });
-          console.log('[Confirm] complete_email_confirmation_handoff attempt', attempt, { data, error: error && error.message });
+          const { data, error } = await client.rpc('complete_email_confirmation_handoff_with_session', {
+            p_token: handoffToken,
+            p_access_token: at,
+            p_refresh_token: rt,
+          });
+          console.log('[Confirm] complete_email_confirmation_handoff_with_session attempt', attempt, { data, error: error && error.message });
           if (!error && data === true) break;
           await new Promise((r) => setTimeout(r, 200));
         }
@@ -128,7 +128,7 @@
       }
 
       const signal = JSON.stringify({ at: Date.now() });
-      localStorage.setItem('aschertypeEmailConfirmed', signal);
+      try { localStorage.setItem('aschertypeEmailConfirmed', signal); } catch (e) { /* Firefox may block */ }
       if (typeof BroadcastChannel !== 'undefined') {
         const channel = new BroadcastChannel('aschertype-auth');
         channel.postMessage({ type: 'email-confirmed' });
@@ -139,7 +139,6 @@
     }
   }
 
-  // Shows the "set a new password" form instead of the usual ok/err panel.
   function showResetForm(recoveryClient) {
     spinnerEl.style.display = 'none';
     iconOk.style.display = 'none';
@@ -212,7 +211,6 @@
   const params = new URLSearchParams(window.location.search);
   const hashParams = parseHash(window.location.hash);
 
-  // --- Error branch first — errors win if both are present ----------
   const hashError = hashParams.error || hashParams.error_code;
   const queryError = params.get('error') || params.get('error_code');
   const errCode = hashParams.error_code || params.get('error_code') || '';
@@ -237,7 +235,6 @@
     return;
   }
 
-  // --- Password recovery branch ---------------------------------------
   const isRecovery = hashParams.type === 'recovery' || params.get('type') === 'recovery';
   if (isRecovery) {
     if (typeof window.supabase === 'undefined' || typeof SUPABASE_URL !== 'string' || SUPABASE_URL.indexOf('YOUR-PROJECT-REF') !== -1) {
@@ -251,7 +248,6 @@
     return;
   }
 
-  // --- Success branch: an access_token in the hash means confirmed ----
   if (hashParams.access_token) {
     const handoffToken = params.get('handoff');
     console.log('[Confirm] success branch, handoffToken =', handoffToken);
@@ -265,7 +261,6 @@
     return;
   }
 
-  // --- PKCE branch (future-proofing; not used by default) ------------
   if (params.get('code')) {
     const code = params.get('code');
     const handoffToken = params.get('handoff');
@@ -280,7 +275,6 @@
     return;
   }
 
-  // --- Nothing to work with — probably a direct visit ----------------
   console.log('[Confirm] no params — neutral branch');
   showNeutral(
     'Aschertype',

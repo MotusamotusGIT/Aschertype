@@ -21,12 +21,6 @@ function clearGuestSession() {
 }
 
 // ---- Pending-confirmation stash ------------------------------------------
-// Register used to keep the confirmation email, password, and handoff token
-// in plain closure variables. That works until the tab reloads — and a tab
-// reload between register and phone-confirm is exactly what happens when
-// the user comes back to the browser after tapping the link. So we stash
-// them in sessionStorage (dropped when the tab closes, which is the right
-// lifetime for a pre-confirmation secret) and rehydrate on load.
 const PENDING_EMAIL_KEY    = 'aschertypePendingEmail';
 const PENDING_PASSWORD_KEY = 'aschertypePendingPassword';
 const PENDING_TOKEN_KEY    = 'aschertypePendingToken';
@@ -68,15 +62,7 @@ function resetCaptcha(widgetIndex) {
 }
 
 // ---- SHA-1 over UTF-8, synchronous ---------------------------------------
-// We compute SHA-1 in plain JS instead of crypto.subtle because
-// crypto.subtle.digest() is async: awaiting it on the register form's
-// critical path made the submit handler finish on a macrotask, so
-// callers that expect the full handler chain to settle within a single
-// microtask flush would race it (and could leak a still-pending handler
-// into the next test). Same privacy guarantee as before — only the first
-// 5 hex chars of the hash ever leave the browser — but nothing awaits it.
 function sha1Hex(input) {
-  // UTF-8 encode
   const bytes = [];
   for (let i = 0; i < input.length; i++) {
     let c = input.charCodeAt(i);
@@ -98,7 +84,6 @@ function sha1Hex(input) {
     }
   }
 
-  // Pad: 0x80, zeros, then 64-bit big-endian bit length
   const bitLen = bytes.length * 8;
   bytes.push(0x80);
   while ((bytes.length % 64) !== 56) bytes.push(0);
@@ -144,9 +129,6 @@ function sha1Hex(input) {
 }
 
 // ---- HIBP k-anonymity password breach check -------------------------------
-// Sends only the first 5 hex chars of the SHA-1 hash to HIBP's range API;
-// compares the remaining 35 chars locally. Fails open on any error so a
-// network/CSP failure never blocks signup.
 async function checkPasswordPwned(password) {
   try {
     const hashHex = sha1Hex(password);
@@ -233,34 +215,68 @@ function startConfirmationPolling() {
         p_token: pendingConfirmationToken,
       });
       const status = Array.isArray(data) ? data[0] : data;
-      if (!error && status && status.status === 'confirmed') {
-        stopConfirmationPolling();
-        if (pendingConfirmationPassword) {
-          try {
-            const result = await supabaseClient.auth.signInWithPassword({
-              email: pendingConfirmationEmail,
-              password: pendingConfirmationPassword,
-            });
-            if (!result.error && result.data && result.data.user) {
-              pendingConfirmationPassword = '';
-              clearPendingConfirmation();
-              currentUser = result.data.user;
-              isGuest = false;
-              clearGuestSession();
-              hideAuthScreen();
-              window.initApp(currentUser);
-              return;
-            }
-          } catch (err) { /* show the manual fallback below */ }
+      if (error || !status || status.status !== 'confirmed') return;
+
+      stopConfirmationPolling();
+
+      // Preferred path: adopt the session the phone established, using
+      // the tokens it wrote into the handoff row. No password grant, so
+      // no hCaptcha requirement and no "email not confirmed" race.
+      if (status.access_token && status.refresh_token) {
+        try {
+          const { data: sessData, error: sessErr } = await supabaseClient.auth.setSession({
+            access_token: status.access_token,
+            refresh_token: status.refresh_token,
+          });
+          if (!sessErr && sessData && sessData.session) {
+            // Wipe the tokens server-side now that we've consumed them.
+            try {
+              await supabaseClient.rpc('consume_email_confirmation_handoff', { p_token: pendingConfirmationToken });
+            } catch (e) { /* best-effort */ }
+            clearPendingConfirmation();
+            pendingConfirmationPassword = '';
+            currentUser = sessData.session.user;
+            isGuest = false;
+            clearGuestSession();
+            hideAuthScreen();
+            window.initApp(currentUser);
+            return;
+          }
+          console.warn('[Auth] setSession from handoff failed:', sessErr && sessErr.message);
+        } catch (e) {
+          console.warn('[Auth] setSession from handoff threw:', e && e.message);
         }
-        if (confirmationStatusEl) {
-          confirmationStatusEl.textContent = 'Email confirmed. Continue to sign in here with your password.';
-          confirmationStatusEl.style.display = 'block';
-        }
-        if (confirmationCrossDeviceBtn) confirmationCrossDeviceBtn.textContent = 'Continue to sign in';
       }
+
+      // Legacy fallback: sign in with the stashed password. This will
+      // 400 if hCaptcha is enforced for password grants, but keep it for
+      // projects that don't require captcha.
+      if (pendingConfirmationPassword) {
+        try {
+          const result = await supabaseClient.auth.signInWithPassword({
+            email: pendingConfirmationEmail,
+            password: pendingConfirmationPassword,
+          });
+          if (!result.error && result.data && result.data.user) {
+            pendingConfirmationPassword = '';
+            clearPendingConfirmation();
+            currentUser = result.data.user;
+            isGuest = false;
+            clearGuestSession();
+            hideAuthScreen();
+            window.initApp(currentUser);
+            return;
+          }
+        } catch (err) { /* show the manual fallback below */ }
+      }
+
+      if (confirmationStatusEl) {
+        confirmationStatusEl.textContent = 'Email confirmed. Continue to sign in here with your password.';
+        confirmationStatusEl.style.display = 'block';
+      }
+      if (confirmationCrossDeviceBtn) confirmationCrossDeviceBtn.textContent = 'Continue to sign in';
     } catch (err) { /* keep waiting */ }
-  }, 2500);
+  }, 800);
 }
 
 document.querySelectorAll('.password-toggle').forEach((btn) => {
@@ -337,11 +353,6 @@ function dismissLoadingOverlay() {
   if (el) el.classList.add('hidden');
 }
 
-// hCaptcha's api.js (~60KB, plus its own iframe/network round-trip) used to
-// load eagerly on every page load, even for guest/auto-login sessions that
-// never touch the auth screen. Load it lazily, only once the auth screen is
-// actually shown. Its default (implicit) mode auto-scans the DOM for
-// `.h-captcha` elements and renders them itself once it finishes loading.
 let hcaptchaScriptPromise = null;
 function loadHcaptchaScript() {
   if (hcaptchaScriptPromise) return hcaptchaScriptPromise;
@@ -376,7 +387,6 @@ function clearButtonBusy(btn) {
   if (btn.dataset.originalText) btn.textContent = btn.dataset.originalText;
 }
 
-// Map a raw Supabase auth error into a helpful user-facing message.
 function friendlyAuthError(error, fallback) {
   const raw = ((error && (error.message || error.error_description || error.msg)) || '').toString();
   const msg = raw.toLowerCase();
@@ -497,7 +507,7 @@ registerForm.addEventListener('submit', async (e) => {
       showAuthError(
         `That password has appeared in ${pwnedResult.count.toLocaleString()} known data breaches. Please choose a different one.`
       );
-      return; // finally block will un-busy the button
+      return;
     }
 
     setButtonBusy(submitBtn, 'Creating account…');
@@ -507,7 +517,6 @@ registerForm.addEventListener('submit', async (e) => {
     pendingConfirmationEmail = email;
     pendingConfirmationPassword = password;
     pendingConfirmationToken = makeConfirmationToken();
-    // Persist so a reload between register and confirm can resume the wait.
     stashPendingConfirmation(pendingConfirmationEmail, pendingConfirmationPassword, pendingConfirmationToken);
 
     const handoffReady = await createConfirmationHandoff(email, pendingConfirmationToken);
@@ -527,14 +536,12 @@ registerForm.addEventListener('submit', async (e) => {
       recordFailure('register');
       console.error('[Auth] Sign-up error:', error);
       showAuthError(friendlyAuthError(error, 'Could not create your account.'));
-      // Registration failed — the stash is meaningless. Drop it.
       clearPendingConfirmation();
       return;
     }
 
     recordSuccess('register');
     if (data.session) {
-      // Confirmation is off in this project — we already have a session.
       clearPendingConfirmation();
       currentUser = data.user;
       isGuest = false;
@@ -599,8 +606,6 @@ if (confirmationResendBtn) confirmationResendBtn.addEventListener('click', () =>
   pendingConfirmationEmail, confirmationResendBtn, confirmationStatusEl,
 ));
 if (confirmationBackBtn) confirmationBackBtn.addEventListener('click', () => {
-  // User chose to start over — drop the stash so we don't drag them back
-  // into the waiting panel on the next reload.
   clearPendingConfirmation();
   pendingConfirmationEmail = '';
   pendingConfirmationPassword = '';
@@ -706,8 +711,6 @@ function isAuthInvalidError(error) {
 }
 
 async function resolveInitialAuthState() {
-  // Guest check FIRST, before any await — guarantees getSession is
-  // never called when the guest flag is set, even across test reloads.
   if (hasGuestSession()) {
     isGuest = true;
     hideAuthScreen();
@@ -722,13 +725,7 @@ async function resolveInitialAuthState() {
     return;
   }
 
-  // ---- Resume a pending email confirmation across a reload ----
-  // If the user registered, we stashed email/password/token in
-  // sessionStorage. If the page reloaded before they tapped the link,
-  // land them straight back on the "Check your email" panel instead of
-  // dumping them on the login form where they can't do anything useful.
-  let resumedPending = null;
-  resumedPending = loadPendingConfirmation();
+  let resumedPending = loadPendingConfirmation();
   if (resumedPending) {
     pendingConfirmationEmail = resumedPending.email;
     pendingConfirmationPassword = resumedPending.password;
@@ -739,8 +736,6 @@ async function resolveInitialAuthState() {
     try { await window.secureStorageReady; } catch (err) {}
   }
 
-  // Re-check the guest flag after the await — it may have been set
-  // while we were waiting on hydration.
   if (hasGuestSession()) {
     isGuest = true;
     hideAuthScreen();
@@ -752,8 +747,6 @@ async function resolveInitialAuthState() {
     const { data, error } = await supabaseClient.auth.getSession();
     if (error && isAuthInvalidError(error)) {
       if (resumedPending) {
-        // Stale/broken session but user is mid-confirmation — keep them on
-        // the waiting panel so the poller can still finish the job.
         showAuthScreen();
         showConfirmationWaiting(pendingConfirmationEmail);
         return;
@@ -762,7 +755,6 @@ async function resolveInitialAuthState() {
       return;
     }
     if (data && data.session) {
-      // Already signed in — drop any stale pending stash.
       clearPendingConfirmation();
       currentUser = data.session.user;
       hideAuthScreen();
@@ -770,7 +762,6 @@ async function resolveInitialAuthState() {
       return;
     }
 
-    // No session. If we're mid-confirmation, restore the waiting panel.
     if (resumedPending) {
       showAuthScreen();
       showConfirmationWaiting(pendingConfirmationEmail);
