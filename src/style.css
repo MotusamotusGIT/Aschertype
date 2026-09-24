@@ -1188,8 +1188,9 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   min-height: 44px; box-sizing: border-box;
   transition: background-color .15s ease, border-color .15s ease, color .15s ease;
 }
-.drag-dropzone-icon { font-size: 16px; line-height: 1; display: flex; }
+.drag-dropzone-icon { font-size: 16px; line-height: 1; display: flex; pointer-events: none; }
 .drag-dropzone-icon svg { width: 16px; height: 16px; }
+.drag-dropzone-label { pointer-events: none; }
 .drag-dropzone.drop-target {
   border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent-ink);
   animation: dropzonePop .3s ease 1;

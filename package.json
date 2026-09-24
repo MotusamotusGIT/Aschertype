@@ -2,20 +2,25 @@
   "name": "aschertype",
   "version": "1.0.0",
   "description": "Aschertype - tasks, calendar, notes and focus timer",
+  "author": {
+    "name": "Aschertype",
+    "email": "aschertype@gmail.com"
+  },
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
+    "start": "mkdir -p \"${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}/aschertype-electron-tmp\" && TMPDIR=\"${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}/aschertype-electron-tmp\" electron .",
     "dist": "electron-builder",
+    "pack": "electron-builder --linux dir",
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage"
   },
   "devDependencies": {
-    "electron": "^31.0.0",
-    "electron-builder": "^24.13.3",
-    "vitest": "^2.1.9",
     "@vitest/coverage-v8": "^2.1.9",
-    "jsdom": "^25.0.1"
+    "electron": "^44.4.5",
+    "electron-builder": "^24.13.3",
+    "jsdom": "^25.0.1",
+    "vitest": "^2.1.9"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0"
@@ -23,22 +28,39 @@
   "build": {
     "appId": "com.aschertype.app",
     "productName": "Aschertype",
+    "icon": "src/favicon.png",
+    "compression": "maximum",
+    "afterPack": "build/afterPack.js",
     "files": [
       "main.js",
       "preload.js",
+      "renderer.js",
+      "db.js",
+      "utils.js",
+      "style.css",
       "src/**/*",
-      "vendor/**/*"
+      "vendor/**/*",
+      "!landing/**"
     ],
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Utility"
     },
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "category": "public.app-category.productivity"
     },
     "win": {
-      "target": ["nsis", "portable"]
+      "target": [
+        "nsis",
+        "portable"
+      ]
     }
   }
 }

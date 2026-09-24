@@ -1,3 +1,5 @@
+// utils.js — full replacement
+
 // src/utils.js
 // Classic script — attaches everything to window. No ESM exports.
 
@@ -5,14 +7,6 @@ function isPlausibleEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-// ===== Leaked password check (HaveIBeenPwned, k-anonymity) =====
-// Supabase's built-in leaked-password check is a Pro-tier feature.
-// This is the free equivalent: hash the password with SHA-1, send
-// only the first 5 hex characters of the hash to the API, and check
-// whether the remaining 35-character suffix appears in the returned
-// list. The full password (and even the full hash) never leaves the
-// browser — HIBP only ever sees a 5-character prefix shared by many
-// thousands of unrelated hashes.
 async function checkPasswordPwned(password) {
   try {
     const encoder = new TextEncoder();
@@ -26,10 +20,7 @@ async function checkPasswordPwned(password) {
     const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
       headers: { 'Add-Padding': 'true' },
     });
-    if (!res.ok) {
-      console.warn('[PwnedCheck] API returned', res.status, '— skipping check, allowing submission.');
-      return { checked: false, pwned: false, count: 0 };
-    }
+    if (!res.ok) return { checked: false, pwned: false, count: 0 };
 
     const text = await res.text();
     const lines = text.split('\n');
@@ -41,8 +32,6 @@ async function checkPasswordPwned(password) {
     }
     return { checked: true, pwned: false, count: 0 };
   } catch (err) {
-    // Network failure, ad blocker, offline, etc. — fail open rather
-    // than blocking account creation entirely over a best-effort check.
     console.warn('[PwnedCheck] Check failed, allowing submission:', err.message);
     return { checked: false, pwned: false, count: 0 };
   }
@@ -160,29 +149,42 @@ if (typeof window !== 'undefined') {
   hydrateSecureCache([SUPABASE_SESSION_KEY]);
 }
 
+const pendingWrites = new Set();
+
 const electronSecureStorage = {
   getItem(key) {
     if (!secureCacheHydrated) return null;
+    if (!getRememberPreference()) return null;
     const value = secureCache.get(key);
     return value === undefined ? null : value;
   },
   setItem(key, value) {
+    if (!getRememberPreference()) {
+      secureCache.set(key, value);
+      return;
+    }
     secureCache.set(key, value);
     if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.secureStore) {
-      window.electronAPI.secureStore.set(key, value).catch((err) => {
-        console.error('[secure-store] persist failed:', err);
-      });
+      const p = window.electronAPI.secureStore.set(key, value)
+        .catch((err) => console.error('[secure-store] persist failed:', err))
+        .finally(() => pendingWrites.delete(p));
+      pendingWrites.add(p);
     }
   },
   removeItem(key) {
     secureCache.delete(key);
     if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.secureStore) {
-      window.electronAPI.secureStore.remove(key).catch((err) => {
-        console.error('[secure-store] remove failed:', err);
-      });
+      const p = window.electronAPI.secureStore.remove(key)
+        .catch((err) => console.error('[secure-store] remove failed:', err))
+        .finally(() => pendingWrites.delete(p));
+      pendingWrites.add(p);
     }
   },
 };
+
+async function flushSecureWrites() {
+  await Promise.allSettled([...pendingWrites]);
+}
 
 if (typeof window !== 'undefined') {
   window.isPlausibleEmail = isPlausibleEmail;
@@ -198,4 +200,12 @@ if (typeof window !== 'undefined') {
   window.rememberAwareStorage = rememberAwareStorage;
   window.electronSecureStorage = electronSecureStorage;
   window.secureStorageReady = secureStorageReady;
+  window.flushSecureWrites = flushSecureWrites;
+
+  if (window.electronAPI && window.electronAPI.onFlushRequest) {
+    window.electronAPI.onFlushRequest(async () => {
+      await flushSecureWrites();
+      window.electronAPI.flushComplete();
+    });
+  }
 }

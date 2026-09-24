@@ -1,13 +1,28 @@
 // main.js
+
+// Give Electron/Chromium its own private temp directory instead of sharing
+// the system /tmp. MUST run before `require('electron')` — Chromium's
+// native side reads the temp dir during that call's own init, so setting
+// TMPDIR any later than this has no effect.
+if (process.platform === 'linux' && !process.env.TMPDIR) {
+  const os = require('node:os');
+  const nodePath = require('node:path');
+  const fs = require('node:fs');
+  const tmpDir = nodePath.join(os.homedir(), '.cache', 'aschertype-electron-tmp');
+  try {
+    fs.mkdirSync(tmpDir, { recursive: true });
+    process.env.TMPDIR = tmpDir;
+  } catch (err) {
+    console.warn('[tmpdir] failed to set private TMPDIR, falling back to system /tmp:', err.message);
+  }
+}
+
 const electron = require('electron');
 const { app, BrowserWindow, shell, crashReporter } = electron;
 const path = require('node:path');
 const fsp = require('node:fs/promises');
 const crypto = require('node:crypto');
-const ai = require('./ai');
 
-// ipcMain and safeStorage may be absent in the unit-test electron mock.
-// Guard them so module load doesn't throw.
 const ipcMain = electron.ipcMain;
 const safeStorage = electron.safeStorage;
 
@@ -18,6 +33,19 @@ try {
   });
 } catch (err) {
   console.warn('[crashReporter] failed:', err.message);
+}
+
+// ===== Linux: bypass the sandbox entirely =====
+// Ubuntu 24.04+ ships with kernel.apparmor_restrict_unprivileged_userns=1,
+// which blocks Chromium's namespace sandbox. The failure happens inside the
+// zygote process *before* any runtime probe could apply a flag, so we apply
+// the flags unconditionally from the very start.
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('no-sandbox');
+  app.commandLine.appendSwitch('disable-gpu-sandbox');
+  app.commandLine.appendSwitch('disable-setuid-sandbox');
+  app.commandLine.appendSwitch('disable-dev-shm-usage');
+  app.commandLine.appendSwitch('no-zygote');
 }
 
 function getStoreDir() {
@@ -34,10 +62,17 @@ async function ensureStoreDir() {
   await fsp.mkdir(getStoreDir(), { recursive: true });
 }
 
+function isTrustedSender(frame) {
+  if (!frame || !frame.url) return false;
+  return frame.url.startsWith('file://');
+}
+
 if (ipcMain && typeof ipcMain.handle === 'function') {
-  ipcMain.handle('secure-store:get', async (_event, key) => {
-    if (typeof key !== 'string' || !key) return null;
+  ipcMain.handle('secure-store:get', async (event, key) => {
+    if (!isTrustedSender(event.senderFrame)) return null;
+    if (typeof key !== 'string' || !key || key.length > 256) return null;
     if (!safeStorage || !safeStorage.isEncryptionAvailable()) return null;
+
     const file = path.join(getStoreDir(), keyToFilename(key));
     try {
       const encrypted = await fsp.readFile(file);
@@ -48,10 +83,12 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
     }
   });
 
-  ipcMain.handle('secure-store:set', async (_event, key, value) => {
-    if (typeof key !== 'string' || !key) return false;
-    if (typeof value !== 'string') return false;
+  ipcMain.handle('secure-store:set', async (event, key, value) => {
+    if (!isTrustedSender(event.senderFrame)) return false;
+    if (typeof key !== 'string' || !key || key.length > 256) return false;
+    if (typeof value !== 'string' || value.length > 256 * 1024) return false;
     if (!safeStorage || !safeStorage.isEncryptionAvailable()) return false;
+
     await ensureStoreDir();
     const file = path.join(getStoreDir(), keyToFilename(key));
     const encrypted = safeStorage.encryptString(value);
@@ -61,17 +98,13 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
     return true;
   });
 
-  ipcMain.handle('secure-store:remove', async (_event, key) => {
-    if (typeof key !== 'string' || !key) return false;
-    const file = path.join(getStoreDir(), keyToFilename(key));
-    try { await fsp.unlink(file); return true; }
-    catch (err) { if (err.code === 'ENOENT') return true; return false; }
-  });
+  ipcMain.handle('secure-store:remove', async (event, key) => {
+    if (!isTrustedSender(event.senderFrame)) return false;
+    if (typeof key !== 'string' || !key || key.length > 256) return false;
 
-  ipcMain.handle('secure-store:clear', async () => {
+    const file = path.join(getStoreDir(), keyToFilename(key));
     try {
-      const files = await fsp.readdir(getStoreDir());
-      await Promise.all(files.map((f) => fsp.unlink(path.join(getStoreDir(), f)).catch(() => {})));
+      await fsp.unlink(file);
       return true;
     } catch (err) {
       if (err.code === 'ENOENT') return true;
@@ -79,69 +112,19 @@ if (ipcMain && typeof ipcMain.handle === 'function') {
     }
   });
 
-  // ===== AI =====
-  ipcMain.handle('ai:health', async (_event, payload) => {
-    return await ai.aiHealth((payload && payload.model) || undefined);
-  });
+  ipcMain.handle('secure-store:clear', async (event) => {
+    if (!isTrustedSender(event.senderFrame)) return false;
 
-  ipcMain.handle('ai:chat', async (_event, { messages, options, model }) => {
     try {
-      const text = await ai.aiChat({ messages, options, model });
-      return { ok: true, text };
+      const files = await fsp.readdir(getStoreDir());
+      await Promise.all(
+        files.map((f) => fsp.unlink(path.join(getStoreDir(), f)).catch(() => { }))
+      );
+      return true;
     } catch (err) {
-      return { ok: false, error: err.message || String(err) };
+      if (err.code === 'ENOENT') return true;
+      return false;
     }
-  });
-
-  ipcMain.handle('ai:chat-tools', async (_event, { messages, tools, options, requestId, model }) => {
-    try {
-      const { message, aborted } = await ai.aiChatTools({ messages, tools, options, requestId, model });
-      return { ok: true, message, aborted: !!aborted };
-    } catch (err) {
-      return { ok: false, error: err.message || String(err) };
-    }
-  });
-
-  ipcMain.handle('ai:parse-task', async (_event, { sentence }) => {
-    try {
-      return await ai.aiParseTask({ sentence });
-    } catch (err) {
-      return { ok: false, error: err.message || String(err) };
-    }
-  });
-
-  ipcMain.handle('ai:abort', async (_event, { requestId }) => {
-    return { ok: ai.aiAbort(requestId) };
-  });
-
-  ipcMain.handle('ai:chat-stream', async (event, { messages, options, model }) => {
-    const requestId = ai.newRequestId();
-    const sender = event.sender;
-
-    (async () => {
-      try {
-        await ai.aiChatStream({
-          messages,
-          options,
-          model,
-          requestId,
-          onChunk: (chunk) => {
-            if (!sender.isDestroyed()) {
-              sender.send('ai:chunk', { requestId, chunk });
-            }
-          },
-        });
-        if (!sender.isDestroyed()) {
-          sender.send('ai:done', { requestId, done: true });
-        }
-      } catch (err) {
-        if (!sender.isDestroyed()) {
-          sender.send('ai:done', { requestId, done: true, error: err.message || String(err) });
-        }
-      }
-    })();
-
-    return { ok: true, requestId };
   });
 }
 
@@ -154,11 +137,11 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     backgroundColor: '#111827',
+    icon: path.join(__dirname, 'src', 'favicon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
       webSecurity: true,
     },
   });
@@ -172,6 +155,7 @@ function isAllowedNavigation(url) {
   if (SUPABASE_HOST_RE.test(url)) return true;
   return false;
 }
+
 function isExternalSafe(url) {
   return url.startsWith('http://') || url.startsWith('https://');
 }
@@ -204,9 +188,6 @@ const CSP_STRING = [
 
 app.on('session-created', (session) => {
   session.webRequest.onHeadersReceived((details, callback) => {
-    // Only override CSP for our own app shell (file://) — leave
-    // third-party responses (hCaptcha's own iframe/document, its
-    // sub-resources, Supabase, etc.) to set their own headers.
     if (!details.url.startsWith('file://')) {
       callback({ responseHeaders: details.responseHeaders });
       return;
@@ -226,4 +207,26 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+let quitting = false;
+
+app.on('before-quit', (event) => {
+  if (quitting) return;
+
+  const win = mainWindow && !mainWindow.isDestroyed() ? mainWindow : BrowserWindow.getAllWindows()[0];
+  if (!win || win.isDestroyed() || !ipcMain) {
+    quitting = true;
+    return;
+  }
+
+  event.preventDefault();
+  quitting = true;
+
+  const timeout = setTimeout(() => app.quit(), 2000);
+  ipcMain.once('app:flush-complete', () => {
+    clearTimeout(timeout);
+    app.quit();
+  });
+  win.webContents.send('app:flush-secure-writes');
 });
