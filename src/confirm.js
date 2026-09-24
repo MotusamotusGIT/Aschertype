@@ -84,15 +84,18 @@
 
   // `handoffToken` is passed in explicitly (captured from the URL before
   // anything clears it) instead of being re-read from `window.location`
-  // after an await — the previous version read it *after* `history.
-  // replaceState` had already stripped the query string, so it was always
-  // null and the waiting desktop tab never learned the email was confirmed.
+  // after an await — otherwise `history.replaceState` strips the query
+  // string before we can read the token, and the waiting desktop tab
+  // never learns the email was confirmed.
   //
-  // We also retry the `complete_*` RPC a few times: the Supabase SDK's
-  // `detectSessionInUrl` parse is asynchronous, so the very first call can
-  // land before `auth.uid()` is available server-side.
+  // We also wait longer and log the outcome so the phone's console tells
+  // us exactly what happened if the RPC still doesn't fire.
   async function notifyConfirmedSession(mode, code, handoffToken) {
-    if (typeof window.supabase === 'undefined' || typeof SUPABASE_URL !== 'string' || SUPABASE_URL.indexOf('YOUR-PROJECT-REF') !== -1) return;
+    console.log('[Confirm] notifyConfirmedSession start', { mode, hasCode: !!code, hasHandoff: !!handoffToken });
+    if (typeof window.supabase === 'undefined' || typeof SUPABASE_URL !== 'string' || SUPABASE_URL.indexOf('YOUR-PROJECT-REF') !== -1) {
+      console.warn('[Confirm] Supabase SDK or config missing — bailing out');
+      return;
+    }
     try {
       const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         auth: { detectSessionInUrl: mode === 'implicit', persistSession: true, flowType: mode === 'implicit' ? 'implicit' : 'pkce' },
@@ -101,25 +104,27 @@
 
       // Wait until the SDK has actually established a session before we
       // try the handoff RPC — the first `getSession()` call can return
-      // null if the hash parse hasn't finished yet.
+      // null if the hash parse hasn't finished yet. Bumped from 10 × 150ms
+      // to 30 × 150ms (4.5s) because some mobile browsers are slow.
       let session = null;
-      for (let attempt = 0; attempt < 10; attempt++) {
+      for (let attempt = 0; attempt < 30; attempt++) {
         const { data } = await client.auth.getSession();
         if (data && data.session) { session = data.session; break; }
         await new Promise((r) => setTimeout(r, 150));
       }
+      console.log('[Confirm] session after wait:', session ? 'GOT IT' : 'NONE');
       if (!session) return;
 
       if (handoffToken && typeof client.rpc === 'function') {
-        // Retry up to 5 times over ~1s. `auth.uid()` on the server is
-        // derived from the Authorization header; the SDK attaches it
-        // as soon as the session exists, but giving it a beat avoids
-        // the rare "called before the token was attached" case.
+        // Retry up to 5 times over ~1s.
         for (let attempt = 0; attempt < 5; attempt++) {
           const { data, error } = await client.rpc('complete_email_confirmation_handoff', { p_token: handoffToken });
+          console.log('[Confirm] complete_email_confirmation_handoff attempt', attempt, { data, error: error && error.message });
           if (!error && data === true) break;
           await new Promise((r) => setTimeout(r, 200));
         }
+      } else {
+        console.log('[Confirm] no handoffToken to send');
       }
 
       const signal = JSON.stringify({ at: Date.now() });
@@ -130,13 +135,11 @@
         channel.close();
       }
     } catch (err) {
-      console.warn('[Confirm] Could not hand session to the app tab:', err.message);
+      console.warn('[Confirm] Could not hand session to the app tab:', err && err.message);
     }
   }
 
   // Shows the "set a new password" form instead of the usual ok/err panel.
-  // Used for the password-recovery link, which needs one more step (typing
-  // a new password) rather than just landing the user back in the app.
   function showResetForm(recoveryClient) {
     spinnerEl.style.display = 'none';
     iconOk.style.display = 'none';
@@ -179,8 +182,6 @@
           resetErrorEl.style.display = 'block';
           return;
         }
-        // Recovery tokens are single-use; sign this temporary session out so
-        // the reset link can't be replayed, and clean the tokens off the URL.
         try { await recoveryClient.auth.signOut(); } catch (err) { /* ignore */ }
         history.replaceState(null, '', window.location.pathname);
         resetForm.style.display = 'none';
@@ -228,22 +229,15 @@
       title = 'That link didn\'t work';
       text = 'The link couldn\'t be verified. It may have already been used, or your email client may have shortened it.';
     } else if (errDesc) {
-      // Fall back to Supabase's own description if we have one.
       text = errDesc;
     }
 
     showErr(title, text);
-    // Clean the URL so a reload doesn't re-trigger a stale error state.
     history.replaceState(null, '', window.location.pathname);
     return;
   }
 
   // --- Password recovery branch ---------------------------------------
-  // Supabase sends type=recovery for a "forgot password" link. We need our
-  // own client here (detectSessionInUrl: true) so it consumes the token
-  // straight from the URL and gives us a session to call updateUser with —
-  // separate from the main app's client, which intentionally never reads
-  // the URL (see db.js).
   const isRecovery = hashParams.type === 'recovery' || params.get('type') === 'recovery';
   if (isRecovery) {
     if (typeof window.supabase === 'undefined' || typeof SUPABASE_URL !== 'string' || SUPABASE_URL.indexOf('YOUR-PROJECT-REF') !== -1) {
@@ -253,22 +247,14 @@
     const recoveryClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: { detectSessionInUrl: true, persistSession: false, flowType: hashParams.access_token ? 'implicit' : 'pkce' },
     });
-    // Give the client a tick to parse the hash/query and establish the
-    // recovery session before we show the form.
     setTimeout(() => showResetForm(recoveryClient), 50);
     return;
   }
 
   // --- Success branch: an access_token in the hash means confirmed ----
-  // IMPORTANT: capture `handoff` from the URL *now*, before any async work,
-  // because the SDK will consume the hash and we'll clear the query string
-  // once everything has settled.
   if (hashParams.access_token) {
     const handoffToken = params.get('handoff');
-    // Clear the URL only *after* the SDK has consumed the hash and the
-    // handoff RPC has finished — otherwise `getSession()` and the `handoff`
-    // query param can both disappear before they're read, and the waiting
-    // desktop tab never sees the confirmation.
+    console.log('[Confirm] success branch, handoffToken =', handoffToken);
     notifyConfirmedSession('implicit', undefined, handoffToken).finally(() => {
       history.replaceState(null, '', window.location.pathname);
     });
@@ -283,6 +269,7 @@
   if (params.get('code')) {
     const code = params.get('code');
     const handoffToken = params.get('handoff');
+    console.log('[Confirm] pkce branch, handoffToken =', handoffToken);
     notifyConfirmedSession('pkce', code, handoffToken).finally(() => {
       history.replaceState(null, '', window.location.pathname);
     });
@@ -294,6 +281,7 @@
   }
 
   // --- Nothing to work with — probably a direct visit ----------------
+  console.log('[Confirm] no params — neutral branch');
   showNeutral(
     'Aschertype',
     'This page confirms your email after you click the link we send. If you just signed up, check your inbox for the confirmation email.'
