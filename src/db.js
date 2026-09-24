@@ -24,7 +24,7 @@ let supabaseReady = false;
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: false, // Electron: no URL hash to parse
-        flowType: 'pkce',
+        flowType: 'implicit',
         storage: window.electronSecureStorage,
       },
     });
