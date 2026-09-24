@@ -263,6 +263,9 @@
     "settings.tips.label": "Tips & encouragement",
     "settings.tips.showEncouragement": "Show encouragement toasts",
     "settings.tips.showHome": "Show tip on Home",
+    "settings.welcome.label": "Welcome guide",
+    "settings.welcome.hint": "Review the quick guide to tasks, calendar, notes, and focus.",
+    "settings.welcome.show": "Show welcome guide",
 
     "tipsIntro.dismiss": "Nice — thanks",
     "tipsIntro.text": "The bar at the bottom of the screen shows short productivity tips. Tap the <strong>↻</strong> next to it for a new one, or turn it off any time in <strong>Settings</strong>.",
@@ -642,6 +645,9 @@
     "settings.tips.label": "Tip & semangat",
     "settings.tips.showEncouragement": "Tampilkan toast penyemangat",
     "settings.tips.showHome": "Tampilkan tip di Beranda",
+    "settings.welcome.label": "Panduan sambutan",
+    "settings.welcome.hint": "Lihat kembali panduan singkat tentang tugas, kalender, catatan, dan fokus.",
+    "settings.welcome.show": "Tampilkan panduan sambutan",
 
     "tipsIntro.dismiss": "Oke — makasih",
     "tipsIntro.text": "Bilah di bawah layar menampilkan tip produktivitas singkat. Ketuk <strong>↻</strong> di sebelahnya untuk tip baru, atau matikan kapan saja di <strong>Pengaturan</strong>.",

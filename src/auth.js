@@ -153,11 +153,79 @@ const resendConfirmationBtn = document.getElementById('resend-confirmation-btn')
 const confirmationPanel = document.getElementById('confirmation-panel');
 const confirmationEmailEl = document.getElementById('confirmation-email');
 const confirmationResendBtn = document.getElementById('confirmation-resend-btn');
+const confirmationCrossDeviceBtn = document.getElementById('confirmation-cross-device-btn');
 const confirmationBackBtn = document.getElementById('confirmation-back-btn');
 const confirmationStatusEl = document.getElementById('confirmation-status');
 const authGuestLink = document.getElementById('auth-guest-link');
 const forgotPasswordBtn = document.getElementById('forgot-password-btn');
 let pendingConfirmationEmail = '';
+let pendingConfirmationToken = '';
+let pendingConfirmationPassword = '';
+let confirmationPollTimer = null;
+
+function makeConfirmationToken() {
+  if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID() + window.crypto.randomUUID();
+  const bytes = new Uint8Array(48);
+  window.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function createConfirmationHandoff(email, token) {
+  if (!supabaseClient || typeof supabaseClient.rpc !== 'function') return false;
+  try {
+    const { data, error } = await supabaseClient.rpc('create_email_confirmation_handoff', {
+      p_token: token,
+      p_email: email,
+    });
+    return !error && data === true;
+  } catch (err) {
+    console.warn('[Auth] Cross-device confirmation handoff unavailable:', err.message);
+    return false;
+  }
+}
+
+function stopConfirmationPolling() {
+  if (confirmationPollTimer) clearInterval(confirmationPollTimer);
+  confirmationPollTimer = null;
+}
+
+function startConfirmationPolling() {
+  stopConfirmationPolling();
+  if (!pendingConfirmationToken || !supabaseClient || typeof supabaseClient.rpc !== 'function') return;
+  confirmationPollTimer = setInterval(async () => {
+    try {
+      const { data, error } = await supabaseClient.rpc('get_email_confirmation_handoff', {
+        p_token: pendingConfirmationToken,
+      });
+      const status = Array.isArray(data) ? data[0] : data;
+      if (!error && status && status.status === 'confirmed') {
+        stopConfirmationPolling();
+        if (pendingConfirmationPassword) {
+          try {
+            const result = await supabaseClient.auth.signInWithPassword({
+              email: pendingConfirmationEmail,
+              password: pendingConfirmationPassword,
+            });
+            if (!result.error && result.data && result.data.user) {
+              pendingConfirmationPassword = '';
+              currentUser = result.data.user;
+              isGuest = false;
+              clearGuestSession();
+              hideAuthScreen();
+              window.initApp(currentUser);
+              return;
+            }
+          } catch (err) { /* show the manual fallback below */ }
+        }
+        if (confirmationStatusEl) {
+          confirmationStatusEl.textContent = 'Email confirmed. Continue to sign in here with your password.';
+          confirmationStatusEl.style.display = 'block';
+        }
+        if (confirmationCrossDeviceBtn) confirmationCrossDeviceBtn.textContent = 'Continue to sign in';
+      }
+    } catch (err) { /* keep waiting */ }
+  }, 2500);
+}
 
 document.querySelectorAll('.password-toggle').forEach((btn) => {
   btn.addEventListener('mousedown', (e) => { e.preventDefault(); });
@@ -199,8 +267,10 @@ function showConfirmationWaiting(email) {
   document.querySelector('.auth-divider').style.display = 'none';
   authGuestLink.style.display = 'none';
   if (confirmationPanel) confirmationPanel.style.display = 'flex';
+  startConfirmationPolling();
 }
 function hideConfirmationWaiting() {
+  stopConfirmationPolling();
   if (confirmationPanel) confirmationPanel.style.display = 'none';
   document.querySelector('.auth-tabs').style.display = 'flex';
   document.querySelector('.auth-divider').style.display = 'flex';
@@ -397,11 +467,17 @@ registerForm.addEventListener('submit', async (e) => {
     recordAttempt('register', 60000);
     setRememberPreference(true);
 
+    pendingConfirmationEmail = email;
+    pendingConfirmationPassword = password;
+    pendingConfirmationToken = makeConfirmationToken();
+    const handoffReady = await createConfirmationHandoff(email, pendingConfirmationToken);
+    const redirectUrl = new URL(`${window.location.origin}/confirm.html`);
+    if (handoffReady) redirectUrl.searchParams.set('handoff', pendingConfirmationToken);
     const payload = {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/confirm.html`,
+        emailRedirectTo: redirectUrl.toString(),
       },
     };
     if (registerCaptchaToken) payload.options.captchaToken = registerCaptchaToken;
@@ -480,6 +556,12 @@ if (confirmationResendBtn) confirmationResendBtn.addEventListener('click', () =>
 if (confirmationBackBtn) confirmationBackBtn.addEventListener('click', () => {
   hideConfirmationWaiting();
   setAuthTab('register');
+});
+if (confirmationCrossDeviceBtn) confirmationCrossDeviceBtn.addEventListener('click', () => {
+  hideConfirmationWaiting();
+  setAuthTab('login');
+  document.getElementById('login-email').value = pendingConfirmationEmail;
+  showAuthNotice('If the account is now confirmed, sign in with your password.');
 });
 
 let waitingForConfirmation = false;

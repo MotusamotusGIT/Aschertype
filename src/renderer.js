@@ -7,6 +7,21 @@ if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.p
   });
 }
 
+const dateFormatterCache = new Map();
+function appLocale() {
+  return window.I18N && typeof window.I18N.getLocale === 'function' ? window.I18N.getLocale() : 'en-US';
+}
+function formatAppDate(date, options) {
+  const locale = appLocale();
+  const key = `${locale}:${JSON.stringify(options)}`;
+  let formatter = dateFormatterCache.get(key);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(locale, options);
+    dateFormatterCache.set(key, formatter);
+  }
+  return formatter.format(date);
+}
+
 // ===== Safe localStorage helpers =====
 function safeGetItem(key) {
   try { return localStorage.getItem(key); }
@@ -2108,7 +2123,7 @@ function renderHomeSummary() {
   }
   homeSummaryEl.style.display = 'block';
 
-  const dateLabel = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  const dateLabel = formatAppDate(new Date(), { weekday: 'long', month: 'long', day: 'numeric' });
   homeGreetingEl.innerHTML = `${homeGreeting()}<span class="home-date">${dateLabel}</span>`;
 
   const todayKey = todayStr();
@@ -2262,11 +2277,11 @@ function renderHomeMiniCal() {
     const cell = document.createElement('button');
     cell.type = 'button';
     cell.className = 'home-minical-cell' + (i === 0 ? ' is-today' : '');
-    cell.title = d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+    cell.title = formatAppDate(d, { weekday: 'long', month: 'long', day: 'numeric' });
 
     const dow = document.createElement('span');
     dow.className = 'home-minical-dow';
-    dow.textContent = d.toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 2);
+    dow.textContent = formatAppDate(d, { weekday: 'short' }).slice(0, 2);
     const num = document.createElement('span');
     num.className = 'home-minical-num';
     num.textContent = d.getDate();
@@ -2669,7 +2684,7 @@ function formatNotifTime(iso) {
   if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
   if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
   if (diff < 604800000) return Math.floor(diff / 86400000) + 'd ago';
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return formatAppDate(d, { month: 'short', day: 'numeric' });
 }
 
 function renderNotifList() {
@@ -2872,7 +2887,7 @@ function eventsForDate(dateStr) {
 }
 function formatDateLong(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  return formatAppDate(new Date(y, m - 1, d), { weekday: 'long', month: 'long', day: 'numeric' });
 }
 function eventRemoteRow(ev) {
   return { id: ev.id, user_id: currentUser.id, date: ev.date, time: ev.time, title: ev.title, notes: ev.notes || '' };
@@ -2881,7 +2896,7 @@ function eventRemoteRow(ev) {
 function renderCalendar() {
   const year = calViewDate.getFullYear();
   const month = calViewDate.getMonth();
-  calMonthLabel.textContent = calViewDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  calMonthLabel.textContent = formatAppDate(calViewDate, { month: 'long', year: 'numeric' });
   const firstWeekday = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const daysInPrevMonth = new Date(year, month, 0).getDate();
@@ -3090,7 +3105,7 @@ addCategoryBtn.addEventListener('click', () => {
 
 function formatCreatedAt(iso) {
   const d = new Date(iso);
-  return d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return formatAppDate(d, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 function renderNotes() {
@@ -3592,6 +3607,7 @@ window.addEventListener('offline', updateConnectionStatus);
 const WELCOME_KEY = 'aschertypeWelcomeSeen';
 const welcomeOverlay = document.getElementById('welcome-overlay');
 const welcomeDismissBtn = document.getElementById('welcome-dismiss-btn');
+const showWelcomeBtn = document.getElementById('show-welcome-btn');
 
 function maybeShowWelcome() {
   if (!welcomeOverlay) return;
@@ -3622,6 +3638,10 @@ function dismissWelcome() {
   welcomeOverlay.style.display = 'none';
 }
 if (welcomeDismissBtn) welcomeDismissBtn.addEventListener('click', dismissWelcome);
+if (showWelcomeBtn) showWelcomeBtn.addEventListener('click', () => {
+  safeRemoveItem(WELCOME_KEY);
+  maybeShowWelcome();
+});
 if (welcomeOverlay) {
   welcomeOverlay.addEventListener('click', (e) => {
     if (e.target === welcomeOverlay) dismissWelcome();

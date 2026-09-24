@@ -91,6 +91,10 @@
       if (mode === 'pkce' && code) await client.auth.exchangeCodeForSession(code);
       const { data } = await client.auth.getSession();
       if (!data || !data.session) return;
+      const handoffToken = new URLSearchParams(window.location.search).get('handoff');
+      if (handoffToken && typeof client.rpc === 'function') {
+        await client.rpc('complete_email_confirmation_handoff', { p_token: handoffToken });
+      }
       const signal = JSON.stringify({ at: Date.now() });
       localStorage.setItem('aschertypeEmailConfirmed', signal);
       if (typeof BroadcastChannel !== 'undefined') {

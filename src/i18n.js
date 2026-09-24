@@ -9,6 +9,10 @@
     try { localStorage.setItem(LANG_KEY, lang); } catch (err) {}
   }
 
+  function getLocale() {
+    return getLanguage() === 'id' ? 'id-ID' : 'en-US';
+  }
+
   function t(key, fallback) {
     const lang = getLanguage();
     const table = (dict && (dict[lang] || dict.en)) || {};
@@ -49,7 +53,7 @@
     if (typeof window.onLanguageChange === 'function') window.onLanguageChange();
   }
 
-  window.I18N = { t, getLanguage, setLanguage, applyLanguage };
+  window.I18N = { t, getLanguage, setLanguage, getLocale, applyLanguage };
 
   loadDict().then(applyStatic);
 

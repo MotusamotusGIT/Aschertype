@@ -54,6 +54,10 @@ npm run cap:open
 
 For a Play Store release, create a signed Android App Bundle in Android Studio, or run `npm run android:build` after configuring a release signing key. Upload the resulting `.aab` file to Google Play Console.
 
+## Cross-device email confirmation
+
+To let a user confirm an account on their phone while the desktop browser waits, run [supabase/email-confirmation-handoff.sql](supabase/email-confirmation-handoff.sql) in the Supabase SQL Editor. The handoff is one-time and expires after 15 minutes. Without this schema, signup still works, but the user must use the manual sign-in fallback after confirming.
+
 ## Notifications
 
 Turn on browser notifications in **Settings → Notifications** to get alerts for upcoming calendar events and when a Pomodoro session is about to end.

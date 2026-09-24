@@ -431,8 +431,9 @@
       <section id="confirmation-panel" class="confirmation-panel" style="display:none" aria-live="polite">
         <div class="confirmation-icon" aria-hidden="true">✉</div>
         <h2>Check your email</h2>
-        <p>We sent a confirmation link to <strong id="confirmation-email"></strong>. Keep this tab open. After you confirm, we will finish signing you in here.</p>
+        <p>We sent a confirmation link to <strong id="confirmation-email"></strong>. Check your inbox and spam folder. For automatic sign-in, open the link on this computer and keep this tab open.</p>
         <button type="button" id="confirmation-resend-btn" class="btn primary auth-submit">Resend confirmation email</button>
+        <button type="button" id="confirmation-cross-device-btn" class="auth-link-btn">I confirmed on another device</button>
         <button type="button" id="confirmation-back-btn" class="auth-link-btn">Use a different email</button>
         <div id="confirmation-status" class="auth-message notice" style="display:none"></div>
       </section>
@@ -981,13 +982,25 @@
           <div class="settings-block">
             <div class="settings-row">
               <div>
+                <div class="settings-label" data-i18n="settings.welcome.label">Welcome guide</div>
+                <div class="settings-hint" data-i18n="settings.welcome.hint">Review the quick guide to tasks, calendar, notes, and focus.</div>
+              </div>
+            </div>
+            <div class="color-picker-row">
+              <button type="button" id="show-welcome-btn" class="btn small" data-i18n="settings.welcome.show">Show welcome guide</button>
+            </div>
+          </div>
+
+          <div class="settings-block">
+            <div class="settings-row">
+              <div>
                 <div class="settings-label" data-i18n="settings.language.label">Language</div>
                 <div class="settings-hint" data-i18n="settings.language.hint">Choose the app's display language.</div>
               </div>
             </div>
             <select id="language-select">
               <option value="en">English</option>
-              <option value="id">Bahasa Indonesia</option>
+              <option value="id">Indonesia</option>
             </select>
           </div>
 
