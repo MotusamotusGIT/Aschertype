@@ -82,7 +82,12 @@
     document.title = 'Aschertype';
   }
 
-  async function notifyConfirmedSession(mode, code) {
+  // `handoffToken` is passed in explicitly (captured from the URL before
+  // anything clears it) instead of being re-read from `window.location`
+  // after an await — the previous version read it *after* `history.
+  // replaceState` had already stripped the query string, so it was always
+  // null and the waiting desktop tab never learned the email was confirmed.
+  async function notifyConfirmedSession(mode, code, handoffToken) {
     if (typeof window.supabase === 'undefined' || typeof SUPABASE_URL !== 'string' || SUPABASE_URL.indexOf('YOUR-PROJECT-REF') !== -1) return;
     try {
       const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -91,7 +96,6 @@
       if (mode === 'pkce' && code) await client.auth.exchangeCodeForSession(code);
       const { data } = await client.auth.getSession();
       if (!data || !data.session) return;
-      const handoffToken = new URLSearchParams(window.location.search).get('handoff');
       if (handoffToken && typeof client.rpc === 'function') {
         await client.rpc('complete_email_confirmation_handoff', { p_token: handoffToken });
       }
@@ -233,27 +237,36 @@
   }
 
   // --- Success branch: an access_token in the hash means confirmed ----
+  // IMPORTANT: capture `handoff` from the URL *now*, before any async work,
+  // because the SDK will consume the hash and we'll clear the query string
+  // once everything has settled.
   if (hashParams.access_token) {
-    notifyConfirmedSession('implicit');
+    const handoffToken = params.get('handoff');
+    // Clear the URL only *after* the SDK has consumed the hash and the
+    // handoff RPC has finished — otherwise `getSession()` and the `handoff`
+    // query param can both disappear before they're read, and the waiting
+    // desktop tab never sees the confirmation.
+    notifyConfirmedSession('implicit', undefined, handoffToken).finally(() => {
+      history.replaceState(null, '', window.location.pathname);
+    });
     showOk(
       'Email confirmed',
       'You\'re all set. Return to the Aschertype tab and we will finish signing you in.'
     );
-    // Clean the URL. The token was already consumed by the SDK during
-    // the initial load on index.html; here we just don't want it
-    // sitting in the address bar or browser history.
-    history.replaceState(null, '', window.location.pathname);
     return;
   }
 
   // --- PKCE branch (future-proofing; not used by default) ------------
   if (params.get('code')) {
-    notifyConfirmedSession('pkce', params.get('code'));
+    const code = params.get('code');
+    const handoffToken = params.get('handoff');
+    notifyConfirmedSession('pkce', code, handoffToken).finally(() => {
+      history.replaceState(null, '', window.location.pathname);
+    });
     showOk(
       'Email confirmed',
       'You\'re all set. Return to the Aschertype tab and we will finish signing you in.'
     );
-    history.replaceState(null, '', window.location.pathname);
     return;
   }
 
