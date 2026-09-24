@@ -225,11 +225,23 @@ function startConfirmationPolling() {
       // Preferred path: adopt the session the phone established, using
       // the tokens it wrote into the handoff row. No password grant, so
       // no hCaptcha requirement and no "email not confirmed" race.
+      console.log('[Auth] polling saw confirmed status', {
+        hasAccessToken: !!status.access_token,
+        hasRefreshToken: !!status.refresh_token,
+        accessTokenLen: status.access_token ? status.access_token.length : 'n/a',
+        refreshTokenLen: status.refresh_token ? status.refresh_token.length : 'n/a',
+      });
       if (status.access_token && status.refresh_token) {
         try {
           const { data: sessData, error: sessErr } = await supabaseClient.auth.setSession({
             access_token: status.access_token,
             refresh_token: status.refresh_token,
+          });
+          console.log('[Auth] setSession from handoff result', {
+            hasSession: !!(sessData && sessData.session),
+            errorMessage: sessErr && sessErr.message,
+            errorStatus: sessErr && sessErr.status,
+            errorName: sessErr && sessErr.name,
           });
           if (!sessErr && sessData && sessData.session) {
             // Wipe the tokens server-side now that we've consumed them.
@@ -247,8 +259,10 @@ function startConfirmationPolling() {
           }
           console.warn('[Auth] setSession from handoff failed:', sessErr && sessErr.message);
         } catch (e) {
-          console.warn('[Auth] setSession from handoff threw:', e && e.message);
+          console.warn('[Auth] setSession from handoff threw:', e && e.name, e && e.message, e && e.stack);
         }
+      } else {
+        console.log('[Auth] preferred path skipped — missing access_token or refresh_token on handoff row');
       }
 
       // Legacy fallback: sign in with the stashed password. This will
