@@ -212,7 +212,7 @@ function icon(name: string) {
 }
 ---
 
-<Layout>
+<Layout heroImage="/project.webp">
   <header class="nav">
     <div class="container nav-inner">
       <a href="/" class="brand">
@@ -296,11 +296,12 @@ function icon(name: string) {
 
         <div class="hero-visual">
           <img
-            src="/project.png"
+            src="/project.webp"
             alt="Aschertype showing a project with tasks, due dates, and a completion progress bar."
             width="1600"
             height="900"
             loading="eager"
+            fetchpriority="high"
             decoding="async"
             class="hero-shot"
           />
@@ -375,7 +376,7 @@ function icon(name: string) {
         </div>
         <div class="calendar-visual">
           <img
-            src="/calendar.png"
+            src="/calendar.webp"
             alt="Aschertype calendar month view with events on different days."
             width="1400"
             height="1000"
@@ -467,7 +468,7 @@ function icon(name: string) {
         </div>
         <div class="collab-visual">
           <img
-            src="/project.png"
+            src="/collab.webp"
             alt="A shared Aschertype project viewed by multiple people."
             width="1200"
             height="700"

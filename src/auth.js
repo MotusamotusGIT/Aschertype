@@ -3,6 +3,23 @@
 let currentUser = null;
 let isGuest = false;
 
+const GUEST_KEY = 'aschertypeGuest';
+function hasGuestSession() {
+  try {
+    return localStorage.getItem(GUEST_KEY) === 'true' || sessionStorage.getItem(GUEST_KEY) === 'true';
+  } catch (err) {
+    return false;
+  }
+}
+function setGuestSession() {
+  try { localStorage.setItem(GUEST_KEY, 'true'); } catch (err) {}
+  try { sessionStorage.setItem(GUEST_KEY, 'true'); } catch (err) {}
+}
+function clearGuestSession() {
+  try { localStorage.removeItem(GUEST_KEY); } catch (err) {}
+  try { sessionStorage.removeItem(GUEST_KEY); } catch (err) {}
+}
+
 let loginCaptchaToken = null;
 let registerCaptchaToken = null;
 
@@ -183,9 +200,32 @@ function dismissLoadingOverlay() {
   const el = document.getElementById('loading-screen');
   if (el) el.classList.add('hidden');
 }
+
+// hCaptcha's api.js (~60KB, plus its own iframe/network round-trip) used to
+// load eagerly on every page load, even for guest/auto-login sessions that
+// never touch the auth screen. Load it lazily, only once the auth screen is
+// actually shown. Its default (implicit) mode auto-scans the DOM for
+// `.h-captcha` elements and renders them itself once it finishes loading.
+let hcaptchaScriptPromise = null;
+function loadHcaptchaScript() {
+  if (hcaptchaScriptPromise) return hcaptchaScriptPromise;
+  hcaptchaScriptPromise = new Promise((resolve, reject) => {
+    if (typeof window.hcaptcha !== 'undefined') { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://hcaptcha.com/1/api.js';
+    s.async = true;
+    s.defer = true;
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+  return hcaptchaScriptPromise;
+}
+
 function showAuthScreen() {
   dismissLoadingOverlay();
   authScreen.classList.remove('hidden');
+  loadHcaptchaScript().catch((err) => console.warn('[Auth] hCaptcha failed to load:', err));
 }
 
 function setButtonBusy(btn, busyText) {
@@ -269,7 +309,7 @@ loginForm.addEventListener('submit', async (e) => {
     recordSuccess('login');
     currentUser = data.user;
     isGuest = false;
-    sessionStorage.removeItem('aschertypeGuest');
+    clearGuestSession();
     hideAuthScreen();
     window.initApp(currentUser);
   } catch (err) {
@@ -348,7 +388,7 @@ registerForm.addEventListener('submit', async (e) => {
     if (data.session) {
       currentUser = data.user;
       isGuest = false;
-      sessionStorage.removeItem('aschertypeGuest');
+      clearGuestSession();
       hideAuthScreen();
       window.initApp(currentUser);
     } else {
@@ -402,7 +442,7 @@ if (authGuestLink) {
     e.preventDefault();
     isGuest = true;
     currentUser = null;
-    sessionStorage.setItem('aschertypeGuest', 'true');
+    setGuestSession();
     hideAuthScreen();
     window.initApp(null);
   });
@@ -412,7 +452,7 @@ async function signOutAndReset() {
   if (supabaseReady) {
     try { await supabaseClient.auth.signOut(); } catch (err) {}
   }
-  sessionStorage.removeItem('aschertypeGuest');
+  clearGuestSession();
   location.reload();
 }
 
@@ -425,7 +465,7 @@ function isAuthInvalidError(error) {
 async function resolveInitialAuthState() {
   // Guest check FIRST, before any await — guarantees getSession is
   // never called when the guest flag is set, even across test reloads.
-  if (sessionStorage.getItem('aschertypeGuest') === 'true') {
+  if (hasGuestSession()) {
     isGuest = true;
     hideAuthScreen();
     window.initApp(null);
@@ -445,7 +485,7 @@ async function resolveInitialAuthState() {
 
   // Re-check the guest flag after the await — it may have been set
   // while we were waiting on hydration.
-  if (sessionStorage.getItem('aschertypeGuest') === 'true') {
+  if (hasGuestSession()) {
     isGuest = true;
     hideAuthScreen();
     window.initApp(null);

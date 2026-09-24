@@ -2,11 +2,13 @@
 export interface Props {
   title?: string;
   description?: string;
+  heroImage?: string;
 }
 
 const {
   title = 'Aschertype — Productivity, all in one',
   description = 'A modern, privacy-first productivity suite featuring tasks, calendar, notes, projects, and Pomodoro focus timers. Free to start, no account required.',
+  heroImage,
 } = Astro.props;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
@@ -39,9 +41,7 @@ const ogImage = new URL('/og-image.png', Astro.site);
   <meta name="twitter:description" content={description} />
   <meta name="twitter:image" content={ogImage} />
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet" />
+  {heroImage && <link rel="preload" as="image" href={heroImage} fetchpriority="high" type="image/webp" />}
 
   <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="apple-touch-icon" href="/favicon.png" />
@@ -147,6 +147,11 @@ const ogImage = new URL('/og-image.png', Astro.site);
   }
 
   img { max-width: 100%; display: block; }
+
+  main > section:not(.hero) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 700px;
+  }
 
   a { color: inherit; }
 

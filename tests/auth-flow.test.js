@@ -349,10 +349,11 @@ describe('auth flow — guest', () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
-  it('guest link sets the session flag and calls initApp(null)', async () => {
+  it('guest link persists the flag and calls initApp(null)', async () => {
     mountAuth();
     document.getElementById('auth-guest-link').click();
     await flush();
+    expect(localStorage.getItem('aschertypeGuest')).toBe('true');
     expect(sessionStorage.getItem('aschertypeGuest')).toBe('true');
     expect(window.initApp).toHaveBeenCalledWith(null);
   });
