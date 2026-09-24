@@ -2,7 +2,7 @@
 // Caches the app shell for offline use. Does NOT cache Supabase API calls,
 // auth responses, or anything user-specific.
 
-const VERSION = 'v22'; // lazy hcaptcha, persistent guest mode
+const VERSION = 'v23'; // lazy hcaptcha, persistent guest mode
 const CACHE_NAME = `aschertype-${VERSION}`;
 
 const APP_SHELL = [

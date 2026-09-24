@@ -62,11 +62,29 @@
     document.title = 'Aschertype';
   }
 
-  // `handoffToken` is captured from the URL before anything clears it.
-  // After the SDK has established a session from the hash, we send the
-  // access_token + refresh_token to the handoff row so the waiting PC can
-  // adopt the same session without a password grant (which is what was
-  // failing with 400 because hCaptcha is required for password grants).
+  // Call a PostgREST RPC endpoint directly via fetch, with an explicit
+  // Authorization header. The Supabase SDK's implicit auth propagation is
+  // unreliable on a page that creates a fresh client per load — the RPC
+  // was going out without a JWT and auth.uid() was null server-side.
+  async function rpcWithAuth(fnName, params, accessToken) {
+    const url = `${SUPABASE_URL}/rest/v1/rpc/${fnName}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) {
+      let detail = '';
+      try { detail = await res.text(); } catch (e) {}
+      throw new Error(`HTTP ${res.status} ${detail}`);
+    }
+    return res.json();
+  }
+
   async function notifyConfirmedSession(mode, code, handoffToken) {
     console.log('[Confirm] notifyConfirmedSession start', { mode, hasCode: !!code, hasHandoff: !!handoffToken });
     if (typeof window.supabase === 'undefined' || typeof SUPABASE_URL !== 'string' || SUPABASE_URL.indexOf('YOUR-PROJECT-REF') !== -1) {
@@ -81,9 +99,6 @@
       let session = null;
 
       if (mode === 'implicit') {
-        // Read tokens straight from the hash. Firefox's bounce-tracker
-        // protection can purge Supabase's storage, so we can't rely on
-        // detectSessionInUrl having persisted anything.
         const hash = parseHash(window.location.hash);
         if (hash.access_token && hash.refresh_token) {
           const { data, error } = await client.auth.setSession({
@@ -99,7 +114,6 @@
         console.log('[Confirm] exchangeCodeForSession:', session ? 'OK' : (error && error.message));
       }
 
-      // Fallback: if for any reason setSession failed, try getSession briefly.
       if (!session) {
         for (let attempt = 0; attempt < 30; attempt++) {
           const { data } = await client.auth.getSession();
@@ -110,21 +124,25 @@
       console.log('[Confirm] session after wait:', session ? 'GOT IT' : 'NONE');
       if (!session) return;
 
-      if (handoffToken && typeof client.rpc === 'function') {
+      if (handoffToken && session.access_token) {
         const at = session.access_token;
         const rt = session.refresh_token;
         for (let attempt = 0; attempt < 5; attempt++) {
-          const { data, error } = await client.rpc('complete_email_confirmation_handoff_with_session', {
-            p_token: handoffToken,
-            p_access_token: at,
-            p_refresh_token: rt,
-          });
-          console.log('[Confirm] complete_email_confirmation_handoff_with_session attempt', attempt, { data, error: error && error.message });
-          if (!error && data === true) break;
+          try {
+            const data = await rpcWithAuth(
+              'complete_email_confirmation_handoff_with_session',
+              { p_token: handoffToken, p_access_token: at, p_refresh_token: rt },
+              at
+            );
+            console.log('[Confirm] complete_email_confirmation_handoff_with_session attempt', attempt, { data });
+            if (data === true) break;
+          } catch (e) {
+            console.log('[Confirm] complete_email_confirmation_handoff_with_session attempt', attempt, { error: e.message });
+          }
           await new Promise((r) => setTimeout(r, 200));
         }
       } else {
-        console.log('[Confirm] no handoffToken to send');
+        console.log('[Confirm] no handoffToken or no session access_token to send');
       }
 
       const signal = JSON.stringify({ at: Date.now() });
