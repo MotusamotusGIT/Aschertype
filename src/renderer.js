@@ -3589,6 +3589,17 @@ const welcomeDismissBtn = document.getElementById('welcome-dismiss-btn');
 function maybeShowWelcome() {
   if (!welcomeOverlay) return;
   if (safeGetItem(WELCOME_KEY) === 'true') return;
+  const welcomeSub = document.getElementById('welcome-sub');
+  const dataTitle = document.getElementById('welcome-data-title');
+  const dataDesc = document.getElementById('welcome-data-desc');
+  const signedIn = typeof currentUser !== 'undefined' && currentUser;
+  if (welcomeSub) welcomeSub.textContent = signedIn
+    ? 'A quick look at the parts that help you plan your day.'
+    : 'A quick look at the parts that help you plan your day. No account required.';
+  if (dataTitle) dataTitle.textContent = signedIn ? 'Sync when you want' : 'Your data stays local';
+  if (dataDesc) dataDesc.textContent = signedIn
+    ? 'Your tasks, dates, and notes sync to your account across devices.'
+    : 'Your work is saved on this device. Create an account later if you want sync.';
   setTimeout(() => {
     welcomeOverlay.style.display = 'flex';
   }, 900);

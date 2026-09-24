@@ -1,7 +1,7 @@
 {
   "name": "Aschertype",
   "short_name": "Aschertype",
-  "description": "Productivity, all in one",
+  "description": "Plan your day without the complexity.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

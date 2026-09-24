@@ -2920,7 +2920,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .home-minical-dot svg { width: 100%; height: 100%; }
 .home-minical-cell.is-today { background: var(--accent); color: var(--accent-contrast); }
 .home-minical-cell.is-today .home-minical-dow { color: rgba(255, 255, 255, 0.75); }
-.home-minical-cell.is-today .home-minical-dot { color: var(--accent-contrast); }
+.home-minical-cell.is-today .home-minical-dot { color: var(--event-mark); }
 
 .home-widget-ai { align-items: flex-start; }
 .home-ai-output {

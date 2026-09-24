@@ -43,6 +43,17 @@ By default a collaborator can view tasks and check them off. Everything else is 
 
 Aschertype is a Progressive Web App. On Chrome, Edge, and Safari, look for the install button in the address bar or the Share menu. Once installed it launches like a normal app and works offline.
 
+## Building the Android app
+
+The Android wrapper uses Capacitor and bundles the PWA locally, so guest tasks, calendar events, notes, and projects work offline. Install Android Studio and the Android SDK, then run:
+
+```bash
+npm run cap:sync
+npm run cap:open
+```
+
+For a Play Store release, create a signed Android App Bundle in Android Studio, or run `npm run android:build` after configuring a release signing key. Upload the resulting `.aab` file to Google Play Console.
+
 ## Notifications
 
 Turn on browser notifications in **Settings → Notifications** to get alerts for upcoming calendar events and when a Pomodoro session is about to end.

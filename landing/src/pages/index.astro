@@ -10,41 +10,41 @@ const features = [
     icon: 'check-square',
   },
   {
-    title: 'Projects',
-    desc: 'Group work by project. See everything at a glance without opening five tools.',
-    icon: 'folder',
-  },
-  {
-    title: 'Collaboration',
-    desc: 'Invite someone to a project with their email. No team plan, no seat pricing.',
-    icon: 'users',
-  },
-  {
     title: 'Calendar & reminders',
-    desc: 'Add events to any day. Get a notification when its time — no more missed appointments.',
+    desc: 'See what is coming up, add events in seconds, and get reminded when it matters.',
     icon: 'calendar',
   },
   {
     title: 'Notes',
-    desc: 'Quick thoughts and longer notes, right next to the tasks they belong to.',
+    desc: 'Capture quick thoughts and keep useful details close to the work they belong to.',
     icon: 'file-text',
   },
   {
-    title: 'Pomodoro timer',
-    desc: 'Focus in 25-minute blocks. One click to start, a soft chime to rest.',
+    title: 'Pomodoro focus',
+    desc: 'Start a focus session from a task and make steady progress without overthinking it.',
     icon: 'timer',
+  },
+  {
+    title: 'Simple projects',
+    desc: 'Group related tasks when you need to. Keep the view clear when you do not.',
+    icon: 'folder',
+  },
+  {
+    title: 'Offline by default',
+    desc: 'Start without an account. Your work stays on your device until you choose to sync.',
+    icon: 'hard-drive',
   },
 ];
 
 const principles = [
   {
     title: 'Less, but better',
-    desc: 'Every screen has one job. No badges, no upsells, no notifications you didnt ask for.',
+    desc: 'Every screen has one job. No badges, upsells, or notifications you did not ask for.',
     icon: 'feather',
   },
   {
     title: 'Local-first',
-    desc: 'Your data lives on your device until you tell it to sync. No hidden telemetry, no ad profiles.',
+    desc: 'Your data lives on your device until you tell it to sync. No hidden tracking or ad profiles.',
     icon: 'hard-drive',
   },
   {
@@ -57,13 +57,13 @@ const principles = [
 const forYou = [
   'You want to start working in seconds, not minutes',
   'Notion, Todoist, or TickTick felt like too much',
-  'You want one place for tasks, notes, and focus',
+  'You want tasks, dates, notes, and focus in one calm workspace',
   'You care about where your data lives',
 ];
 
 const notForYou = [
   'You need Gantt charts, dependencies, or capacity planning',
-  'You want AI-generated task suggestions',
+  'You need enterprise project management',
   'You need enterprise SSO and audit logs',
   'You enjoy configuring your tools more than using them',
 ];
@@ -78,7 +78,7 @@ const steps = [
   {
     n: '02',
     title: 'Add what matters',
-    desc: 'Tasks, projects, dates, notes, focus sessions — everything in one window.',
+    desc: 'Add a task, check your day, write a note, or start a focus session.',
     icon: 'plus-circle',
   },
   {
@@ -90,10 +90,10 @@ const steps = [
 ];
 
 const calendarPoints = [
-  'Add events to any day — time is optional, all-day works too',
-  'Get a notification when an event is starting, so nothing slips',
+  'Add events to any day — time is optional',
+  'Get a reminder when an event is about to start',
   'Task due dates appear on the same calendar automatically',
-  'Month view designed to stay readable, not crowded',
+  'A month view designed to stay readable, not crowded',
 ];
 
 const compareRows = [
@@ -143,7 +143,7 @@ const faqs = [
   },
   {
     q: 'Will I get reminded about calendar events?',
-    a: 'Yes. Add a time to any event and Aschertype will notify you when its starting. Events without a time still appear on the calendar, they just dont trigger a reminder.',
+    a: 'Yes. Add a time to any event and Aschertype will notify you when it is starting. Events without a time still appear on the calendar, but they do not trigger a reminder.',
   },
   {
     q: 'Do task due dates show on the calendar?',
@@ -151,11 +151,11 @@ const faqs = [
   },
   {
     q: 'Is Aschertype good for teams?',
-    a: 'Its good for small groups working on shared projects. Not a replacement for enterprise project management. If you need Gantt charts, dependencies, and capacity planning, this isnt the tool.',
+    a: 'It works for small groups working on shared projects. It is not a replacement for enterprise project management with Gantt charts, dependencies, and capacity planning.',
   },
   {
     q: 'Will Aschertype stay simple?',
-    a: 'Yes. Thats the whole point. Every feature we say yes to has to pass one test: does it make the app more useful without making it more complicated? If it fails, we dont ship it.',
+    a: 'That is the whole point. Every feature has to make the app more useful without making it more complicated. If it fails that test, we do not ship it.',
   },
   {
     q: 'Is Aschertype really free?',
@@ -237,7 +237,6 @@ function icon(name: string) {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
           </button>
         </div>
-        <a href={APP_URL} class="btn ghost desktop-only">Sign in</a>
         <a href={APP_URL} class="btn primary desktop-only">Get started</a>
         <button type="button" class="menu-toggle" id="menu-toggle" aria-label="Open menu" aria-expanded="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
@@ -252,7 +251,6 @@ function icon(name: string) {
       <a href="#who">Who it's for</a>
       <a href="#faq">FAQ</a>
       <div class="mobile-menu-actions">
-        <a href={APP_URL} class="btn ghost">Sign in</a>
         <a href={APP_URL} class="btn primary">Get started</a>
       </div>
     </div>
@@ -263,10 +261,10 @@ function icon(name: string) {
       <div class="container hero-inner">
         <div class="hero-copy">
           <span class="eyebrow">Calm by design</span>
-          <h1 class="display">Productivity without the noise.</h1>
+          <h1 class="display">Plan your day without the complexity.</h1>
           <p class="hero-sub">
-            Tasks, projects, calendar, notes, and focus timers — in one calm
-            app that gets out of your way. No signup, no clutter, no guilt.
+            A calm workspace for everyday life. Keep your tasks, calendar, notes,
+            and focus time together without the setup or clutter.
           </p>
           <p class="hero-emphasis">
             Most productivity apps get in your way. Aschertype gets out of it.
@@ -337,7 +335,7 @@ function icon(name: string) {
       <div class="container">
         <div class="section-head">
           <span class="eyebrow">Features</span>
-          <h2 class="display">Built to stay out of your way.</h2>
+          <h2 class="display">The essentials, without the setup.</h2>
           <p class="section-sub">
             Everything you need to organize your day. Nothing you'll need to configure.
           </p>
@@ -358,10 +356,10 @@ function icon(name: string) {
       <div class="container calendar-inner">
         <div class="calendar-copy">
           <span class="eyebrow">Calendar</span>
-          <h2 class="display">A calendar that reminds you. Not one you forget.</h2>
+          <h2 class="display">A calendar you will actually use.</h2>
           <p>
             Add events to any day. Set a time and Aschertype will notify you when
-            its starting — no more missed meetings, deadlines, or calls. Leave
+            it is starting — no more missed meetings, deadlines, or calls. Leave
             the time blank and it lives as an all-day event, exactly where it
             belongs.
           </p>
@@ -394,7 +392,7 @@ function icon(name: string) {
           </div>
           <div class="reminder-copy">
             <h3>Reminders that actually arrive</h3>
-            <p>When an event has a time, Aschertype sends a notification so you dont miss it. Works on desktop and in the browser.</p>
+            <p>When an event has a time, Aschertype sends a notification so you do not miss it. Works on desktop and in the browser.</p>
           </div>
         </div>
       </div>
@@ -404,7 +402,7 @@ function icon(name: string) {
       <div class="container">
         <div class="section-head centered">
           <span class="eyebrow">Principles</span>
-          <h2 class="display">Why we built it this way.</h2>
+          <h2 class="display">Simple by default.</h2>
         </div>
         <div class="principle-grid">
           {principles.map((p) => (
@@ -422,7 +420,7 @@ function icon(name: string) {
       <div class="container">
         <div class="section-head">
           <span class="eyebrow">How it works</span>
-          <h2 class="display">Three steps. That's it.</h2>
+          <h2 class="display">Start in seconds.</h2>
         </div>
         <div class="steps">
           {steps.map((s) => (
@@ -532,10 +530,9 @@ function icon(name: string) {
       <div class="container">
         <div class="section-head">
           <span class="eyebrow">Compare</span>
-          <h2 class="display">Why people leave their old tools.</h2>
+          <h2 class="display">A lighter way to stay organized.</h2>
           <p class="section-sub">
-            Most productivity apps ask you to sign up, sync to their servers,
-            and live in their ecosystem. Aschertype does the opposite.
+            Start locally, keep things clear, and sync only when you need to.
           </p>
         </div>
 
@@ -641,7 +638,7 @@ function icon(name: string) {
 
     <section class="cta">
       <div class="container cta-inner">
-        <h2 class="display">Ready for a calmer way to work?</h2>
+        <h2 class="display">Ready for a simpler day?</h2>
         <p class="cta-sub">Open Aschertype and start in seconds. No signup. No card. No catch.</p>
         <a href={APP_URL} class="btn primary">
           Open Aschertype
@@ -661,7 +658,6 @@ function icon(name: string) {
         <a href="#who">Who it's for</a>
         <a href="#privacy">Privacy</a>
         <a href="#faq">FAQ</a>
-        <a href={APP_URL}>Sign in</a>
       </div>
     </div>
   </footer>

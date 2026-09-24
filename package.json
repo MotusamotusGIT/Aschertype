@@ -9,6 +9,10 @@
   "main": "main.js",
   "scripts": {
     "start": "mkdir -p \"${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}/aschertype-electron-tmp\" && TMPDIR=\"${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}/aschertype-electron-tmp\" electron .",
+    "cap:sync": "npx cap sync android",
+    "cap:open": "npx cap open android",
+    "cap:run": "npx cap run android",
+    "android:build": "cd android && ./gradlew bundleRelease",
     "dist": "electron-builder",
     "pack": "electron-builder --linux dir",
     "test": "vitest run",
@@ -16,6 +20,7 @@
     "coverage": "vitest run --coverage"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
     "@vitest/coverage-v8": "^2.1.9",
     "electron": "^44.4.5",
     "electron-builder": "^24.13.3",
@@ -23,6 +28,8 @@
     "vitest": "^2.1.9"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
     "@supabase/supabase-js": "^2.45.0"
   },
   "build": {

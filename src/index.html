@@ -4,20 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>Aschertype &mdash; Productivity, all in one</title>
-  <meta name="description" content="A modern, privacy-first productivity suite featuring tasks, calendar, notes, and Pomodoro focus timers.">
+  <title>Aschertype &mdash; Plan your day without the complexity</title>
+  <meta name="description" content="A calm workspace for everyday life with simple tasks, calendar, notes, and focus timers.">
 
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://aschertype.vercel.app/">
-  <meta property="og:title" content="Aschertype &mdash; Productivity, all in one">
-  <meta property="og:description" content="A modern, privacy-first productivity suite featuring tasks, calendar, notes, and Pomodoro focus timers.">
+  <meta property="og:title" content="Aschertype &mdash; Plan your day without the complexity">
+  <meta property="og:description" content="A calm workspace for everyday life with simple tasks, calendar, notes, and focus timers.">
   <meta property="og:image" content="https://aschertype.vercel.app/favicon.png">
   <meta property="og:site_name" content="Aschertype">
 
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:url" content="https://aschertype.vercel.app/">
-  <meta name="twitter:title" content="Aschertype &mdash; Productivity, all in one">
-  <meta name="twitter:description" content="A modern, privacy-first productivity suite featuring tasks, calendar, notes, and Pomodoro focus timers.">
+  <meta name="twitter:title" content="Aschertype &mdash; Plan your day without the complexity">
+  <meta name="twitter:description" content="A calm workspace for everyday life with simple tasks, calendar, notes, and focus timers.">
   <meta name="twitter:image" content="https://aschertype.vercel.app/favicon.png">
 
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1241,7 +1241,7 @@
       <div class="welcome-hero">
         <img src="./favicon.png" alt="Aschertype" class="welcome-mark" width="56" height="56">
         <div class="welcome-title" data-i18n="welcome.title">Welcome to Aschertype</div>
-        <div class="welcome-sub" data-i18n="welcome.sub">Everything in one place. Here's the 30-second tour.</div>
+        <div class="welcome-sub" id="welcome-sub">A quick look at the parts that help you plan your day.</div>
       </div>
 
       <div class="welcome-list">
@@ -1253,45 +1253,38 @@
           </div>
         </div>
         <div class="welcome-item">
-          <div class="welcome-item-icon">📁</div>
-          <div class="welcome-item-text">
-            <div class="welcome-item-title" data-i18n="welcome.projects.title">Projects</div>
-            <div class="welcome-item-desc" data-i18n-html="welcome.projects.desc">Group related tasks. Create one from the sidebar with the small <strong>+</strong>.</div>
-          </div>
-        </div>
-        <div class="welcome-item">
-          <div class="welcome-item-icon">🤝</div>
-          <div class="welcome-item-text">
-            <div class="welcome-item-title" data-i18n="welcome.collab.title">Collaboration</div>
-            <div class="welcome-item-desc" data-i18n="welcome.collab.desc">Open a project and invite someone by email. They'll get it in their notification bell.</div>
-          </div>
-        </div>
-        <div class="welcome-item">
           <div class="welcome-item-icon">📅</div>
           <div class="welcome-item-text">
-            <div class="welcome-item-title" data-i18n="welcome.calNotes.title">Calendar &amp; Notes</div>
-            <div class="welcome-item-desc" data-i18n="welcome.calNotes.desc">Keep dates and quick thoughts alongside your tasks. They sync to your account.</div>
+            <div class="welcome-item-title">Calendar</div>
+            <div class="welcome-item-desc">Add events, see the next seven days, and get reminders when you need them.</div>
+          </div>
+        </div>
+        <div class="welcome-item">
+          <div class="welcome-item-icon">🗒</div>
+          <div class="welcome-item-text">
+            <div class="welcome-item-title">Notes</div>
+            <div class="welcome-item-desc">Keep quick thoughts and useful details close to your tasks.</div>
           </div>
         </div>
         <div class="welcome-item">
           <div class="welcome-item-icon">🍅</div>
           <div class="welcome-item-text">
             <div class="welcome-item-title" data-i18n="pomodoro.title">Pomodoro</div>
-            <div class="welcome-item-desc" data-i18n="welcome.pomodoro.desc">Pick a task from the dropdown to time it. Mark it done mid-session to switch tasks without losing the countdown.</div>
+            <div class="welcome-item-desc">Choose a task, start a focus session, and take a proper break.</div>
           </div>
         </div>
         <div class="welcome-item">
-          <div class="welcome-item-icon">✨</div>
+          <div class="welcome-item-icon">📁</div>
           <div class="welcome-item-text">
-            <div class="welcome-item-title" data-i18n="assistant.title">AI'scher</div>
-            <div class="welcome-item-desc" data-i18n="welcome.assistant.desc">Your built-in assistant. Ask it to add, reschedule, or undo things — it acts on your tasks, calendar, and notes for real.</div>
+            <div class="welcome-item-title">Projects</div>
+            <div class="welcome-item-desc">Group related tasks when a project helps you stay organized.</div>
           </div>
         </div>
         <div class="welcome-item">
-          <div class="welcome-item-icon">👤</div>
+          <div class="welcome-item-icon">🔒</div>
           <div class="welcome-item-text">
-            <div class="welcome-item-title" data-i18n="welcome.account.title">Your account</div>
-            <div class="welcome-item-desc" data-i18n="welcome.account.desc">Tap the avatar in the corner to change your display name or sign out.</div>
+            <div class="welcome-item-title" id="welcome-data-title">Your data</div>
+            <div class="welcome-item-desc" id="welcome-data-desc">Your work is saved on this device. You can create an account later if you want sync.</div>
           </div>
         </div>
       </div>
