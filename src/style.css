@@ -733,17 +733,18 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 }
 
 .sidebar-footer { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 5px; }
-#clear-completed, #closeout-btn {
+#clear-completed, #closeout-btn, #shortcuts-btn {
   display: flex; align-items: center; gap: 11px;
   width: 100%; background: none; border: 1px solid transparent;
   color: var(--ink-2); padding: 10px 12px; border-radius: 10px; cursor: pointer; font-size: 13.5px; font-weight: 500; font-family: inherit; text-align: left;
   transition: background-color .15s ease, color .15s ease;
 }
-#clear-completed:hover, #closeout-btn:hover { background: var(--accent-soft); color: var(--accent-ink); }
+#clear-completed:hover, #closeout-btn:hover, #shortcuts-btn:hover { background: var(--accent-soft); color: var(--accent-ink); }
 
 /* ===== Main ===== */
 .main {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   padding: var(--main-pad-y) var(--main-pad-x);
   overflow-y: auto;
@@ -1067,17 +1068,27 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   gap: 18px;
 }
 .task-card {
-  display: flex; flex-direction: column; gap: 8px;
-  padding: 20px 20px 18px;
+  display: flex; flex-direction: row; align-items: flex-start; gap: 10px;
+  padding: 13px 14px 13px 12px;
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 16px; position: relative;
+  border-left: 3px solid transparent;
+  border-radius: 14px; position: relative;
   box-shadow:
     0 2px 4px rgba(30, 41, 59, 0.065),
     0 8px 20px -4px rgba(30, 41, 59, 0.13);
   cursor: pointer;
+  content-visibility: auto;
+  contain-intrinsic-size: 0 140px;
   transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease, opacity .15s ease;
 }
+/* Priority reads instantly from the edge of the card — the border tint
+   and the small dot in the leading column reinforce each other without
+   duplicating the same visual weight. */
+.task-card.priority-medium { border-left-color: var(--medium); }
+.task-card.priority-high { border-left-color: var(--high); }
+.task-card.is-pinned { background: var(--accent-soft); }
+.task-detail-assignee-chip, .task-pill.assignee-tag { color: var(--ink-2); background: var(--task-bg); }
 .task-card:hover {
   border-color: var(--border-hover);
   box-shadow:
@@ -1098,6 +1109,18 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .task-card.completed { opacity: 0.55; }
 .task-card.completed .task-title { text-decoration: line-through; }
 .task-card.dragging { opacity: 0.4; transform: scale(0.97); }
+.task-card.drag-over-top { box-shadow: inset 0 3px 0 0 var(--accent); }
+.task-card.drag-over-bottom { box-shadow: inset 0 -3px 0 0 var(--accent); }
+.task-drag-handle {
+  flex-shrink: 0; align-self: center; cursor: grab;
+  color: var(--ink-light); opacity: 0; transition: opacity .15s ease, color .15s ease;
+  width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;
+}
+.task-drag-handle svg { width: 14px; height: 14px; }
+.task-card:hover .task-drag-handle { opacity: 0.7; }
+.task-drag-handle:hover { color: var(--accent-ink); opacity: 1 !important; }
+.task-card.dragging .task-drag-handle { cursor: grabbing; }
+@media (max-width: 860px) { .task-drag-handle { display: none; } }
 
 /* Brief highlight while a task card is being pressed-and-held to queue it
    into Pomodoro — same visual language as focus rings elsewhere. */
@@ -1121,70 +1144,119 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .task-context-menu-icon { font-size: 14px; }
 .task-card.touch-dragging { opacity: 0.45; }
 
-.task-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-.task-card-header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-
-.task-main { min-width: 0; flex: 1; }
-.task-title {
-  font-size: 15.5px; font-weight: 700; color: var(--ink); line-height: 1.35; word-break: break-word;
-}
-.task-card-category {
-  font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 9999px;
-  background: var(--accent-soft); color: var(--accent-ink); flex-shrink: 0; white-space: nowrap;
-}
-.task-desc {
-  font-size: 13px; font-weight: 500; color: var(--ink-2); line-height: 1.5;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-}
-
-.task-meta { display: flex; gap: 5px; flex-wrap: wrap; }
-
-.task-card-progress-row {
-  display: flex; align-items: center; gap: 10px;
-  margin-top: auto; padding-top: 12px;
+/* ----- Completion control -----
+   Now anchored at the top-right of the headline instead of a leading
+   column, so the priority dot + title on the left can use the card's
+   full width. Pin badge rides along on its corner. */
+.task-card-check-col {
+  flex-shrink: 0;
+  display: flex;
+  position: relative;
 }
 .task-check {
-  width: 20px; height: 20px; border-radius: 50%;
+  width: 22px; height: 22px; border-radius: 50%;
   border: 1.5px solid #aab1ba;
   background: #ffffff;
   flex-shrink: 0; cursor: pointer;
   appearance: none; -webkit-appearance: none; display: grid; place-content: center;
-  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease;
+  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .1s ease;
 }
 [data-theme="dark"] .task-check {
   border-color: #4d5a6d;
   background: #1a2334;
 }
-.task-check:hover { border-color: var(--accent); }
+.task-check:hover { border-color: var(--accent); transform: scale(1.05); }
+.task-check:active { transform: scale(0.94); }
 .task-check:checked {
   background: var(--accent);
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 .task-check:checked::after {
-  content: ""; width: 5px; height: 9px; border: solid var(--accent-contrast); border-width: 0 1.6px 1.6px 0;
+  content: ""; width: 6px; height: 10px; border: solid var(--accent-contrast); border-width: 0 1.8px 1.8px 0;
   transform: rotate(45deg) translate(-1px, -1px);
 }
 .task-check:disabled { opacity: .45; cursor: not-allowed; }
+.task-check:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.task-card-progress-track {
-  flex: 1; height: 6px; border-radius: 9999px; background: var(--task-bg);
-  overflow: hidden; min-width: 0;
+/* ----- Content column -----
+   Full card width now — title, description, metadata and progress all
+   start at the same left edge, with only the completion checkbox (and
+   rename/delete actions) pinned to the top-right. */
+.task-card-content {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 5px;
 }
-.task-card-progress-fill {
-  display: block; height: 100%; border-radius: 9999px; background: var(--border-hover);
-  transition: width .25s ease, background-color .15s ease;
-}
-.task-card.completed .task-card-progress-fill { background: var(--accent); }
 
-.task-priority-flag {
-  flex-shrink: 0; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
-  color: var(--low);
+.task-card-headline { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.task-headline-left { display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1; }
+.task-headline-right { display: flex; align-items: center; gap: 4px; flex-shrink: 0; padding-top: 1px; }
+
+.task-title {
+  flex: 1; min-width: 0;
+  font-size: 15px; font-weight: 700; color: var(--ink); line-height: 1.4; word-break: break-word;
+  /* Extremely long titles wrap up to two lines, then truncate — the card
+     never grows arbitrarily tall just because of title length. */
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.task-priority-flag svg { width: 15px; height: 15px; }
-.task-priority-flag.priority-medium { color: var(--medium); }
-.task-priority-flag.priority-high { color: var(--high); }
-.task-card.completed .task-priority-flag { opacity: 0.5; }
+
+.task-desc {
+  font-size: 13px; font-weight: 500; color: var(--ink-2); line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  word-break: break-word;
+}
+
+/* Grouped, visually quiet metadata row — due date, project, category and
+   tracked time all share the same muted pill treatment so none of them
+   competes with the title for attention. Kept to a single, horizontally
+   scrollable line (rather than wrapping) so a task with many pills never
+   makes the card grow tall — it scrolls sideways instead, on both mouse
+   and touch, with a soft fade hinting there's more off-screen. */
+.task-meta {
+  display: flex; align-items: center; gap: 6px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 2px;
+}
+/* Fade only appears once there's actually more to scroll to (see
+   markTaskMetaOverflow() in renderer.js), so a short pill row never shows
+   a misleading cut edge. */
+.task-meta.has-overflow {
+  mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent 100%);
+}
+.task-meta::-webkit-scrollbar { display: none; height: 0; }
+.task-meta .task-pill { flex-shrink: 0; }
+
+.task-card-subtask-wrap { display: flex; flex-direction: column; gap: 4px; }
+
+/* A quiet colored dot rather than a full flag icon — sits right before
+   the title on the left, small enough to read as metadata rather than a
+   component of its own, still immediately distinguishable by color. */
+.task-priority-dot {
+  flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--low); opacity: 0.55;
+}
+.task-priority-dot.priority-medium { background: var(--medium); opacity: 0.85; }
+.task-priority-dot.priority-high { background: var(--high); opacity: 1; }
+.task-card.completed .task-priority-dot { opacity: 0.35; }
+
+/* Pinned indicator sits as a small badge on the corner of the checkbox
+   rather than inline text before the title, so it never disturbs the
+   left-aligned title/description column. */
+.task-pin-badge {
+  position: absolute; top: -5px; right: -5px;
+  width: 14px; height: 14px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--card); color: var(--accent-ink);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.task-pin-badge svg { width: 9px; height: 9px; fill: currentColor; }
+
 
 .task-pill {
   display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 500;
@@ -1196,11 +1268,13 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .pill-icon { display: inline-flex; align-items: center; }
 .task-pill.due-overdue { color: var(--high); background: var(--high-bg); }
 .task-pill.due-today { color: var(--accent-ink); background: var(--accent-soft); }
-.task-pill.project-tag { color: var(--ink-2); background: var(--task-bg); cursor: pointer; border: 1px solid var(--border); padding-left: 6px; }
+.task-pill.project-tag { color: var(--ink-2); background: var(--task-bg); cursor: pointer; border: 1px solid var(--border); padding-left: 6px; max-width: 160px; }
 .task-pill.project-tag:hover { border-color: var(--border-hover); background: var(--task-bg-hover); }
 .task-pill .project-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .task-pill.shared-tag { color: var(--medium); background: var(--medium-bg); }
 
+/* Quiet, on-hover-only actions — kept out of the primary reading path,
+   anchored to the top-right corner of the headline. */
 .task-card-actions {
   display: flex; align-items: center; gap: 0px; flex-shrink: 0;
   opacity: 0; transform: translateX(4px);
@@ -1282,10 +1356,10 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   .drag-dropzone { padding: 16px; border-radius: 9999px; }
 }
 
-/* ===== Task detail side panel ===== */
+/* ===== Task detail side panel — spacious redesign ===== */
 .task-detail-overlay {
   position: fixed; inset: 0; z-index: 60;
-  background: rgba(0,0,0,0.28);
+  background: rgba(0,0,0,0.32);
   opacity: 0; pointer-events: none;
   transition: opacity .18s ease;
 }
@@ -1293,58 +1367,114 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 
 .task-detail-panel {
   position: fixed; top: 0; right: 0; bottom: 0;
-  width: 380px; max-width: 92vw;
+  width: 480px; max-width: 92vw;
   background: var(--card);
   border-left: 1px solid var(--border);
-  box-shadow: -8px 0 30px rgba(0,0,0,0.12);
+  box-shadow: -12px 0 36px rgba(0,0,0,0.14);
   z-index: 61;
   display: flex; flex-direction: column;
   transform: translateX(100%);
   transition: transform .22s ease;
-  overflow-y: auto;
 }
+
 .task-detail-overlay.open .task-detail-panel { transform: translateX(0); }
 
 .task-detail-head {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 10px; padding: 18px 18px 0 18px;
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 26px 32px 22px;
+  border-bottom: 1px solid var(--home-line, rgba(43, 53, 66, 0.09));
+  flex-shrink: 0;
 }
+.task-detail-head-top {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+}
+.task-detail-head-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.task-detail-pin-btn {
+  border: none; background: transparent; color: var(--ink-light); cursor: pointer;
+  width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: background-color .15s ease, color .15s ease;
+}
+.task-detail-pin-btn svg { width: 17px; height: 17px; }
+.task-detail-pin-btn:hover { background: var(--bg); color: var(--ink); }
+.task-detail-pin-btn.active { color: var(--accent-ink); background: var(--accent-soft); }
+.task-detail-pin-btn.active svg { fill: currentColor; }
+.task-detail-pin-btn[disabled] { opacity: 0.35; cursor: not-allowed; }
 .task-detail-close {
   border: none; background: transparent; color: var(--ink-light); cursor: pointer;
-  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center; font-size: 20px;
+  transition: background-color .15s ease, color .15s ease;
 }
 .task-detail-close:hover { background: var(--bg); color: var(--ink); }
 
-.task-detail-body { padding: 12px 18px 24px 18px; display: flex; flex-direction: column; gap: 18px; }
-
-.task-detail-title-row { display: flex; align-items: flex-start; gap: 10px; }
-.task-detail-title-row .task-check { margin-top: 4px; }
+.task-detail-title-row { display: flex; align-items: flex-start; gap: 14px; flex: 1; min-width: 0; }
+.task-detail-title-row .task-check { margin-top: 6px; width: 24px; height: 24px; flex-shrink: 0; }
 .task-detail-title {
-  flex: 1; font-size: 19px; font-weight: 650; color: var(--ink); line-height: 1.35;
-  border: none; background: transparent; font-family: inherit; padding: 0; outline: none;
+  flex: 1; font-size: 22px; font-weight: 650; color: var(--ink); line-height: 1.35;
+  border: none; background: transparent; font-family: inherit; padding: 4px 2px; outline: none;
+  border-radius: 8px;
   border-bottom: 1px solid transparent; word-break: break-word;
+  transition: background-color .15s ease, border-color .15s ease;
 }
-.task-detail-title:focus { border-bottom-color: var(--accent); }
+.task-detail-title:hover { background: var(--bg); }
+.task-detail-title:focus { background: var(--bg); border-bottom-color: var(--accent); }
 .task-detail-title.completed { text-decoration: line-through; color: var(--ink-light); }
 
-.task-detail-field { display: flex; flex-direction: column; gap: 6px; }
+/* Body: generous vertical rhythm between sections, each section separated
+   by a hairline card rather than crowded fields. Panel scrolls as a
+   whole so the head and footer stay pinned. */
+.task-detail-body {
+  padding: 22px 32px 24px;
+  display: flex; flex-direction: column; gap: 20px;
+  flex: 1; min-height: 0; overflow-y: auto;
+}
+.task-detail-section {
+  padding: 20px 22px;
+  display: flex; flex-direction: column; gap: 16px;
+  background: var(--bg);
+  border: 1px solid var(--home-line, rgba(43, 53, 66, 0.09));
+  border-radius: 16px;
+}
+/* Secondary/quieter metadata: same shape as a primary section but flatter
+   and lower-contrast, so it visually recedes rather than competing with
+   priority/assignee/project above. */
+.task-detail-section-quiet {
+  background: transparent;
+  border: 1px dashed var(--home-line, rgba(43, 53, 66, 0.14));
+}
+.task-detail-section-quiet .task-detail-section-title { color: var(--ink-light); opacity: 0.85; }
+.task-detail-section-quiet .task-detail-label { font-weight: 600; opacity: 0.85; }
+.task-detail-section-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--ink-light);
+}
+
+.task-detail-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 18px;
+}
+
+.task-detail-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .task-detail-label {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
   color: var(--ink-light);
 }
 .task-detail-desc {
-  width: 100%; min-height: 90px; resize: vertical;
-  font-family: inherit; font-size: 13.5px; color: var(--ink-2); line-height: 1.5;
-  padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg);
+  width: 100%; min-height: 96px; resize: vertical;
+  font-family: inherit; font-size: 14px; color: var(--ink-2); line-height: 1.65;
+  padding: 13px 15px; border: 1px solid var(--border); border-radius: 12px; background: var(--card);
+  transition: border-color .15s ease, box-shadow .15s ease;
 }
-.task-detail-row { display: flex; gap: 10px; flex-wrap: wrap; }
-.task-detail-row > * { flex: 1; min-width: 120px; }
+.task-detail-desc:hover { border-color: var(--border-hover); }
+.task-detail-desc:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
 .task-detail-field input[type="date"],
+.task-detail-field input[type="time"],
 .task-detail-field select {
   width: 100%; font-family: inherit; font-size: 13.5px; font-weight: 550; color: var(--ink);
-  padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg);
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card);
   appearance: none; -webkit-appearance: none;
   cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease;
 }
@@ -1353,37 +1483,53 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   background-repeat: no-repeat; background-position: right 10px center; background-size: 14px;
   padding-right: 32px;
 }
-.task-detail-field input[type="date"]::-webkit-calendar-picker-indicator {
+.task-detail-field input[type="date"]::-webkit-calendar-picker-indicator,
+.task-detail-field input[type="time"]::-webkit-calendar-picker-indicator {
   filter: var(--date-icon-filter, none); cursor: pointer; opacity: 0.65;
 }
 .task-detail-field input[type="date"]:hover,
+.task-detail-field input[type="time"]:hover,
 .task-detail-field select:hover { border-color: var(--border-hover); }
 .task-detail-field input[type="date"]:focus,
+.task-detail-field input[type="time"]:focus,
 .task-detail-field select:focus {
   outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
 }
-[data-theme="dark"] .task-detail-field input[type="date"] { --date-icon-filter: invert(1); }
+[data-theme="dark"] .task-detail-field input[type="date"],
+[data-theme="dark"] .task-detail-field input[type="time"] { --date-icon-filter: invert(1); }
 
-.task-detail-field.task-detail-centered-field {
-  align-items: center; text-align: center;
-}
-.task-detail-field.task-detail-centered-field select {
-  max-width: 220px; margin: 0 auto; text-align: center; text-align-last: center;
-}
-.task-detail-category-row { display: flex; align-items: center; gap: 6px; margin: 0 auto; }
-.task-detail-category-row select { max-width: 190px; margin: 0; }
+.task-detail-category-row { display: flex; align-items: center; gap: 8px; }
+.task-detail-category-row select { flex: 1; min-width: 0; }
 .task-detail-category-row .icon-btn.plus { flex-shrink: 0; }
 
-.task-detail-footer {
-  margin-top: auto; padding: 14px 18px; border-top: 1px solid var(--border);
-  display: flex; justify-content: space-between; gap: 8px;
+.task-detail-time-spent {
+  font-size: 14.5px; font-weight: 600; color: var(--ink);
+  padding: 9px 12px; border-radius: 10px; background: var(--accent-soft); color: var(--accent-ink);
+  display: inline-flex; align-self: flex-start;
 }
-.btn-icon-label { display: inline-flex; align-items: center; gap: 6px; }
-.btn-icon-label svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+.task-detail-footer {
+  margin-top: 0; padding: 18px 32px; border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  flex-shrink: 0; background: var(--card);
+}
 
 @media (max-width: 480px) {
   .task-detail-panel { width: 100%; max-width: 100%; }
+  .task-detail-head { padding: 16px 16px 14px; gap: 8px; }
+  .task-detail-title { font-size: 19px; }
+  .task-detail-pin-btn, .task-detail-close { width: 38px; height: 38px; }
+  .task-detail-body { padding: 14px 16px 18px; gap: 14px; }
+  .task-detail-section { padding: 14px; border-radius: 14px; }
+  .task-detail-footer {
+    padding: 12px 16px; flex-direction: column-reverse; gap: 8px;
+  }
+  .task-detail-footer .btn { width: 100%; min-height: 44px; }
+  .task-detail-grid-2 { grid-template-columns: 1fr; gap: 12px; }
+  .task-detail-category-row .icon-btn.plus,
+  .task-detail-subtask-add-row #task-detail-subtask-add-btn { min-height: 40px; }
 }
+
 .task-title-edit {
   flex: 1;
   font-size: 13.5px; font-weight: 550;
@@ -1650,6 +1796,8 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .note-card {
   background: var(--card); border: 1px solid var(--border); border-radius: 16px;
   padding: 20px; display: flex; flex-direction: column; gap: 10px; box-shadow: var(--shadow-sm);
+  content-visibility: auto;
+  contain-intrinsic-size: 0 160px;
 }
 .note-card:hover { border-color: var(--accent); box-shadow: var(--shadow); transform: translateY(-2px); }
 .note-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
@@ -1696,6 +1844,103 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .theme-swatch { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--border); display: inline-block; }
 .theme-swatch.light { background: #e4e5e9; }
 .theme-swatch.dark { background: #111827; }
+
+/* ===== Onboarding tutorial ===== */
+/* Applied to <body> for the whole duration the tutorial is active. Locks
+   every place that can scroll independently so the highlighted element's
+   position, once calculated, can never drift out from under the
+   spotlight — there's simply nothing left for the user to scroll. */
+body.tutorial-scroll-lock {
+  overflow: hidden !important;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+body.tutorial-scroll-lock .main,
+body.tutorial-scroll-lock .sidebar,
+body.tutorial-scroll-lock #project-nav-list,
+body.tutorial-scroll-lock .assistant-messages,
+body.tutorial-scroll-lock .day-panel-list,
+body.tutorial-scroll-lock .calendar-main,
+body.tutorial-scroll-lock .notes-list {
+  overflow: hidden !important;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+.tutorial-overlay {
+  position: fixed; inset: 0; z-index: 650;
+  pointer-events: none;
+}
+.tutorial-spotlight {
+  position: fixed;
+  border-radius: 14px;
+  box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.55);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity .15s ease;
+}
+.tutorial-tooltip {
+  position: fixed;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  box-sizing: border-box;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-md, 0 10px 30px rgba(0,0,0,0.2));
+  padding: 16px 18px;
+  pointer-events: auto;
+  opacity: 1;
+  transition: opacity .15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* While the engine is navigating to the next feature and waiting for its
+   real target element to render, keep the spotlight/tooltip hidden rather
+   than showing a stale or empty highlight. */
+.tutorial-spotlight.is-loading,
+.tutorial-tooltip.is-loading {
+  opacity: 0;
+  pointer-events: none;
+}
+.tutorial-tooltip-title { font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 6px; word-break: break-word; overflow-wrap: anywhere; }
+.tutorial-tooltip-desc { font-size: 12.5px; line-height: 1.5; color: var(--ink-light); margin: 0 0 14px; word-break: break-word; overflow-wrap: anywhere; }
+.tutorial-tooltip-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.tutorial-dots { display: flex; gap: 5px; flex-shrink: 0; }
+.tutorial-dots span { width: 5px; height: 5px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+.tutorial-dots span.active { background: var(--accent); width: 14px; border-radius: 4px; }
+.tutorial-tooltip-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+.tutorial-btn {
+  border: none; background: none; font-family: inherit; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; padding: 7px 10px; border-radius: 8px; white-space: nowrap; flex-shrink: 0;
+}
+.tutorial-btn-ghost { color: var(--ink-light); }
+.tutorial-btn-ghost:hover { color: var(--ink); background: var(--bg); }
+.tutorial-btn-primary { color: #fff; background: var(--accent); padding: 7px 14px; }
+.tutorial-btn-primary:hover { filter: brightness(1.08); }
+
+/* ---- Mobile: reflow footer instead of shrinking it, and keep the panel
+   fully inside the viewport even on short/narrow screens ---- */
+@media (max-width: 480px) {
+  .tutorial-tooltip {
+    width: calc(100vw - 20px);
+    max-width: calc(100vw - 20px);
+    padding: 14px 16px;
+    border-radius: 14px;
+  }
+  .tutorial-tooltip-footer { flex-direction: column; align-items: stretch; gap: 10px; }
+  .tutorial-dots { order: 2; justify-content: center; }
+  .tutorial-tooltip-actions { order: 1; width: 100%; justify-content: space-between; margin-left: 0; }
+  .tutorial-btn { flex: 1; text-align: center; }
+  .tutorial-btn-primary { flex: 1.3; }
+}
+@media (max-height: 520px) {
+  .tutorial-tooltip { max-height: calc(100vh - 16px); padding: 12px 16px; }
+  .tutorial-tooltip-title { margin-bottom: 4px; }
+  .tutorial-tooltip-desc { margin-bottom: 10px; }
+}
 
 /* ===== Modals ===== */
 .modal-overlay {
@@ -1914,14 +2159,44 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   .confirm-modal-card { max-width: 92vw; padding: 22px; }
 }
 
-/* ===== Tip (home widget) ===== */
-.home-widget.tips-bar { justify-content: flex-start; }
+/* ===== Tip (home widget) =====
+   Deliberately much lighter than a normal home widget — a passing tip,
+   not a content section — so label, refresh button and text share one
+   compact row instead of stacking. Higher specificity than the general
+   .home-widget padding rule further down, so this wins regardless of
+   source order. Functionality (the refresh button) is unchanged, just
+   laid out inline instead of on its own row. */
+.home-widget.tips-bar {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 9px 14px;
+  gap: 4px 8px;
+  border-radius: 12px;
+  background: var(--task-bg);
+  border-color: transparent;
+}
+.home-widget.tips-bar .home-widget-title-row {
+  gap: 6px; flex-shrink: 0; width: auto;
+}
+.home-widget.tips-bar .home-widget-title {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em;
+}
 .home-widget-title-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .tips-text {
-  margin: 0; font-weight: 500; font-size: 13px; line-height: 1.6; color: var(--ink-light);
+  margin: 0; font-weight: 500; font-size: 12.5px; line-height: 1.5; color: var(--ink-light);
+  flex: 1 1 200px; min-width: 0;
 }
-.tips-refresh { background: none; border: none; color: var(--ink-light); cursor: pointer; font-size: 14px; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+.tips-refresh {
+  background: none; border: none; color: var(--ink-light); cursor: pointer;
+  font-size: 13px; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
+  border-radius: 6px; flex-shrink: 0;
+}
 .tips-refresh:hover { color: var(--accent-ink); background: var(--accent-soft); }
+@media (max-width: 860px) {
+  .home-widget.tips-bar { padding: 8px 12px; }
+  .tips-text { font-size: 12px; flex-basis: 100%; }
+}
 
 /* ===== Notifications modal ===== */
 .notif-modal-card { max-width: 480px; }
@@ -2261,9 +2536,14 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   .task-toolbar { margin-top: -4px; margin-bottom: 14px; }
 
   .task-list { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .task-card { padding: 14px 14px 12px; border-radius: 12px; }
+  .task-card { padding: 13px 12px 13px 11px; border-radius: 12px; gap: 9px; }
+  .task-card-content { gap: 7px; }
+  .task-check { width: 20px; height: 20px; }
   .task-title { font-size: 13px; -webkit-line-clamp: 2; }
-  .task-desc { display: none; }
+  /* Kept visible rather than hidden — description should stay visually
+     connected to the title at every width — just clamped to one line
+     since cards are narrower here. */
+  .task-desc { -webkit-line-clamp: 1; }
 
   .calendar-layout { grid-template-columns: 1fr; gap: 14px; }
   .calendar-main, .day-panel { padding: 14px; border-radius: 16px; }
@@ -2393,6 +2673,14 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   .loading-progress { width: 180px; }
 }
 
+@media (max-width: 560px) {
+  /* Two columns of task cards on a real phone leaves too little width for
+     the title, priority flag and pill row to stay legible — one column
+     reads far better in portrait, and the card itself stays the same
+     compact height it has at wider widths. */
+  .task-list { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 480px) {
   .sidebar { width: 82vw; left: -82vw; }
   .sidebar.open { transform: translateX(82vw); }
@@ -2401,6 +2689,9 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   .profile-name { max-width: 80px; }
 
   .nav-count { padding: 1px 5px; font-size: 9.5px; }
+
+  .task-card { padding: 12px 12px 12px 10px; }
+  .task-title { font-size: 13.5px; }
 }
 
 @media (max-width: 400px) {
@@ -3070,10 +3361,11 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   .home-widgets { gap: 12px; }
 }
 
-/* Category pill lives in the meta row */
+/* Category pill lives in the meta row, styled like its sibling pills.
+   Capped so one extremely long category name can't dominate the row —
+   it truncates with an ellipsis instead, same as the project pill. */
 .task-meta .task-card-category {
-  font-size: 10.5px; font-weight: 500; padding: 2.5px 8px;
-  max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 /* Language selector (Settings) */
 #language-select {
@@ -3113,3 +3405,165 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
     font-size: 12px;
   }
 }
+
+.task-detail-checklist-section { gap: 12px; }
+.task-detail-checklist-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.task-detail-checklist-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-light);
+}
+.task-detail-subtask-progress {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+.task-detail-subtask-progress-fill {
+  height: 100%;
+  background: var(--accent-ink);
+  transition: width 0.25s ease;
+}
+.task-detail-subtask-progress-fill.complete { background: #10b981; }
+.task-detail-subtask-list { display: flex; flex-direction: column; gap: 1px; }
+.task-detail-subtask-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 8px;
+  border-radius: 8px;
+}
+.task-detail-subtask-row:hover { background: var(--accent-soft); }
+.task-detail-subtask-row.completed .task-detail-subtask-text {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+.task-detail-subtask-text { flex: 1; cursor: text; font-size: 13.5px; color: var(--ink-2); }
+.task-detail-subtask-edit {
+  flex: 1; font-size: 13.5px; font-family: inherit; color: var(--ink);
+  padding: 4px 8px; border: 1px solid var(--accent); border-radius: 6px; background: var(--bg); outline: none;
+}
+.task-detail-subtask-remove { opacity: 0; transition: opacity 0.15s; }
+.task-detail-subtask-row:hover .task-detail-subtask-remove { opacity: 1; }
+.task-detail-subtask-add-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.task-detail-subtask-add-row input {
+  flex: 1;
+  font-size: 13.5px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 9px;
+  background: var(--bg); color: var(--ink); font-family: inherit;
+}
+.task-detail-subtask-add-row input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* ===== task card subtask progress bar ===== */
+.task-card-subtask-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--task-bg);
+  overflow: hidden;
+}
+.task-card-subtask-bar-fill {
+  height: 100%;
+  background: var(--accent-ink);
+  transition: width 0.25s ease;
+}
+.task-card-subtask-bar-fill.complete { background: #10b981; }
+.task-card-subtask-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-light);
+}
+
+/* ============================================================
+   ===== Global search =====
+   ============================================================ */
+.search-modal-card { max-width: 520px; padding: 18px; gap: 12px; }
+.search-modal-input {
+  width: 100%; padding: 13px 16px; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--bg); color: var(--ink); font-size: 16px; font-family: inherit;
+}
+.search-modal-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.search-results { display: flex; flex-direction: column; gap: 4px; max-height: 50vh; overflow-y: auto; }
+.search-result-item {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  padding: 10px 12px; border-radius: 10px; border: none; background: transparent;
+  font: inherit; cursor: pointer; color: var(--ink);
+}
+.search-result-item:hover { background: var(--accent-soft); }
+.search-result-icon {
+  width: 30px; height: 30px; flex-shrink: 0; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent-soft); color: var(--accent-ink); font-size: 13px;
+}
+.search-result-info { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.search-result-title { font-size: 13.5px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-result-sub { font-size: 11.5px; color: var(--ink-light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ============================================================
+   ===== Keyboard shortcuts panel =====
+   ============================================================ */
+.shortcuts-modal-card { max-width: 440px; }
+.shortcuts-list { display: flex; flex-direction: column; gap: 2px; }
+.shortcuts-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 10px 4px; border-bottom: 1px solid var(--border);
+}
+.shortcuts-row:last-child { border-bottom: none; }
+.shortcuts-keys { display: flex; align-items: center; gap: 4px; flex-shrink: 0; font-size: 12px; color: var(--ink-light); }
+.shortcuts-desc { font-size: 13px; color: var(--ink-2); text-align: right; }
+kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 22px; padding: 0 6px;
+  border-radius: 6px; border: 1px solid var(--border); border-bottom-width: 2px;
+  background: var(--bg); color: var(--ink-2);
+  font-family: inherit; font-size: 11.5px; font-weight: 700;
+}
+
+/* ============================================================
+   ===== Bulk task selection =====
+   ============================================================ */
+.task-toolbar-icon-btn.active { background: var(--accent-soft); color: var(--accent); }
+.task-card.bulk-selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+#todo-list.bulk-mode .task-card-actions { display: none !important; }
+.bulk-select-checkbox { accent-color: var(--accent); }
+
+.bulk-action-bar {
+  position: fixed; left: 50%; bottom: 26px; z-index: 199;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 16px;
+  padding: 10px 12px 10px 18px; border-radius: 9999px;
+  background: var(--card); border: 1px solid var(--border); box-shadow: var(--shadow-lg);
+  animation: taskAddIn .16s cubic-bezier(.16,1,.3,1);
+}
+.bulk-count { font-size: 13px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.bulk-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bulk-move-select {
+  padding: 8px 30px 8px 12px; border: 1px solid var(--border); border-radius: 9999px;
+  background: var(--bg); color: var(--ink-2); font-size: 12.5px; font-weight: 600; font-family: inherit;
+  appearance: none; -webkit-appearance: none; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23808d9e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center; background-size: 12px;
+}
+@media (max-width: 640px) {
+  .bulk-action-bar { left: 12px; right: 12px; bottom: 16px; transform: none; flex-wrap: wrap; border-radius: 18px; justify-content: center; }
+  .bulk-actions { justify-content: center; width: 100%; }
+}
+
+/* ============================================================
+   ===== Home: streak heatmap =====
+   ============================================================ */
+.home-streak-grid {
+  display: grid; grid-template-rows: repeat(7, 11px); grid-auto-flow: column; gap: 3px;
+  overflow-x: auto; padding-bottom: 2px;
+}
+.home-streak-cell { width: 11px; height: 11px; border-radius: 3px; background: var(--accent); opacity: 0.12; flex-shrink: 0; }
+.home-streak-cell.level-1 { opacity: 0.35; }
+.home-streak-cell.level-2 { opacity: 0.55; }
+.home-streak-cell.level-3 { opacity: 0.78; }
+.home-streak-cell.level-4 { opacity: 1; }

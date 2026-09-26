@@ -542,6 +542,74 @@ function checkEventNotifications() {
 }
 setInterval(checkEventNotifications, 30 * 1000);
 
+const taskDetailReminder = document.getElementById('task-detail-reminder');
+let notifiedTaskKeys = new Set();
+let notifiedTaskDay = todayStr();
+function checkTaskReminders() {
+  if (!isNotifEnabled()) return;
+  if (notifiedTaskDay !== todayStr()) { notifiedTaskKeys.clear(); notifiedTaskDay = todayStr(); }
+  const now = new Date();
+  const nowHM = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+  const today = todayStr();
+  todos.forEach(t => {
+    if (t.done || t.due !== today || !t.reminderTime) return;
+    const key = `task:${t.id}`;
+    if (t.reminderTime === nowHM && !notifiedTaskKeys.has(key)) {
+      notifiedTaskKeys.add(key);
+      sendNotification('Task due today', t.text);
+    }
+  });
+}
+setInterval(checkTaskReminders, 30 * 1000);
+
+function nextOccurrenceDate(dueStr, recurrence) {
+  const d = new Date(dueStr + 'T00:00:00');
+  if (recurrence.freq === 'daily') d.setDate(d.getDate() + (recurrence.interval || 1));
+  else if (recurrence.freq === 'weekly') d.setDate(d.getDate() + 7 * (recurrence.interval || 1));
+  else if (recurrence.freq === 'monthly') d.setMonth(d.getMonth() + (recurrence.interval || 1));
+  return dateKey(d.getFullYear(), d.getMonth(), d.getDate());
+}
+function handleRecurringCompletion(t) {
+  if (!t.recurrence || !t.due) return;
+  const nextDue = nextOccurrenceDate(t.due, t.recurrence);
+  if (t.recurrence.until && nextDue > t.recurrence.until) return;
+  const clone = {
+    ...t,
+    id: Date.now() + Math.random().toString(36).slice(2, 6),
+    done: false,
+    due: nextDue,
+    subtasks: (t.subtasks || []).map(s => ({ ...s, done: false })),
+  };
+  todos.push(clone);
+  saveTodos();
+  if (currentUser) dbUpsert('todos', todoRemoteRow(clone));
+}
+
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  const typing = tag === 'input' || tag === 'textarea' || e.target.isContentEditable;
+  if (e.key === '?' && !typing) {
+    e.preventDefault();
+    openShortcuts();
+    return;
+  }
+  if (typing) return;
+  if (e.key === 'n' && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    openTaskAdd();
+  } else if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    openSearch();
+  } else if ((e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    openSearch();
+  } else if (e.key >= '1' && e.key <= '4' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    const views = ['all', 'active', 'calendar', 'notes'];
+    setView(views[Number(e.key) - 1]);
+  }
+});
+
 // ===== Tips bar =====
 const LOCAL_TIPS = {
   en: [
@@ -1077,6 +1145,18 @@ function canToggleTaskIn(projectId) {
   if (!projectId) return true;
   return isProjectOwner(projectId) || !!myMembership(projectId);
 }
+// Pinning: personal (no-project) tasks are pinnable by whoever owns them
+// (i.e. always, since there's no other collaborator); project tasks are
+// pinnable only by the project owner.
+function canPinTask(t) {
+  if (!t.projectId) return true;
+  return isProjectOwner(t.projectId);
+}
+// Assignment only applies to tasks that belong to a project, and only the
+// project owner may set/change/clear it.
+function canAssignTask(t) {
+  return !!t.projectId && isProjectOwner(t.projectId);
+}
 
 // ===== Project announcements =====
 let projectAnnouncements = safeParse('projectAnnouncements', {});
@@ -1251,24 +1331,48 @@ projectModalSaveBtn.addEventListener('click', () => {
 });
 
 function deleteProject(id) {
+  const removedProject = getProject(id);
+  const removedAnnouncement = getProjectAnnouncement(id);
   projects = projects.filter(p => String(p.id) !== String(id));
-  let touched = [];
-  todos.forEach(t => { if (String(t.projectId) === String(id)) { t.projectId = null; touched.push(t); } });
+  let touchedIds = [];
+  todos.forEach(t => { if (String(t.projectId) === String(id)) { touchedIds.push(t.id); t.projectId = null; } });
   saveProjects();
   saveTodos();
   setProjectAnnouncement(id, '');
   if (currentUser) {
-    touched.forEach(t => dbUpdate('todos', t.id, { project_id: null }));
+    touchedIds.forEach(tid => { const t = todos.find(x => x.id === tid); if (t) dbUpdate('todos', t.id, { project_id: null }); });
     dbDelete('projects', id, currentUser.id);
   }
+  return { project: removedProject, announcement: removedAnnouncement, touchedIds };
 }
 projectDeleteBtn.addEventListener('click', () => {
   if (!currentProjectId) return;
   const p = getProject(currentProjectId);
   if (!p) return;
-  if (!confirm(`Delete "${p.name}"? Tasks in it will be kept but unassigned.`)) return;
-  deleteProject(currentProjectId);
-  setView('all');
+  openConfirmModal({
+    title: `Delete "${p.name}"?`,
+    message: "Tasks in it will be kept but unassigned. You can undo this right after.",
+    confirmLabel: 'Delete',
+    danger: true,
+    onConfirm: () => {
+      const removedId = p.id;
+      const { project, announcement, touchedIds } = deleteProject(removedId);
+      setView('all');
+      showUndoToast(`"${project.name}" deleted.`, () => {
+        projects.push(project);
+        saveProjects();
+        touchedIds.forEach(tid => { const t = todos.find(x => x.id === tid); if (t) t.projectId = removedId; });
+        saveTodos();
+        if (announcement) setProjectAnnouncement(removedId, announcement);
+        if (currentUser) {
+          dbUpsert('projects', projectRemoteRow(project));
+          touchedIds.forEach(tid => { const t = todos.find(x => x.id === tid); if (t) dbUpdate('todos', t.id, { project_id: removedId }); });
+        }
+        currentProjectId = removedId;
+        setView('project');
+      });
+    },
+  });
 });
 projectRenameBtn.addEventListener('click', () => {
   const p = getProject(currentProjectId);
@@ -1364,6 +1468,12 @@ function todoRemoteRow(t) {
     priority: t.priority,
     project_id: t.projectId || null,
     time_spent_sec: t.timeSpentSec || 0,
+    category: t.category || null,
+    subtasks: t.subtasks || [],
+    recurrence: t.recurrence || null,
+    reminder_time: t.reminderTime || null,
+    pinned: !!t.pinned,
+    assignee_email: t.assigneeEmail || null,
   };
 }
 function projectRemoteRow(p) {
@@ -1445,7 +1555,10 @@ function getFilteredTodos() {
   else if (currentView === 'completed') filtered = filtered.filter(t => t.done);
   else if (currentView === 'project') filtered = filtered.filter(t => String(t.projectId) === String(currentProjectId));
   if (taskCategoryFilterValue) filtered = filtered.filter(t => (t.category || '') === taskCategoryFilterValue);
-  if (taskSortMode === 'oldest') {
+  if (taskSortMode === 'manual') {
+    // Preserve the underlying todos array order — drag-to-reorder mutates
+    // that order directly, so no extra sort is applied here.
+  } else if (taskSortMode === 'oldest') {
     filtered.sort((a, b) => a.id - b.id);
   } else if (taskSortMode === 'newest') {
     filtered.sort((a, b) => b.id - a.id);
@@ -1464,7 +1577,7 @@ const taskSortBtn = document.getElementById('task-sort-btn');
 const taskSortMenu = document.getElementById('task-sort-menu');
 const taskCategoryBtn = document.getElementById('task-category-btn');
 const taskCategoryMenu = document.getElementById('task-category-menu');
-const TASK_SORT_LABELS = { default: 'Sort: Default', oldest: 'Sort: Oldest first', newest: 'Sort: Newest first' };
+const TASK_SORT_LABELS = { default: 'Sort: Default', oldest: 'Sort: Oldest first', newest: 'Sort: Newest first', manual: 'Sort: Custom order' };
 
 function closeTaskToolbarMenus() {
   if (taskSortMenu) taskSortMenu.classList.remove('open');
@@ -1551,6 +1664,8 @@ const ICON_PENCIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" 
 const ICON_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>';
 const ICON_SHIELD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>';
 const ICON_FLAG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V4"></path><path d="M4 4h13l-2.5 4L17 12H4"></path></svg>';
+const ICON_GRIP = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="9" cy="6" r="1.5"></circle><circle cx="15" cy="6" r="1.5"></circle><circle cx="9" cy="12" r="1.5"></circle><circle cx="15" cy="12" r="1.5"></circle><circle cx="9" cy="18" r="1.5"></circle><circle cx="15" cy="18" r="1.5"></circle></svg>';
+const ICON_PIN = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 17v5"></path><path d="M9 3h6l1 6 3 2.2c.5.4.2 1.3-.4 1.3H6.4c-.6 0-.9-.9-.4-1.3L9 9l1-6z"></path></svg>';
 
 function pillIcon(svgMarkup) {
   const span = document.createElement('span');
@@ -1559,23 +1674,39 @@ function pillIcon(svgMarkup) {
   return span;
 }
 
+// Meta pill rows built during this render pass whose scroll-overflow state
+// (see markTaskMetaOverflow) needs checking once they're actually laid out
+// in the DOM — a row's scrollWidth isn't meaningful before that.
+let taskMetaRowsNeedingOverflowCheck = [];
+function markTaskMetaOverflow() {
+  taskMetaRowsNeedingOverflowCheck.forEach(meta => {
+    if (!meta.isConnected) return;
+    meta.classList.toggle('has-overflow', meta.scrollWidth - meta.clientWidth > 2);
+  });
+  taskMetaRowsNeedingOverflowCheck = [];
+}
+
 function renderTodos() {
   renderTaskSortMenu();
   renderTaskCategoryFilterOptions();
+  todoListEl.classList.toggle('bulk-mode', bulkSelectMode);
   const filtered = getFilteredTodos();
   todoListEl.innerHTML = '';
   emptyState.style.display = filtered.length ? 'none' : 'block';
   const todayKey = todayStr();
   const frag = document.createDocumentFragment();
+  taskMetaRowsNeedingOverflowCheck = [];
 
   filtered.forEach(t => {
     const canToggle = canToggleTaskIn(t.projectId);
     const canRemove = canRemoveTaskFrom(t.projectId);
     const canRename = canRenameTaskIn(t.projectId);
 
+    const priorityLabel = t.priority === 'high' ? 'High priority' : t.priority === 'medium' ? 'Medium priority' : 'Low priority';
+
     const card = document.createElement('div');
-    card.className = `task-card priority-${t.priority}` + (t.done ? ' completed' : '');
-    card.draggable = window.innerWidth > 760;
+    card.className = `task-card priority-${t.priority}` + (t.done ? ' completed' : '') + (t.pinned ? ' is-pinned' : '') + (bulkSelectMode && bulkSelectedIds.has(t.id) ? ' bulk-selected' : '');
+    card.draggable = window.innerWidth > 760 && !bulkSelectMode;
     card.addEventListener('dragstart', (e) => {
       e.dataTransfer.setData('text/plain', String(t.id));
       e.dataTransfer.effectAllowed = 'move';
@@ -1585,25 +1716,87 @@ function renderTodos() {
     card.addEventListener('dragend', () => {
       card.classList.remove('dragging');
       hideDragDropzones();
+      todoListEl.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => el.classList.remove('drag-over-top', 'drag-over-bottom'));
+    });
+    card.addEventListener('dragover', (e) => {
+      if (bulkSelectMode) return;
+      e.preventDefault();
+      const rect = card.getBoundingClientRect();
+      const before = (e.clientY - rect.top) < rect.height / 2;
+      card.classList.toggle('drag-over-top', before);
+      card.classList.toggle('drag-over-bottom', !before);
+    });
+    card.addEventListener('dragleave', () => {
+      card.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
+    card.addEventListener('drop', (e) => {
+      if (bulkSelectMode) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const before = card.classList.contains('drag-over-top');
+      card.classList.remove('drag-over-top', 'drag-over-bottom');
+      const draggedId = e.dataTransfer.getData('text/plain');
+      if (!draggedId || String(t.id) === draggedId) return;
+      reorderTask(draggedId, t.id, before);
     });
     card.addEventListener('click', (e) => {
+      if (bulkSelectMode) {
+        if (e.target.closest('.bulk-select-checkbox')) return;
+        const cb = card.querySelector('.bulk-select-checkbox');
+        if (cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); }
+        return;
+      }
       if (e.target.closest('.task-check, .task-card-actions, .task-title-edit')) return;
       openTaskDetail(t.id);
     });
 
-    const top = document.createElement('div');
-    top.className = 'task-card-top';
+    if (!bulkSelectMode) {
+      const handle = document.createElement('span');
+      handle.className = 'task-drag-handle';
+      handle.title = 'Drag to reorder';
+      handle.setAttribute('aria-hidden', 'true');
+      handle.innerHTML = ICON_GRIP;
+      card.appendChild(handle);
+    }
 
-    const main = document.createElement('div');
-    main.className = 'task-main';
+    // ----- Content: the whole card is now one column starting at the
+    // left edge — title, description, metadata and progress all share
+    // that edge. The completion checkbox (and, in bulk mode, the select
+    // checkbox) moves to the top-right of the headline instead of its
+    // own leading column, so the left side is free for the priority dot
+    // + title to use the full card width.
+    const content = document.createElement('div');
+    content.className = 'task-card-content';
+
+    const headline = document.createElement('div');
+    headline.className = 'task-card-headline';
+
+    const headlineLeft = document.createElement('div');
+    headlineLeft.className = 'task-headline-left';
+
+    if (!bulkSelectMode) {
+      // A quiet colored dot rather than a full flag icon — small enough to
+      // read as metadata, not a component of its own, but still
+      // immediately distinguishable by color across the three priorities.
+      const dot = document.createElement('span');
+      dot.className = 'task-priority-dot priority-' + t.priority;
+      dot.title = priorityLabel;
+      dot.setAttribute('aria-label', priorityLabel);
+      headlineLeft.appendChild(dot);
+    }
+
     const title = document.createElement('div');
     title.className = 'task-title';
     title.textContent = t.text;
-    main.appendChild(title);
-    top.appendChild(main);
+    headlineLeft.appendChild(title);
+    headline.appendChild(headlineLeft);
 
-    const headerRight = document.createElement('div');
-    headerRight.className = 'task-card-header-right';
+    // ----- Right-hand cluster: rename/delete actions, then the
+    // completion (or bulk-select) checkbox last, furthest to the right —
+    // the single most important control on the card, but out of the way
+    // of the title/description reading path on the left.
+    const headlineRight = document.createElement('div');
+    headlineRight.className = 'task-headline-right';
 
     const actions = document.createElement('div');
     actions.className = 'task-card-actions';
@@ -1628,18 +1821,66 @@ function renderTodos() {
       });
       actions.appendChild(del);
     }
-    headerRight.appendChild(actions);
-    top.appendChild(headerRight);
+    headlineRight.appendChild(actions);
 
-    card.append(top);
+    const checkWrap = document.createElement('div');
+    checkWrap.className = 'task-card-check-col';
+
+    if (bulkSelectMode) {
+      const bulkCb = document.createElement('input');
+      bulkCb.type = 'checkbox';
+      bulkCb.className = 'task-check bulk-select-checkbox';
+      bulkCb.checked = bulkSelectedIds.has(t.id);
+      bulkCb.title = 'Select task';
+      bulkCb.setAttribute('aria-label', 'Select task');
+      bulkCb.addEventListener('change', () => {
+        if (bulkCb.checked) bulkSelectedIds.add(t.id); else bulkSelectedIds.delete(t.id);
+        card.classList.toggle('bulk-selected', bulkCb.checked);
+        updateBulkBar();
+      });
+      checkWrap.appendChild(bulkCb);
+    } else {
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'task-check';
+      checkbox.checked = t.done;
+      checkbox.disabled = !canToggle;
+      checkbox.title = t.done ? 'Mark as not done' : 'Mark as done';
+      checkbox.setAttribute('aria-label', t.done ? 'Mark task as not done' : 'Mark task as done');
+      checkbox.addEventListener('change', () => {
+        const wasDone = t.done;
+        t.done = checkbox.checked;
+        if (!wasDone && t.done) recordCompletion();
+        saveTodos(); renderTodos(); renderCounts();
+        if (currentUser) dbUpdate('todos', t.id, { done: t.done });
+        if (t.done) showToast('complete');
+      });
+      checkWrap.appendChild(checkbox);
+
+      if (t.pinned) {
+        const pin = document.createElement('span');
+        pin.className = 'task-pin-badge';
+        pin.title = 'Pinned';
+        pin.setAttribute('aria-label', 'Pinned task');
+        pin.innerHTML = ICON_PIN;
+        checkWrap.appendChild(pin);
+      }
+    }
+    headlineRight.appendChild(checkWrap);
+
+    headline.appendChild(headlineRight);
+    content.appendChild(headline);
 
     if (t.desc) {
       const desc = document.createElement('div');
       desc.className = 'task-desc';
       desc.textContent = t.desc;
-      card.appendChild(desc);
+      content.appendChild(desc);
     }
 
+    // ----- Grouped, visually quiet metadata: due date, project/folder,
+    // category and tracked time all live together as one scannable row,
+    // clearly secondary to the title above them.
     const meta = document.createElement('div');
     meta.className = 'task-meta';
     if (t.due) {
@@ -1667,6 +1908,12 @@ function renderTodos() {
         meta.appendChild(tag);
       }
     }
+    if (t.category) {
+      const cat = document.createElement('span');
+      cat.className = 'task-pill task-card-category';
+      cat.textContent = t.category;
+      meta.appendChild(cat);
+    }
     if (t.done && t.timeSpentSec > 0) {
       const timePill = document.createElement('span');
       timePill.className = 'task-pill';
@@ -1674,46 +1921,73 @@ function renderTodos() {
       timePill.textContent = `⏱ ${formatDuration(t.timeSpentSec)}`;
       meta.appendChild(timePill);
     }
-    if (t.category) {
-      const cat = document.createElement('span');
-      cat.className = 'task-card-category';
-      cat.textContent = t.category;
-      meta.appendChild(cat);
+    if (t.assigneeEmail) {
+      const assignee = document.createElement('span');
+      assignee.className = 'task-pill assignee-tag';
+      assignee.title = 'Assigned to ' + t.assigneeEmail;
+      assignee.appendChild(pillIcon(ICON_PEOPLE));
+      const assigneeText = document.createElement('span');
+      assigneeText.textContent = t.assigneeEmail.split('@')[0];
+      assignee.appendChild(assigneeText);
+      meta.appendChild(assignee);
     }
-    if (meta.children.length) card.appendChild(meta);
+    if (meta.children.length) content.appendChild(meta);
+    if (meta.children.length > 1) taskMetaRowsNeedingOverflowCheck.push(meta);
 
-    const footer = document.createElement('div');
-    footer.className = 'task-card-progress-row';
+    const progress = subtaskProgress(t);
+    if (progress) {
+      const pct = Math.round((progress.done / progress.total) * 100);
+      const subtaskWrap = document.createElement('div');
+      subtaskWrap.className = 'task-card-subtask-wrap';
 
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.className = 'task-check';
-    checkbox.checked = t.done;
-    checkbox.disabled = !canToggle;
-    checkbox.title = t.priority === 'high' ? 'High priority' : t.priority === 'medium' ? 'Medium priority' : 'Low priority';
-    checkbox.addEventListener('change', () => {
-      const wasDone = t.done;
-      t.done = checkbox.checked;
-      if (!wasDone && t.done) recordCompletion();
-      saveTodos(); renderTodos(); renderCounts();
-      if (currentUser) dbUpdate('todos', t.id, { done: t.done });
-      if (t.done) showToast('complete');
-    });
+      const barWrap = document.createElement('div');
+      barWrap.className = 'task-card-subtask-bar';
+      barWrap.title = `${progress.done}/${progress.total} checklist items done`;
+      const barFill = document.createElement('div');
+      barFill.className = 'task-card-subtask-bar-fill' + (pct === 100 ? ' complete' : '');
+      barFill.style.width = pct + '%';
+      barWrap.appendChild(barFill);
+      subtaskWrap.appendChild(barWrap);
 
-    const spacer = document.createElement('span');
-    spacer.style.flex = '1';
+      const barLabel = document.createElement('div');
+      barLabel.className = 'task-card-subtask-count';
+      barLabel.textContent = `${progress.done} / ${progress.total} completed`;
+      subtaskWrap.appendChild(barLabel);
 
-    const flag = document.createElement('span');
-    flag.className = 'task-priority-flag priority-' + t.priority;
-    flag.title = t.priority === 'high' ? 'High priority' : t.priority === 'medium' ? 'Medium priority' : 'Low priority';
-    flag.innerHTML = ICON_FLAG;
+      content.appendChild(subtaskWrap);
+    }
 
-    footer.append(checkbox, spacer, flag);
-    card.appendChild(footer);
-
+    card.appendChild(content);
     frag.appendChild(card);
   });
   todoListEl.appendChild(frag);
+  // Runs after the fragment is actually in the DOM (and thus laid out),
+  // and on the next resize so orientation changes / sidebar toggles
+  // re-evaluate which pill rows need the scroll fade.
+  requestAnimationFrame(markTaskMetaOverflow);
+}
+if (!window.__taskMetaResizeBound) {
+  window.__taskMetaResizeBound = true;
+  window.addEventListener('resize', () => {
+    document.querySelectorAll('.task-meta').forEach(meta => {
+      meta.classList.toggle('has-overflow', meta.scrollWidth - meta.clientWidth > 2);
+    });
+  });
+}
+
+function reorderTask(draggedIdRaw, targetId, before) {
+  const draggedIdx = todos.findIndex(x => String(x.id) === String(draggedIdRaw));
+  const targetIdx = todos.findIndex(x => x.id === targetId);
+  if (draggedIdx === -1 || targetIdx === -1 || draggedIdx === targetIdx) return;
+  const [moved] = todos.splice(draggedIdx, 1);
+  let insertAt = todos.findIndex(x => x.id === targetId);
+  if (insertAt === -1) insertAt = todos.length;
+  if (!before) insertAt += 1;
+  todos.splice(insertAt, 0, moved);
+  taskSortMode = 'manual';
+  saveTodos();
+  renderTodos();
+  renderTaskSortMenu();
 }
 
 function startInlineEdit(titleEl, t) {
@@ -1753,9 +2027,25 @@ const taskDetailProject = document.getElementById('task-detail-project');
 const taskDetailCategory = document.getElementById('task-detail-category');
 const taskDetailAddCategoryBtn = document.getElementById('task-detail-add-category-btn');
 const taskDetailClose = document.getElementById('task-detail-close');
+const taskDetailPinBtn = document.getElementById('task-detail-pin-btn');
+const taskDetailAssigneeField = document.getElementById('task-detail-assignee-field');
+const taskDetailAssignee = document.getElementById('task-detail-assignee');
 const taskDetailSaveBtn = document.getElementById('task-detail-save-btn');
 const taskDetailDeleteBtn = document.getElementById('task-detail-delete-btn');
 let activeDetailTaskId = null;
+
+function fillTaskDetailAssigneeOptions(t) {
+  taskDetailAssignee.innerHTML = '<option value="">Unassigned</option>';
+  if (!t.projectId) return;
+  const members = membersForProject(t.projectId).filter(m => m.status === 'accepted');
+  members.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.member_email;
+    opt.textContent = m.member_email;
+    taskDetailAssignee.appendChild(opt);
+  });
+  taskDetailAssignee.value = members.some(m => m.member_email === t.assigneeEmail) ? t.assigneeEmail : '';
+}
 
 function fillTaskDetailProjectOptions(selectedId) {
   taskDetailProject.innerHTML = '<option value="">No project</option>';
@@ -1795,6 +2085,26 @@ function openTaskDetail(taskId) {
   taskDetailDeleteBtn.style.display = canRemove ? '' : 'none';
   taskDetailSaveBtn.style.display = canRename ? '' : 'none';
 
+  const canPin = canPinTask(t);
+  taskDetailPinBtn.classList.toggle('active', !!t.pinned);
+  taskDetailPinBtn.setAttribute('aria-pressed', t.pinned ? 'true' : 'false');
+  taskDetailPinBtn.title = t.pinned ? 'Unpin task' : 'Pin task';
+  taskDetailPinBtn.disabled = !canPin;
+
+  const canAssign = canAssignTask(t);
+  if (t.projectId) {
+    taskDetailAssigneeField.style.display = '';
+    fillTaskDetailAssigneeOptions(t);
+    taskDetailAssignee.disabled = !canAssign;
+  } else {
+    taskDetailAssigneeField.style.display = 'none';
+  }
+
+  taskDetailReminder.value = t.reminderTime || '';
+  taskDetailReminder.disabled = !canRename;
+  taskDetailRecurrence.value = t.recurrence ? t.recurrence.freq : '';
+  taskDetailRecurrence.disabled = !canRename;
+
   const timeField = document.getElementById('task-detail-time-field');
   const timeEl = document.getElementById('task-detail-time');
   if (timeField && timeEl) {
@@ -1820,18 +2130,158 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && taskDetailOverlay.classList.contains('open')) closeTaskDetail();
 });
 
+taskDetailPinBtn.addEventListener('click', () => {
+  const t = todos.find(x => x.id === activeDetailTaskId);
+  if (!t || !canPinTask(t) || taskDetailPinBtn.disabled) return;
+  t.pinned = !t.pinned;
+  taskDetailPinBtn.classList.toggle('active', t.pinned);
+  taskDetailPinBtn.setAttribute('aria-pressed', t.pinned ? 'true' : 'false');
+  taskDetailPinBtn.title = t.pinned ? 'Unpin task' : 'Pin task';
+  saveTodos(); renderTodos();
+  if (currentUser) dbUpdate('todos', t.id, { pinned: t.pinned });
+  showToast('permission');
+});
+
 taskDetailCheck.addEventListener('change', () => {
   const t = todos.find(x => x.id === activeDetailTaskId);
   if (!t) return;
   const wasDone = t.done;
   t.done = taskDetailCheck.checked;
-  if (!wasDone && t.done) recordCompletion();
+  if (!wasDone && t.done) { recordCompletion(); handleRecurringCompletion(t); }
   taskDetailTitle.classList.toggle('completed', t.done);
   saveTodos(); renderTodos(); renderCounts();
   if (currentUser) dbUpdate('todos', t.id, { done: t.done });
 });
 
+const taskDetailRecurrence = document.getElementById('task-detail-recurrence');
+taskDetailRecurrence.addEventListener('change', () => {
+  const t = todos.find(x => x.id === activeDetailTaskId);
+  if (!t) return;
+  t.recurrence = taskDetailRecurrence.value ? { freq: taskDetailRecurrence.value, interval: 1, until: null } : null;
+  if (currentUser) dbUpdate('todos', t.id, { recurrence: t.recurrence });
+});
+
 taskDetailAddCategoryBtn.addEventListener('click', () => addTaskCategory(taskDetailCategory));
+
+// ===== Subtasks / checklist =====
+const taskDetailSubtaskList = document.getElementById('task-detail-subtask-list');
+const taskDetailSubtaskInput = document.getElementById('task-detail-subtask-input');
+const taskDetailSubtaskAddBtn = document.getElementById('task-detail-subtask-add-btn');
+const taskDetailSubtaskCount = document.getElementById('task-detail-subtask-count');
+const taskDetailSubtaskProgress = document.getElementById('task-detail-subtask-progress');
+const taskDetailSubtaskProgressFill = document.getElementById('task-detail-subtask-progress-fill');
+
+function subtaskProgress(t) {
+  const subs = t.subtasks || [];
+  if (!subs.length) return null;
+  const done = subs.filter(s => s.done).length;
+  return { done, total: subs.length };
+}
+
+function persistSubtasks(t) {
+  saveTodos();
+  if (currentUser) dbUpdate('todos', t.id, { subtasks: t.subtasks });
+}
+
+function renderSubtaskList(t) {
+  const progress = subtaskProgress(t);
+  if (progress) {
+    const pct = Math.round((progress.done / progress.total) * 100);
+    taskDetailSubtaskProgress.style.display = '';
+    taskDetailSubtaskProgressFill.style.width = pct + '%';
+    taskDetailSubtaskProgressFill.classList.toggle('complete', pct === 100);
+    taskDetailSubtaskCount.textContent = `${progress.done}/${progress.total}`;
+  } else {
+    taskDetailSubtaskProgress.style.display = 'none';
+    taskDetailSubtaskCount.textContent = '';
+  }
+
+  taskDetailSubtaskList.innerHTML = '';
+  const canEdit = canRenameTaskIn(t.projectId);
+  (t.subtasks || []).forEach(s => {
+    const row = document.createElement('div');
+    row.className = 'task-detail-subtask-row' + (s.done ? ' completed' : '');
+
+    const check = document.createElement('input');
+    check.type = 'checkbox';
+    check.checked = s.done;
+    check.disabled = !canEdit;
+    check.addEventListener('change', () => {
+      s.done = check.checked;
+      persistSubtasks(t);
+      renderSubtaskList(t);
+      renderTodos();
+    });
+
+    const label = document.createElement('span');
+    label.className = 'task-detail-subtask-text';
+    label.textContent = s.text;
+    label.title = canEdit ? 'Click to rename' : '';
+    if (canEdit) {
+      label.addEventListener('click', () => {
+        const editInput = document.createElement('input');
+        editInput.type = 'text';
+        editInput.className = 'task-detail-subtask-edit';
+        editInput.value = s.text;
+        label.replaceWith(editInput);
+        editInput.focus(); editInput.select();
+        const commit = () => {
+          const v = editInput.value.trim();
+          if (v) s.text = v;
+          persistSubtasks(t);
+          renderSubtaskList(t);
+        };
+        editInput.addEventListener('blur', commit);
+        editInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); editInput.blur(); }
+          if (e.key === 'Escape') { editInput.value = s.text; editInput.blur(); }
+        });
+      });
+    }
+
+    row.append(check, label);
+
+    if (canEdit) {
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'task-icon-btn delete-btn task-detail-subtask-remove';
+      del.title = 'Remove item';
+      del.innerHTML = ICON_TRASH;
+      del.addEventListener('click', () => {
+        t.subtasks = (t.subtasks || []).filter(x => x.id !== s.id);
+        persistSubtasks(t);
+        renderSubtaskList(t);
+        renderTodos();
+      });
+      row.appendChild(del);
+    }
+
+    taskDetailSubtaskList.appendChild(row);
+  });
+}
+
+function addSubtaskFromInput(t) {
+  const text = taskDetailSubtaskInput.value.trim();
+  if (!text) return;
+  if (!t.subtasks) t.subtasks = [];
+  t.subtasks.push({ id: Date.now() + Math.random().toString(36).slice(2, 6), text, done: false });
+  taskDetailSubtaskInput.value = '';
+  persistSubtasks(t);
+  renderSubtaskList(t);
+  renderTodos();
+  taskDetailSubtaskInput.focus();
+}
+
+taskDetailSubtaskAddBtn.addEventListener('click', () => {
+  const t = todos.find(x => x.id === activeDetailTaskId);
+  if (t) addSubtaskFromInput(t);
+});
+taskDetailSubtaskInput.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const t = todos.find(x => x.id === activeDetailTaskId);
+  if (t) addSubtaskFromInput(t);
+});
 
 taskDetailSaveBtn.addEventListener('click', () => {
   const t = todos.find(x => x.id === activeDetailTaskId);
@@ -1843,8 +2293,16 @@ taskDetailSaveBtn.addEventListener('click', () => {
   t.priority = taskDetailPriority.value;
   t.projectId = taskDetailProject.value || null;
   t.category = taskDetailCategory.value || null;
+  t.reminderTime = taskDetailReminder.value || null;
+  if (!t.projectId) {
+    t.assigneeEmail = null;
+  } else if (canAssignTask(t)) {
+    const chosen = taskDetailAssignee.value || null;
+    const stillMember = chosen && membersForProject(t.projectId).some(m => m.status === 'accepted' && m.member_email === chosen);
+    t.assigneeEmail = stillMember ? chosen : null;
+  }
   saveTodos(); renderTodos(); renderCounts(); renderProjectNav();
-  if (currentUser) dbUpdate('todos', t.id, { text: t.text, desc: t.desc, due: t.due, priority: t.priority, projectId: t.projectId });
+  if (currentUser) dbUpdate('todos', t.id, { text: t.text, desc: t.desc, due: t.due, priority: t.priority, projectId: t.projectId, reminderTime: t.reminderTime, assigneeEmail: t.assigneeEmail });
   closeTaskDetail();
 });
 
@@ -2046,6 +2504,7 @@ function renderCounts() {
   document.getElementById('count-today').textContent = todos.filter(t => t.due === todayStr()).length;
   document.getElementById('count-active').textContent = todos.filter(t => !t.done).length;
   document.getElementById('count-completed').textContent = todos.filter(t => t.done).length;
+  if (!currentUser) renderNotifBadge();
   renderHomeSummary();
 }
 
@@ -2134,6 +2593,7 @@ function renderHomeSummary() {
   renderHomeFocus();
   renderHomeProgress();
   renderHomeMiniCal();
+  renderHomeStreak();
   homeWidgetsEl.style.display = 'flex';
 }
 
@@ -2330,10 +2790,18 @@ form.addEventListener('submit', (e) => {
 });
 
 clearBtn.addEventListener('click', () => {
+  const removed = todos.filter(t => t.done);
+  if (!removed.length) return;
   todos = todos.filter(t => !t.done);
   saveTodos();
   renderTodos(); renderCounts(); renderViewHeader(); renderProjectNav();
   if (currentUser) dbDeleteWhere('todos', currentUser.id, { done: true });
+  showUndoToast(`${removed.length} completed task${removed.length === 1 ? '' : 's'} cleared.`, () => {
+    todos = todos.concat(removed);
+    saveTodos();
+    renderTodos(); renderCounts(); renderViewHeader(); renderProjectNav();
+    if (currentUser) removed.forEach(t => dbUpsert('todos', todoRemoteRow(t)));
+  });
 });
 
 // ===== Permissions popover =====
@@ -2650,6 +3118,46 @@ inviteSendBtn.addEventListener('click', async () => {
 });
 
 // ===== Notification inbox =====
+const GUEST_NOTIF_READ_KEY = 'aschertypeGuestNotifRead';
+function getGuestNotifReadIds() {
+  return new Set(safeParse(GUEST_NOTIF_READ_KEY, []));
+}
+function markGuestNotifRead(id) {
+  const ids = getGuestNotifReadIds();
+  ids.add(id);
+  safeSetItem(GUEST_NOTIF_READ_KEY, JSON.stringify(Array.from(ids)));
+}
+function markAllGuestNotifRead(ids) {
+  const set = getGuestNotifReadIds();
+  ids.forEach(id => set.add(id));
+  safeSetItem(GUEST_NOTIF_READ_KEY, JSON.stringify(Array.from(set)));
+}
+// Guests have no account to sync notifications from, but they still get
+// useful local reminders (overdue / due-today tasks) computed from their
+// own on-device task list. Read state persists locally so it doesn't
+// re-notify every render, and this never touches the cloud `notifications`
+// array used for signed-in users, so nothing is duplicated between the two.
+function computeGuestNotifications() {
+  const readIds = getGuestNotifReadIds();
+  const todayKey = todayStr();
+  const items = [];
+  todos.forEach(t => {
+    if (t.done || !t.due) return;
+    if (t.due < todayKey) {
+      const id = `overdue:${t.id}:${t.due}`;
+      items.push({ id, title: 'Overdue task', body: t.text, created_at: new Date(t.due + 'T00:00:00').toISOString(), read: readIds.has(id) });
+    } else if (t.due === todayKey) {
+      const id = `due-today:${t.id}:${t.due}`;
+      items.push({ id, title: 'Due today', body: t.text, created_at: new Date().toISOString(), read: readIds.has(id) });
+    }
+  });
+  items.sort((a, b) => Number(a.read) - Number(b.read));
+  return items;
+}
+function activeNotifications() {
+  return currentUser ? notifications : computeGuestNotifications();
+}
+
 const notifBell = document.getElementById('notif-bell');
 const mobileNotifBell = document.getElementById('mobile-notif-bell');
 const notifCountEl = document.getElementById('notif-count');
@@ -2658,14 +3166,14 @@ const notifOverlay = document.getElementById('notif-overlay');
 const notifListEl = document.getElementById('notif-list');
 
 function renderNotifBadge() {
-  if (!currentUser) {
+  if (!currentUser && !isGuest) {
     notifBell.classList.add('hidden');
     mobileNotifBell.style.display = 'none';
     return;
   }
   notifBell.classList.remove('hidden');
   mobileNotifBell.style.display = 'flex';
-  const unread = notifications.filter(n => !n.read).length;
+  const unread = activeNotifications().filter(n => !n.read).length;
   const txt = unread > 9 ? '9+' : String(unread);
   if (unread > 0) {
     notifCountEl.textContent = txt; notifCountEl.style.display = 'flex';
@@ -2690,15 +3198,16 @@ function formatNotifTime(iso) {
 function renderNotifList() {
   if (!notifListEl) return;
   notifListEl.innerHTML = '';
-  if (!currentUser) {
+  if (!currentUser && !isGuest) {
     notifListEl.innerHTML = '<div class="notif-empty">Sign in to receive notifications.</div>';
     return;
   }
-  if (!notifications.length) {
+  const list = activeNotifications();
+  if (!list.length) {
     notifListEl.innerHTML = '<div class="notif-empty">You\'re all caught up.</div>';
     return;
   }
-  notifications.forEach(n => {
+  list.forEach(n => {
     const item = document.createElement('div');
     item.className = 'notif-item' + (n.read ? '' : ' unread');
 
@@ -2756,7 +3265,8 @@ function renderNotifList() {
       n.read = true;
       renderNotifBadge();
       item.classList.remove('unread');
-      await dbMarkNotificationRead(n.id);
+      if (currentUser) await dbMarkNotificationRead(n.id);
+      else markGuestNotifRead(n.id);
     });
 
     notifListEl.appendChild(item);
@@ -2784,8 +3294,12 @@ document.getElementById('notif-close-btn').addEventListener('click', () => { not
 notifOverlay.addEventListener('click', (e) => { if (e.target === notifOverlay) notifOverlay.style.display = 'none'; });
 
 document.getElementById('notif-mark-all-btn').addEventListener('click', async () => {
-  const unread = notifications.filter(n => !n.read);
-  for (const n of unread) { n.read = true; await dbMarkNotificationRead(n.id); }
+  if (currentUser) {
+    const unread = notifications.filter(n => !n.read);
+    for (const n of unread) { n.read = true; await dbMarkNotificationRead(n.id); }
+  } else if (isGuest) {
+    markAllGuestNotifRead(computeGuestNotifications().map(n => n.id));
+  }
   renderNotifBadge(); renderNotifList();
 });
 
@@ -2819,8 +3333,13 @@ async function refreshSharedData() {
     todos = remoteTodos.map(t => ({
       id: t.id, text: t.text, desc: t.desc, done: t.done,
       due: t.due, priority: t.priority, projectId: t.project_id || null,
-      category: localCategoryById.get(String(t.id)) || null,
+      category: t.category != null ? t.category : (localCategoryById.get(String(t.id)) || null),
       timeSpentSec: t.time_spent_sec || 0,
+      subtasks: t.subtasks || [],
+      recurrence: t.recurrence || null,
+      reminderTime: t.reminder_time || null,
+      pinned: !!t.pinned,
+      assigneeEmail: t.assignee_email || null,
     }));
     saveTodos();
   }
@@ -3316,6 +3835,13 @@ function handleRealtimeTodo(payload) {
     due: row.due,
     priority: row.priority,
     projectId: row.project_id || null,
+    category: row.category || null,
+    timeSpentSec: row.time_spent_sec || 0,
+    subtasks: row.subtasks || [],
+    recurrence: row.recurrence || null,
+    reminderTime: row.reminder_time || null,
+    pinned: !!row.pinned,
+    assigneeEmail: row.assignee_email || null,
   };
   const idx = todos.findIndex(t => String(t.id) === String(mapped.id));
   if (idx >= 0) todos[idx] = mapped;
@@ -3605,6 +4131,7 @@ window.addEventListener('offline', updateConnectionStatus);
 
 // ===== Welcome modal =====
 const WELCOME_KEY = 'aschertypeWelcomeSeen';
+let onboardingChainNext = null;
 const welcomeOverlay = document.getElementById('welcome-overlay');
 const welcomeDismissBtn = document.getElementById('welcome-dismiss-btn');
 const showWelcomeBtn = document.getElementById('show-welcome-btn');
@@ -3636,12 +4163,10 @@ function maybeShowWelcome() {
 function dismissWelcome() {
   safeSetItem(WELCOME_KEY, 'true');
   welcomeOverlay.style.display = 'none';
+  if (onboardingChainNext) { const next = onboardingChainNext; onboardingChainNext = null; next(); }
 }
 if (welcomeDismissBtn) welcomeDismissBtn.addEventListener('click', dismissWelcome);
-if (showWelcomeBtn) showWelcomeBtn.addEventListener('click', () => {
-  safeRemoveItem(WELCOME_KEY);
-  maybeShowWelcome();
-});
+if (showWelcomeBtn) showWelcomeBtn.addEventListener('click', () => { runWelcomeGuideFlow({ forced: true }); });
 if (welcomeOverlay) {
   welcomeOverlay.addEventListener('click', (e) => {
     if (e.target === welcomeOverlay) dismissWelcome();
@@ -3650,6 +4175,7 @@ if (welcomeOverlay) {
 
 // ===== Tips intro modal =====
 const TIPS_INTRO_KEY = 'aschertypeTipsIntroSeen';
+let tipsChainNext = null;
 const tipsIntroOverlay = document.getElementById('tips-intro-overlay');
 const tipsIntroDismissBtn = document.getElementById('tips-intro-dismiss-btn');
 
@@ -3663,12 +4189,429 @@ function maybeShowTipsIntro() {
 function dismissTipsIntro() {
   safeSetItem(TIPS_INTRO_KEY, 'true');
   tipsIntroOverlay.style.display = 'none';
+  if (tipsChainNext) { const next = tipsChainNext; tipsChainNext = null; next(); }
 }
 if (tipsIntroDismissBtn) tipsIntroDismissBtn.addEventListener('click', dismissTipsIntro);
 if (tipsIntroOverlay) {
   tipsIntroOverlay.addEventListener('click', (e) => {
     if (e.target === tipsIntroOverlay) dismissTipsIntro();
   });
+}
+
+// ===== Onboarding tutorial =====
+//
+// This is a small state machine rather than a flat "highlight this
+// selector" list, because a tutorial that moves the user between real
+// features (Dashboard → Tasks → Calendar → Notes → Pomodoro → Projects →
+// Settings) has to solve three problems every step, in order:
+//
+//   1. Navigation  — am I even on the right view for this step? If not,
+//      switch to it first (via the app's own setView/sidebar functions,
+//      never by guessing coordinates).
+//   2. Readiness   — has the destination actually finished rendering, and
+//      is the target element really visible (not display:none, not
+//      zero-size, not detached)? Wait until it is, with a bounded timeout.
+//   3. Sequencing  — if the user mashes Next/Back/Skip, or the app state
+//      changes while we're mid-wait, make sure only the *latest* request
+//      is allowed to paint a spotlight. Stale async work is discarded.
+//
+// Every step therefore goes through the same pipeline (tutorialShowStep),
+// and every async operation is tagged with a "run token" that is bumped
+// each time the step changes; any callback that finishes after its token
+// has been superseded simply no-ops instead of rendering out of order.
+
+const TUTORIAL_KEY = 'aschertypeTutorialSeen';
+const tutorialOverlay = document.getElementById('tutorial-overlay');
+const tutorialSpotlight = document.getElementById('tutorial-spotlight');
+const tutorialTooltip = document.getElementById('tutorial-tooltip');
+const tutorialTitleEl = document.getElementById('tutorial-title');
+const tutorialDescEl = document.getElementById('tutorial-desc');
+const tutorialDotsEl = document.getElementById('tutorial-dots');
+const tutorialBackBtn = document.getElementById('tutorial-back-btn');
+const tutorialNextBtn = document.getElementById('tutorial-next-btn');
+const tutorialSkipBtn = document.getElementById('tutorial-skip-btn');
+
+// Existing users (anyone who already dismissed the welcome guide before this
+// feature existed) should never be auto-enrolled into the tutorial — only
+// genuinely first-time users see it automatically. They can still replay it
+// manually from Settings at any time.
+if (safeGetItem(WELCOME_KEY) === 'true' && safeGetItem(TUTORIAL_KEY) !== 'true') {
+  safeSetItem(TUTORIAL_KEY, 'true');
+}
+
+const TUTORIAL_MOBILE_BREAKPOINT = 860;
+
+// Each step declares:
+//   view       — the app view (setView() target) this step's target lives
+//                on, or null if it doesn't require switching (e.g. the
+//                target is visible from any view, like the sidebar).
+//   inSidebar  — true if the target lives inside the collapsible sidebar,
+//                so it needs the sidebar opened on narrow viewports.
+//   selector / getTarget — how to find the live element. Most steps use a
+//                plain selector; a couple need to pick between a mobile and
+//                a desktop equivalent (e.g. the notification bell has two
+//                different buttons depending on layout), so those provide
+//                a getTarget() function instead.
+const TUTORIAL_STEPS = [
+  {
+    id: 'home', view: 'all', inSidebar: true, selector: '#all-tasks-btn',
+    title: 'Your Home view',
+    desc: 'See today\u2019s tasks and quick stats at a glance. This is where you\u2019ll land each time.',
+  },
+  {
+    id: 'dashboard', view: 'all', selector: '#home-summary',
+    title: 'Your dashboard',
+    desc: 'Your greeting, today\u2019s counts, and this week\u2019s progress live right here.',
+  },
+  {
+    id: 'add-task', view: 'all', selector: '#task-add-toggle',
+    title: 'Add a task',
+    desc: 'Click here to add a task with a due date, priority, and category.',
+  },
+  {
+    id: 'task-toolbar', view: 'all', selector: '#task-toolbar',
+    title: 'Sort & filter',
+    desc: 'Reorder your list or filter by category using these controls.',
+  },
+  {
+    id: 'tools-nav', view: 'all', inSidebar: true, selector: '.nav-item[data-view="calendar"]',
+    title: 'More tools',
+    desc: 'Calendar, Notes, and Pomodoro live in this section of the sidebar.',
+  },
+  {
+    id: 'calendar', view: 'calendar', selector: '.calendar-main',
+    title: 'Plan with Calendar',
+    desc: 'See events and due tasks laid out by day, and add new events straight from here.',
+  },
+  {
+    id: 'notes', view: 'notes', selector: '.notes-toolbar',
+    title: 'Capture ideas in Notes',
+    desc: 'Jot down quick notes and keep them organized into categories.',
+  },
+  {
+    id: 'pomodoro', view: 'pomodoro', selector: '.pomodoro-card',
+    title: 'Focus with Pomodoro',
+    desc: 'Run timed focus sessions and queue up the tasks you want to work through.',
+  },
+  {
+    id: 'projects', view: 'all', inSidebar: true, selector: '#add-project-btn',
+    title: 'Create projects',
+    desc: 'Group related tasks into a project to keep things organized.',
+  },
+  {
+    id: 'notif',
+    getTarget: () => document.getElementById(window.innerWidth <= TUTORIAL_MOBILE_BREAKPOINT ? 'mobile-notif-bell' : 'notif-bell'),
+    title: 'Stay notified',
+    desc: 'Reminders about due tasks and updates show up here.',
+  },
+  {
+    id: 'settings-nav', inSidebar: true, selector: '.nav-item[data-view="settings"]',
+    title: 'Make it yours',
+    desc: 'Adjust theme, notifications, and other preferences any time in Settings.',
+  },
+  {
+    id: 'settings-theme', view: 'settings', selector: '#theme-toggle',
+    title: 'Personalize the theme',
+    desc: 'Switch between light and dark, or leave it following your device.',
+  },
+];
+
+let tutorialActive = false;
+let tutorialStep = -1;
+let tutorialRunToken = 0;
+let tutorialSidebarOpenedByUs = false;
+let tutorialRafId = null;
+let tutorialSettleTimer = null;
+
+// A target counts as highlightable only if it's actually connected AND
+// rendered with real, on-screen dimensions — not just "exists in the DOM".
+// offsetParent is null for anything with display:none on itself or an
+// ancestor (cheap to check every animation frame); the size check catches
+// the rest (visibility:hidden, zero-height collapsed containers, etc).
+function tutorialIsVisible(el) {
+  if (!el || !el.isConnected) return false;
+  const style = window.getComputedStyle(el);
+  if (style.display === 'none' || style.visibility === 'hidden') return false;
+  if (el.offsetParent === null && style.position !== 'fixed' && style.position !== 'sticky') return false;
+  const r = el.getBoundingClientRect();
+  return r.width > 0 && r.height > 0;
+}
+
+function tutorialResolveTarget(step) {
+  if (!step) return null;
+  const el = typeof step.getTarget === 'function' ? step.getTarget() : document.querySelector(step.selector);
+  return tutorialIsVisible(el) ? el : null;
+}
+
+// Waits for a step's target to exist AND be visible, up to a timeout.
+// Combines a MutationObserver (reacts immediately to DOM/attribute changes
+// from setView/render calls) with a per-frame poll (catches layout changes
+// that don't touch attributes, like a CSS media-query breakpoint). Bails
+// out early — and stops all work — the moment `token` is superseded by a
+// newer step request, so a slow render can never paint over a step the
+// user has already navigated away from.
+function tutorialWaitForTarget(step, token, timeoutMs) {
+  return new Promise((resolve) => {
+    const deadline = performance.now() + (timeoutMs || 4000);
+    let settled = false;
+    let observer = null;
+    let rafId = null;
+
+    function cleanup() {
+      if (observer) observer.disconnect();
+      if (rafId) cancelAnimationFrame(rafId);
+    }
+    function finish(el) {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(el);
+    }
+    function tick() {
+      if (token !== tutorialRunToken || !tutorialActive) { finish(null); return; }
+      const el = tutorialResolveTarget(step);
+      if (el) { finish(el); return; }
+      if (performance.now() >= deadline) { finish(null); return; }
+      rafId = requestAnimationFrame(tick);
+    }
+
+    observer = new MutationObserver(() => {
+      if (token !== tutorialRunToken || !tutorialActive) { finish(null); return; }
+      const el = tutorialResolveTarget(step);
+      if (el) finish(el);
+    });
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+
+    tick();
+  });
+}
+
+// Recomputes and applies spotlight + tooltip position from the target
+// element's LIVE bounding rect, every animation frame while this token is
+// still current. This is what makes the highlight track scrolling,
+// resizing, and layout changes in any container without ever going stale
+// — and it self-heals if the target genuinely disappears mid-step (e.g. a
+// window resize closes the sidebar) by re-running the full step pipeline
+// instead of continuing to draw a spotlight around nothing.
+function tutorialTrack(token) {
+  if (token !== tutorialRunToken || !tutorialActive) return;
+  const step = TUTORIAL_STEPS[tutorialStep];
+  const el = tutorialResolveTarget(step);
+  if (!el) {
+    tutorialShowStep(tutorialStep);
+    return;
+  }
+
+  const pad = 8;
+  const r = el.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  const top = Math.max(0, r.top - pad);
+  const left = Math.max(0, r.left - pad);
+  const width = Math.min(r.width + pad * 2, vw - left);
+  const height = Math.min(r.height + pad * 2, vh - top);
+  tutorialSpotlight.style.top = top + 'px';
+  tutorialSpotlight.style.left = left + 'px';
+  tutorialSpotlight.style.width = Math.max(0, width) + 'px';
+  tutorialSpotlight.style.height = Math.max(0, height) + 'px';
+
+  // Position the tooltip using its actual measured size so it never runs
+  // off any edge of the viewport, at any screen size.
+  const margin = 16;
+  const tw = tutorialTooltip.offsetWidth || 280;
+  const th = tutorialTooltip.offsetHeight || 140;
+
+  let ttop = r.bottom + 16;
+  if (ttop + th > vh - margin) {
+    const above = r.top - 16 - th;
+    ttop = above >= margin ? above : Math.max(margin, vh - th - margin);
+  }
+  ttop = Math.min(Math.max(ttop, margin), Math.max(margin, vh - th - margin));
+
+  let tleft = r.left;
+  tleft = Math.min(Math.max(tleft, margin), Math.max(margin, vw - tw - margin));
+
+  tutorialTooltip.style.top = ttop + 'px';
+  tutorialTooltip.style.left = tleft + 'px';
+
+  tutorialRafId = requestAnimationFrame(() => tutorialTrack(token));
+}
+
+function tutorialRenderStepChrome(i) {
+  const step = TUTORIAL_STEPS[i];
+  tutorialTitleEl.textContent = step.title;
+  tutorialDescEl.textContent = step.desc;
+  tutorialDotsEl.innerHTML = '';
+  TUTORIAL_STEPS.forEach((_, idx) => {
+    const dot = document.createElement('span');
+    if (idx === i) dot.className = 'active';
+    tutorialDotsEl.appendChild(dot);
+  });
+  tutorialBackBtn.style.visibility = i === 0 ? 'hidden' : 'visible';
+  tutorialNextBtn.textContent = i === TUTORIAL_STEPS.length - 1 ? 'Done' : 'Next';
+}
+
+// The single entry point for rendering step `i`. Every transition —
+// Next, Back, auto-skip past a missing target, and the initial start —
+// goes through this one function, so there is exactly one place that
+// decides "what should be on screen right now."
+async function tutorialShowStep(i) {
+  const step = TUTORIAL_STEPS[i];
+  if (!tutorialActive || !step) { tutorialEnd(); return; }
+
+  const token = ++tutorialRunToken; // supersedes any wait/track loop from a previous step
+  tutorialStep = i;
+
+  // Hide whatever was on screen — never leave last step's spotlight
+  // sitting over this step's (possibly different) layout while we
+  // navigate and wait.
+  tutorialSpotlight.classList.add('is-loading');
+  tutorialTooltip.classList.add('is-loading');
+  if (tutorialRafId) { cancelAnimationFrame(tutorialRafId); tutorialRafId = null; }
+  if (tutorialSettleTimer) { clearTimeout(tutorialSettleTimer); tutorialSettleTimer = null; }
+
+  // 1. Navigate to this step's feature first, through the app's real
+  // navigation function — never by assuming we're already there.
+  if (step.view && step.view !== currentView && typeof setView === 'function') {
+    setView(step.view);
+  }
+
+  // 2. Open/close the sidebar on narrow viewports so the target is where
+  // this step expects it to be.
+  const needsSidebar = !!step.inSidebar && window.innerWidth <= TUTORIAL_MOBILE_BREAKPOINT;
+  if (needsSidebar) {
+    if (typeof openSidebar === 'function' && !sidebar.classList.contains('open')) {
+      openSidebar();
+      tutorialSidebarOpenedByUs = true;
+    }
+  } else if (tutorialSidebarOpenedByUs && typeof closeSidebar === 'function') {
+    closeSidebar();
+    tutorialSidebarOpenedByUs = false;
+  }
+
+  // 3. Wait for the destination to finish rendering and the real target
+  // element to be visible. Nothing below this line runs on a stale token.
+  const el = await tutorialWaitForTarget(step, token);
+  if (token !== tutorialRunToken || !tutorialActive) return;
+
+  if (!el) {
+    // The target never showed up — skip forward instead of ever
+    // displaying a spotlight with nothing valid to point at.
+    tutorialGoTo(i + 1);
+    return;
+  }
+
+  tutorialRenderStepChrome(i);
+  el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+
+  // Give the scroll a moment to settle, then start tracking — checking
+  // the token again in case Next/Back/Skip fired during that wait.
+  tutorialSettleTimer = setTimeout(() => {
+    if (token !== tutorialRunToken || !tutorialActive) return;
+    tutorialSpotlight.classList.remove('is-loading');
+    tutorialTooltip.classList.remove('is-loading');
+    tutorialTrack(token);
+  }, 260);
+}
+
+// Central sequencing gate: every requested move goes through here, so a
+// step can never be shown out of order or after the tutorial has ended.
+function tutorialGoTo(i) {
+  if (!tutorialActive) return;
+  if (i < 0) return;
+  if (i >= TUTORIAL_STEPS.length) { tutorialEnd(); return; }
+  tutorialShowStep(i);
+}
+
+function tutorialStart() {
+  if (!tutorialOverlay) return;
+  tutorialActive = true;
+  tutorialStep = -1;
+  tutorialSidebarOpenedByUs = false;
+  tutorialOverlay.style.display = 'block';
+  document.body.classList.add('tutorial-scroll-lock');
+  tutorialGoTo(0);
+}
+
+function tutorialEnd() {
+  safeSetItem(TUTORIAL_KEY, 'true');
+  tutorialActive = false;
+  tutorialRunToken += 1; // invalidate any pending waits/frames immediately
+  tutorialOverlay.style.display = 'none';
+  document.body.classList.remove('tutorial-scroll-lock');
+  tutorialSpotlight.classList.remove('is-loading');
+  tutorialTooltip.classList.remove('is-loading');
+  if (tutorialRafId) cancelAnimationFrame(tutorialRafId);
+  if (tutorialSettleTimer) clearTimeout(tutorialSettleTimer);
+  tutorialRafId = null;
+  tutorialSettleTimer = null;
+  if (tutorialSidebarOpenedByUs && typeof closeSidebar === 'function') {
+    closeSidebar();
+    tutorialSidebarOpenedByUs = false;
+  }
+}
+
+if (tutorialNextBtn) tutorialNextBtn.addEventListener('click', () => tutorialGoTo(tutorialStep + 1));
+if (tutorialBackBtn) tutorialBackBtn.addEventListener('click', () => { if (tutorialStep > 0) tutorialGoTo(tutorialStep - 1); });
+if (tutorialSkipBtn) tutorialSkipBtn.addEventListener('click', tutorialEnd);
+
+// Recalculate immediately on scroll/resize instead of waiting for the next
+// animation frame, so the spotlight never lags a fast scroll or a device
+// rotation even for a single frame. The continuous rAF loop in
+// tutorialTrack() already keeps it correct every frame while active; these
+// listeners just make the very next update happen as soon as possible.
+// `true` (capture) so this also fires for scroll events on inner
+// containers (e.g. the scrollable sidebar or task list), not just window.
+window.addEventListener('scroll', () => {
+  if (tutorialActive && tutorialRafId == null && tutorialStep >= 0) tutorialTrack(tutorialRunToken);
+}, true);
+window.addEventListener('resize', () => {
+  if (tutorialActive && tutorialRafId == null && tutorialStep >= 0) tutorialTrack(tutorialRunToken);
+});
+
+// Settings → "Replay interactive tutorial": launches the exact same
+// tutorial system used for first-time users, starting from step 1,
+// regardless of which settings section (or view) is currently open.
+const showTutorialBtn = document.getElementById('show-tutorial-btn');
+if (showTutorialBtn) {
+  showTutorialBtn.addEventListener('click', () => {
+    tutorialStep = -1;
+    tutorialStart();
+  });
+}
+
+function maybeStartTutorial() {
+  if (!tutorialOverlay) return;
+  if (safeGetItem(TUTORIAL_KEY) === 'true') return;
+  tutorialStart();
+}
+
+// Single entry point for the full onboarding sequence (Welcome guide → tips
+// intro → interactive tutorial), used both for first-time users at boot and
+// for a manual replay from Settings, so there is exactly one implementation
+// of "the tutorial" and one place that decides what happens next.
+function runWelcomeGuideFlow(opts) {
+  const forced = !!(opts && opts.forced);
+  const afterTips = () => { if (forced) tutorialStart(); else maybeStartTutorial(); };
+  const afterWelcome = () => {
+    if (!forced && areTipsEnabled() && safeGetItem(TIPS_INTRO_KEY) !== 'true') {
+      tipsChainNext = afterTips;
+      tipsIntroOverlay.style.display = 'flex';
+    } else {
+      afterTips();
+    }
+  };
+  if (forced) {
+    safeRemoveItem(WELCOME_KEY);
+    safeRemoveItem(TUTORIAL_KEY);
+  }
+  if (safeGetItem(WELCOME_KEY) !== 'true') {
+    onboardingChainNext = afterWelcome;
+    maybeShowWelcome();
+  } else {
+    afterWelcome();
+  }
 }
 
 // ===== Modal focus trap =====
@@ -3726,6 +4669,331 @@ if (tipsIntroOverlay) {
   });
 })();
 
+// ============================================================
+// ===== Global search (opt-in, keyboard-first) =====
+// ============================================================
+const searchOverlay = document.getElementById('search-overlay');
+const searchInput = document.getElementById('global-search-input');
+const searchResultsEl = document.getElementById('search-results');
+const searchEmptyEl = document.getElementById('search-empty');
+
+function openSearch() {
+  if (!searchOverlay) return;
+  searchOverlay.style.display = 'flex';
+  searchInput.value = '';
+  renderSearchResults('');
+  setTimeout(() => searchInput.focus(), 30);
+}
+function closeSearch() { if (searchOverlay) searchOverlay.style.display = 'none'; }
+
+function renderSearchResults(query) {
+  const q = query.trim().toLowerCase();
+  searchResultsEl.innerHTML = '';
+  searchEmptyEl.style.display = 'none';
+  if (!q) return;
+
+  const results = [];
+  todos.forEach((t) => {
+    if ((t.text || '').toLowerCase().includes(q) || (t.desc || '').toLowerCase().includes(q)) {
+      results.push({ type: 'task', icon: '✓', title: t.text, sub: t.done ? 'Completed' : (t.due ? `Due ${t.due}` : 'Task'), data: t });
+    }
+  });
+  notes.forEach((n) => {
+    if ((n.title || '').toLowerCase().includes(q) || (n.content || '').toLowerCase().includes(q) || (n.desc || '').toLowerCase().includes(q)) {
+      results.push({ type: 'note', icon: '🗒', title: n.title, sub: n.category || 'Note', data: n });
+    }
+  });
+  events.forEach((ev) => {
+    if ((ev.title || '').toLowerCase().includes(q) || (ev.notes || '').toLowerCase().includes(q)) {
+      results.push({ type: 'event', icon: '📅', title: ev.title, sub: ev.date, data: ev });
+    }
+  });
+
+  if (!results.length) { searchEmptyEl.style.display = 'block'; return; }
+
+  results.slice(0, 40).forEach((r) => {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'search-result-item';
+    const icon = document.createElement('span');
+    icon.className = 'search-result-icon';
+    icon.textContent = r.icon;
+    const info = document.createElement('span');
+    info.className = 'search-result-info';
+    const title = document.createElement('span');
+    title.className = 'search-result-title';
+    title.textContent = r.title;
+    const sub = document.createElement('span');
+    sub.className = 'search-result-sub';
+    sub.textContent = r.sub;
+    info.append(title, sub);
+    row.append(icon, info);
+    row.addEventListener('click', () => {
+      closeSearch();
+      if (r.type === 'task') {
+        if (r.data.projectId) { currentProjectId = r.data.projectId; setView('project'); }
+        else setView('all');
+        openTaskDetail(r.data.id);
+      } else if (r.type === 'note') {
+        setView('notes');
+      } else if (r.type === 'event') {
+        selectedDateKey = r.data.date;
+        setView('calendar');
+        showDayPanelList();
+        renderCalendar();
+        renderDayPanel();
+      }
+    });
+    searchResultsEl.appendChild(row);
+  });
+}
+if (searchInput) searchInput.addEventListener('input', () => renderSearchResults(searchInput.value));
+if (searchOverlay) searchOverlay.addEventListener('click', (e) => { if (e.target === searchOverlay) closeSearch(); });
+document.getElementById('search-trigger-btn')?.addEventListener('click', openSearch);
+document.getElementById('mobile-search-btn')?.addEventListener('click', openSearch);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && searchOverlay && searchOverlay.style.display === 'flex') closeSearch(); });
+
+// ============================================================
+// ===== Keyboard shortcuts panel =====
+// ============================================================
+const shortcutsOverlay = document.getElementById('shortcuts-overlay');
+function openShortcuts() { if (shortcutsOverlay) shortcutsOverlay.style.display = 'flex'; }
+function closeShortcuts() { if (shortcutsOverlay) shortcutsOverlay.style.display = 'none'; }
+document.getElementById('shortcuts-btn')?.addEventListener('click', openShortcuts);
+document.getElementById('shortcuts-close-btn')?.addEventListener('click', closeShortcuts);
+if (shortcutsOverlay) shortcutsOverlay.addEventListener('click', (e) => { if (e.target === shortcutsOverlay) closeShortcuts(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && shortcutsOverlay && shortcutsOverlay.style.display === 'flex') closeShortcuts(); });
+
+// ============================================================
+// ===== Backup & restore (export/import JSON) =====
+// ============================================================
+function buildExportPayload() {
+  return {
+    app: 'Aschertype',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    todos, projects, notes, events,
+    taskCategories, noteCategories,
+    projectAnnouncements,
+  };
+}
+document.getElementById('export-data-btn')?.addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(buildExportPayload(), null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `aschertype-backup-${todayStr()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  showSimpleToast({ emoji: '⬇️', text: 'Backup downloaded.' });
+});
+
+const importDataInput = document.getElementById('import-data-input');
+document.getElementById('import-data-btn')?.addEventListener('click', () => importDataInput.click());
+if (importDataInput) {
+  importDataInput.addEventListener('change', () => {
+    const file = importDataInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let parsed = null;
+      try { parsed = JSON.parse(reader.result); } catch (err) { parsed = null; }
+      importDataInput.value = '';
+      if (!parsed || typeof parsed !== 'object') {
+        showSimpleToast({ emoji: '⚠️', text: "That file isn't a valid backup." });
+        return;
+      }
+      openConfirmModal({
+        title: 'Replace your data?',
+        message: "Importing will replace your tasks, notes, events, categories and projects on this device with this file's contents. You'll want to be sure this is the backup you want.",
+        confirmLabel: 'Import & replace',
+        danger: true,
+        onConfirm: () => applyImportedData(parsed),
+      });
+    };
+    reader.readAsText(file);
+  });
+}
+
+function applyImportedData(data) {
+  todos = Array.isArray(data.todos) ? data.todos : [];
+  projects = Array.isArray(data.projects) ? data.projects : [];
+  notes = Array.isArray(data.notes) ? data.notes : [];
+  events = Array.isArray(data.events) ? data.events : [];
+  taskCategories = Array.isArray(data.taskCategories) ? data.taskCategories : [];
+  noteCategories = Array.isArray(data.noteCategories) && data.noteCategories.length ? data.noteCategories : ['General'];
+  projectAnnouncements = data.projectAnnouncements && typeof data.projectAnnouncements === 'object' ? data.projectAnnouncements : {};
+
+  saveTodos(); saveProjects(); saveNotes(); saveEvents();
+  saveTaskCategories(); saveNoteCategories(); saveProjectAnnouncements();
+
+  if (currentUser) {
+    todos.forEach((t) => dbUpsert('todos', todoRemoteRow(t)));
+    projects.forEach((p) => dbUpsert('projects', projectRemoteRow(p)));
+    notes.forEach((n) => dbUpsert('notes', noteRemoteRow(n)));
+    events.forEach((ev) => dbUpsert('events', eventRemoteRow(ev)));
+  }
+
+  renderProjectNav(); renderProjectSelect();
+  renderTodos(); renderCounts(); renderViewHeader();
+  renderTaskCategorySelects();
+  renderCategoryTabs(); renderNoteCategorySelect(); renderNotes();
+  renderCalendar(); renderDayPanel();
+  showSimpleToast({ emoji: '✅', text: 'Backup imported.' });
+}
+
+// ============================================================
+// ===== Bulk task selection (opt-in via the toolbar toggle) =====
+// ============================================================
+let bulkSelectMode = false;
+let bulkSelectedIds = new Set();
+const taskSelectToggleBtn = document.getElementById('task-select-toggle-btn');
+const bulkActionBar = document.getElementById('bulk-action-bar');
+const bulkCountEl = document.getElementById('bulk-count');
+const bulkMoveSelect = document.getElementById('bulk-move-select');
+
+function setBulkSelectMode(on) {
+  bulkSelectMode = on;
+  bulkSelectedIds.clear();
+  if (taskSelectToggleBtn) taskSelectToggleBtn.classList.toggle('active', on);
+  renderTodos();
+  updateBulkBar();
+}
+if (taskSelectToggleBtn) taskSelectToggleBtn.addEventListener('click', () => setBulkSelectMode(!bulkSelectMode));
+
+function updateBulkBar() {
+  if (!bulkActionBar) return;
+  if (bulkSelectMode && bulkSelectedIds.size > 0) {
+    bulkActionBar.style.display = 'flex';
+    bulkCountEl.textContent = `${bulkSelectedIds.size} selected`;
+    const prevVal = bulkMoveSelect.value;
+    bulkMoveSelect.innerHTML = '<option value="">Move to…</option><option value="__none__">No project</option>';
+    projects.forEach((p) => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name;
+      bulkMoveSelect.appendChild(opt);
+    });
+    bulkMoveSelect.value = prevVal && Array.from(bulkMoveSelect.options).some(o => o.value === prevVal) ? prevVal : '';
+  } else {
+    bulkActionBar.style.display = 'none';
+  }
+}
+
+document.getElementById('bulk-cancel-btn')?.addEventListener('click', () => setBulkSelectMode(false));
+
+document.getElementById('bulk-complete-btn')?.addEventListener('click', () => {
+  let changed = false;
+  bulkSelectedIds.forEach((id) => {
+    const t = todos.find((x) => x.id === id);
+    if (t && !t.done && canToggleTaskIn(t.projectId)) {
+      t.done = true;
+      recordCompletion();
+      if (currentUser) dbUpdate('todos', t.id, { done: true });
+      changed = true;
+    }
+  });
+  if (changed) { saveTodos(); showToast('complete'); }
+  setBulkSelectMode(false);
+  renderCounts(); renderViewHeader(); renderProjectNav();
+});
+
+document.getElementById('bulk-delete-btn')?.addEventListener('click', () => {
+  const ids = Array.from(bulkSelectedIds);
+  if (!ids.length) return;
+  openConfirmModal({
+    title: `Delete ${ids.length} task${ids.length === 1 ? '' : 's'}?`,
+    message: "They'll be removed from your list. This can't be undone from here.",
+    confirmLabel: 'Delete',
+    danger: true,
+    onConfirm: () => {
+      const removable = todos.filter((t) => ids.includes(t.id) && canRemoveTaskFrom(t.projectId));
+      const removableIds = new Set(removable.map((t) => t.id));
+      todos = todos.filter((t) => !removableIds.has(t.id));
+      saveTodos();
+      if (currentUser) removable.forEach((t) => dbDelete('todos', t.id));
+      setBulkSelectMode(false);
+      renderCounts(); renderViewHeader(); renderProjectNav();
+      showToast('taskDeleted');
+    },
+  });
+});
+
+if (bulkMoveSelect) {
+  bulkMoveSelect.addEventListener('change', () => {
+    const val = bulkMoveSelect.value;
+    if (!val) return;
+    const projectId = val === '__none__' ? null : Number(val);
+    bulkSelectedIds.forEach((id) => {
+      const t = todos.find((x) => x.id === id);
+      if (t && canRenameTaskIn(t.projectId)) {
+        t.projectId = projectId;
+        if (currentUser) dbUpdate('todos', t.id, { project_id: projectId });
+      }
+    });
+    saveTodos();
+    setBulkSelectMode(false);
+    renderCounts(); renderViewHeader(); renderProjectNav(); renderProjectSelect();
+    showToast('permission');
+  });
+}
+
+// ============================================================
+// ===== Home: streak heatmap (uses the existing completion log) =====
+// ============================================================
+function renderHomeStreak() {
+  const el = document.getElementById('home-streak');
+  if (!el) return;
+  el.innerHTML = '';
+
+  const title = document.createElement('div');
+  title.className = 'home-widget-title';
+  title.textContent = window.I18N ? window.I18N.t('widget.streak', 'Your streak') : 'Your streak';
+  el.appendChild(title);
+
+  const log = loadCompletionLog();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const totalDays = 70;
+
+  const counts = new Map();
+  log.forEach((ts) => {
+    const d = new Date(ts);
+    d.setHours(0, 0, 0, 0);
+    const key = d.getTime();
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+
+  const startOffset = (counts.get(today.getTime()) || 0) > 0 ? 0 : 1;
+  let streak = 0;
+  for (let i = startOffset; i < totalDays; i++) {
+    if ((counts.get(today.getTime() - i * dayMs) || 0) > 0) streak++;
+    else break;
+  }
+
+  const grid = document.createElement('div');
+  grid.className = 'home-streak-grid';
+  for (let i = totalDays - 1; i >= 0; i--) {
+    const key = today.getTime() - i * dayMs;
+    const count = counts.get(key) || 0;
+    const cell = document.createElement('span');
+    cell.className = 'home-streak-cell' + (count > 0 ? ' level-' + Math.min(4, count) : '');
+    cell.title = `${formatAppDate(new Date(key), { month: 'short', day: 'numeric' })}: ${count} done`;
+    grid.appendChild(cell);
+  }
+  el.appendChild(grid);
+
+  const caption = document.createElement('p');
+  caption.className = 'home-widget-caption';
+  caption.textContent = streak > 0
+    ? `${streak} day${streak === 1 ? '' : 's'} in a row \u2014 nice and steady.`
+    : 'Complete a task today to start a new streak.';
+  el.appendChild(caption);
+}
+
 // ===== Startup =====
 window.initApp = async function initApp(user) {
   currentUser = user || null;
@@ -3751,8 +5019,13 @@ window.initApp = async function initApp(user) {
       todos = remoteTodos.map(t => ({
         id: t.id, text: t.text, desc: t.desc, done: t.done,
         due: t.due, priority: t.priority, projectId: t.project_id || null,
-        category: localCategoryById.get(String(t.id)) || null,
+        category: t.category != null ? t.category : (localCategoryById.get(String(t.id)) || null),
         timeSpentSec: t.time_spent_sec || 0,
+        subtasks: t.subtasks || [],
+        recurrence: t.recurrence || null,
+        reminderTime: t.reminder_time || null,
+        pinned: !!t.pinned,
+        assigneeEmail: t.assignee_email || null,
       }));
       saveTodos();
     }
@@ -3820,17 +5093,5 @@ window.initApp = async function initApp(user) {
 
   markLoadingReady();
 
-  maybeShowWelcome();
-
-  let waited = 0;
-  const tipsCheck = setInterval(() => {
-    waited += 400;
-    const welcomeOpen = welcomeOverlay && welcomeOverlay.style.display === 'flex';
-    if (!welcomeOpen) {
-      clearInterval(tipsCheck);
-      maybeShowTipsIntro();
-    } else if (waited > 20000) {
-      clearInterval(tipsCheck);
-    }
-  }, 400);
+  runWelcomeGuideFlow({ forced: false });
 };
