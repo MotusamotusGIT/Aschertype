@@ -1,10 +1,35 @@
-// ===== PWA =====
-if ('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then((reg) => console.log('[PWA] SW registered:', reg.scope))
-      .catch((err) => console.error('[PWA] SW failed:', err));
-  });
+if ('serviceWorker' in navigator) {
+  const isElectron = navigator.userAgent.toLowerCase().includes('electron');
+  if (isElectron) {
+    // Electron ships the full app locally, so a Service Worker adds no
+    // benefit here — it's only useful for the hosted web/PWA build. If one
+    // was ever registered for this origin in a previous run (e.g. testing
+    // in a browser, or an older build), leftover SW registrations/caches
+    // can linger in Electron's on-disk profile and cause Chromium storage
+    // errors ("Database IO error") on startup. Clean those up — but only
+    // once, so we're not repeatedly hitting the disk (and re-triggering
+    // that same error) on every launch once it's already clean.
+    const SW_CLEANUP_KEY = 'electron-sw-cleanup-v1';
+    let alreadyCleaned = false;
+    try { alreadyCleaned = localStorage.getItem(SW_CLEANUP_KEY) === '1'; } catch (err) { /* ignore */ }
+    if (!alreadyCleaned) {
+      Promise.all([
+        navigator.serviceWorker.getRegistrations()
+          .then((regs) => Promise.all(regs.map((reg) => reg.unregister()))),
+        (window.caches && caches.keys)
+          ? caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+          : Promise.resolve(),
+      ])
+        .then(() => { try { localStorage.setItem(SW_CLEANUP_KEY, '1'); } catch (err) { /* ignore */ } })
+        .catch((err) => console.warn('[SW] Cleanup failed:', err));
+    }
+  } else if (location.protocol === 'http:' || location.protocol === 'https:') {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then((reg) => console.log('[PWA] SW registered:', reg.scope))
+        .catch((err) => console.error('[PWA] SW failed:', err));
+    });
+  }
 }
 
 const dateFormatterCache = new Map();
@@ -22,7 +47,6 @@ function formatAppDate(date, options) {
   return formatter.format(date);
 }
 
-// ===== Safe localStorage helpers =====
 function safeGetItem(key) {
   try { return localStorage.getItem(key); }
   catch (err) { return null; }
@@ -36,8 +60,8 @@ function safeParse(key, fallback) {
     if (parsed === null || parsed === undefined) return fallback;
     return parsed;
   } catch (err) {
-    console.warn(`[Aschertype] Corrupted localStorage key "${key}", clearing it.`, err);
-    try { localStorage.removeItem(key); } catch (e) { /* ignore */ }
+    console.warn(`[MossTask] Corrupted localStorage key "${key}", clearing it.`, err);
+    try { localStorage.removeItem(key); } catch (e) {  }
     return fallback;
   }
 }
@@ -47,16 +71,15 @@ function safeSetItem(key, value) {
     localStorage.setItem(key, value);
     return true;
   } catch (err) {
-    console.warn(`[Aschertype] Could not write "${key}" to localStorage.`, err);
+    console.warn(`[MossTask] Could not write "${key}" to localStorage.`, err);
     return false;
   }
 }
 
 function safeRemoveItem(key) {
-  try { localStorage.removeItem(key); } catch (err) { /* ignore */ }
+  try { localStorage.removeItem(key); } catch (err) {  }
 }
 
-// ===== Theme =====
 const THEME_KEY = 'theme';
 function getTheme() {
   const stored = safeGetItem(THEME_KEY);
@@ -87,7 +110,6 @@ function renderSettingsUI() {
   renderAccountSection();
 }
 
-// ===== Account section =====
 const accountStatusEl = document.getElementById('account-status');
 const accountSignoutBtn = document.getElementById('account-signout-btn');
 const accountSwitchBtn = document.getElementById('account-switch-btn');
@@ -99,7 +121,7 @@ function renderAccountSection() {
     accountSwitchBtn.style.display = 'none';
   } else if (isGuest) {
     if (supabaseReady) {
-      accountStatusEl.textContent = "You're using Aschertype without an account. Data is stored on this device only.";
+      accountStatusEl.textContent = "You're using MossTask without an account. Data is stored on this device only.";
     } else if (typeof window.supabase === 'undefined') {
       accountStatusEl.textContent = "Couldn't reach the accounts service (check your connection) — data is stored on this device only.";
     } else {
@@ -118,12 +140,11 @@ accountSignoutBtn.addEventListener('click', () => {
   if (typeof signOutAndReset === 'function') signOutAndReset();
 });
 accountSwitchBtn.addEventListener('click', () => {
-  localStorage.removeItem('aschertypeGuest');
-  sessionStorage.removeItem('aschertypeGuest');
+  localStorage.removeItem('mosstaskGuest');
+  sessionStorage.removeItem('mosstaskGuest');
   location.reload();
 });
 
-// ===== Focus mode =====
 let savedTheme = null;
 function setFocusMode(on) {
   const root = document.documentElement;
@@ -158,7 +179,6 @@ function setFocusMode(on) {
   }
 }
 
-// ===== Mobile sidebar =====
 const sidebar = document.getElementById('sidebar');
 const sidebarBackdrop = document.getElementById('sidebar-backdrop');
 const menuToggle = document.getElementById('menu-toggle');
@@ -169,7 +189,6 @@ menuToggle.addEventListener('click', () => {
 });
 sidebarBackdrop.addEventListener('click', closeSidebar);
 
-// ===== Profile state =====
 let currentProfile = null;
 
 function profileDisplayName() {
@@ -218,7 +237,6 @@ async function loadProfile() {
   renderProfilePopover();
 }
 
-// ===== Profile popover =====
 const profileOverlay = document.getElementById('profile-overlay');
 const profilePopover = document.getElementById('profile-popover');
 const profilePopNameEdit = document.getElementById('profile-pop-name-edit');
@@ -311,8 +329,8 @@ document.getElementById('profile-signout-btn').addEventListener('click', () => {
 });
 document.getElementById('profile-signin-btn').addEventListener('click', () => {
   closeProfilePopover();
-  localStorage.removeItem('aschertypeGuest');
-  sessionStorage.removeItem('aschertypeGuest');
+  localStorage.removeItem('mosstaskGuest');
+  sessionStorage.removeItem('mosstaskGuest');
   location.reload();
 });
 
@@ -343,7 +361,6 @@ document.getElementById('profile-name-save').addEventListener('click', async () 
   showToast('permission');
 });
 
-// ===== Encouragement toasts =====
 const ENCOURAGEMENT_KEY = 'encouragementEnabled';
 function isEncouragementEnabled() {
   const v = safeGetItem(ENCOURAGEMENT_KEY);
@@ -405,7 +422,6 @@ function showUndoToast(text, undoFn) {
   showSimpleToast({ emoji: '🗑️', text, actionLabel: 'Undo', onAction: undoFn, duration: 5500 });
 }
 
-// ===== Generic confirm modal =====
 const confirmModalOverlay = document.getElementById('confirm-modal-overlay');
 const confirmModalTitleEl = document.getElementById('confirm-modal-title');
 const confirmModalMessageEl = document.getElementById('confirm-modal-message');
@@ -445,7 +461,6 @@ document.getElementById('encouragement-enabled-input').addEventListener('change'
   setEncouragementEnabled(e.target.checked);
 });
 
-// ===== System notifications =====
 const NOTIF_ENABLED_KEY = 'notificationsEnabled';
 function isNotifEnabled() {
   const v = safeGetItem(NOTIF_ENABLED_KEY);
@@ -468,7 +483,7 @@ function unlockAudioContext() {
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (Ctx) audioCtx = new Ctx();
-  } catch (err) { /* ignore */ }
+  } catch (err) {  }
 }
 function playNotificationSound() {
   if (!audioCtx) unlockAudioContext();
@@ -502,7 +517,7 @@ function sendNotification(title, body) {
   if (!isNotifEnabled()) return;
   playNotificationSound();
   if ('Notification' in window && Notification.permission === 'granted') {
-    try { new Notification(title, { body }); return; } catch (err) { /* fall through */ }
+    try { new Notification(title, { body }); return; } catch (err) {  }
   }
   const el = document.createElement('div');
   el.className = 'toast notif';
@@ -586,6 +601,7 @@ function handleRecurringCompletion(t) {
 }
 
 document.addEventListener('keydown', (e) => {
+  if (typeof tutorialActive !== 'undefined' && tutorialActive) return;
   const tag = (e.target.tagName || '').toLowerCase();
   const typing = tag === 'input' || tag === 'textarea' || e.target.isContentEditable;
   if (e.key === '?' && !typing) {
@@ -610,7 +626,6 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// ===== Tips bar =====
 const LOCAL_TIPS = {
   en: [
     'Write tomorrow\'s top 3 tasks tonight — it quiets the mind before sleep.',
@@ -678,7 +693,6 @@ document.getElementById('tips-enabled-input').addEventListener('change', (e) => 
   if (e.target.checked) refreshTip();
 });
 
-// ===== Pomodoro =====
 const pomodoro = {
   task: safeGetItem('pomodoroTask') || '',
   taskId: (() => { const v = safeGetItem('pomodoroTaskId'); return v ? Number(v) : null; })(),
@@ -958,8 +972,6 @@ pomodoroBreakInput.addEventListener('change', (e) => {
 });
 window.addEventListener('beforeunload', flushPomodoroTime);
 
-
-// ===== State =====
 let todos = safeParse('todos', []);
 let taskCategories = safeParse('taskCategories', []);
 let currentView = 'all';
@@ -982,7 +994,6 @@ const allChevron = document.getElementById('all-chevron');
 const allSubnav = document.getElementById('all-subnav');
 const navItems = document.querySelectorAll('.nav-item');
 
-// ===== Task add toggle =====
 const taskAddEl = document.getElementById('task-add');
 const taskAddToggle = document.getElementById('task-add-toggle');
 const taskAddCancel = document.getElementById('task-add-cancel');
@@ -1006,7 +1017,6 @@ function closeTaskAdd() {
 taskAddToggle.addEventListener('click', openTaskAdd);
 taskAddCancel.addEventListener('click', closeTaskAdd);
 
-// ===== Task categories =====
 function saveTaskCategories() { safeSetItem('taskCategories', JSON.stringify(taskCategories)); }
 function renderTaskCategorySelects(selectedForAdd, selectedForDetail) {
   [todoCategorySelect, taskDetailCategory].forEach((sel, idx) => {
@@ -1023,7 +1033,6 @@ function renderTaskCategorySelects(selectedForAdd, selectedForDetail) {
   });
 }
 
-// ===== Add-category modal =====
 const categoryModalOverlay = document.getElementById('category-modal-overlay');
 const categoryModalInput = document.getElementById('category-modal-input');
 const categoryModalError = document.getElementById('category-modal-error');
@@ -1073,7 +1082,6 @@ function addTaskCategory(targetSelect) {
 }
 todoAddCategoryBtn.addEventListener('click', () => addTaskCategory(todoCategorySelect));
 
-// ===== Projects & collaborators =====
 let projects = safeParse('projects', []);
 let currentProjectId = null;
 let projectMembers = [];
@@ -1145,20 +1153,14 @@ function canToggleTaskIn(projectId) {
   if (!projectId) return true;
   return isProjectOwner(projectId) || !!myMembership(projectId);
 }
-// Pinning: personal (no-project) tasks are pinnable by whoever owns them
-// (i.e. always, since there's no other collaborator); project tasks are
-// pinnable only by the project owner.
 function canPinTask(t) {
   if (!t.projectId) return true;
   return isProjectOwner(t.projectId);
 }
-// Assignment only applies to tasks that belong to a project, and only the
-// project owner may set/change/clear it.
 function canAssignTask(t) {
   return !!t.projectId && isProjectOwner(t.projectId);
 }
 
-// ===== Project announcements =====
 let projectAnnouncements = safeParse('projectAnnouncements', {});
 function saveProjectAnnouncements() { safeSetItem('projectAnnouncements', JSON.stringify(projectAnnouncements)); }
 function getProjectAnnouncement(projectId) {
@@ -1230,6 +1232,26 @@ function closeAnnouncementForm() {
   renderProjectAnnouncement();
 }
 
+function formatAnnouncementDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function renderAnnouncementDate() {
+  if (!projectAnnouncementTextEl) return;
+  const p = getProject(currentProjectId);
+  const label = p ? formatAnnouncementDate(p.announcementUpdatedAt) : '';
+  let dateEl = projectAnnouncementTextEl.parentNode.querySelector('.project-announcement-date');
+  if (!label) { if (dateEl) dateEl.remove(); return; }
+  if (!dateEl) {
+    dateEl = document.createElement('div');
+    dateEl.className = 'project-announcement-date';
+    projectAnnouncementTextEl.insertAdjacentElement('afterend', dateEl);
+  }
+  dateEl.textContent = label;
+}
+
 function renderProjectAnnouncement() {
   if (!projectAnnouncementEl || !projectAnnouncementAddToggle || !projectAnnouncementForm) return;
   if (currentView !== 'project' || !currentProjectId) {
@@ -1257,6 +1279,7 @@ function renderProjectAnnouncement() {
     projectAnnouncementActionsEl.style.display = isOwner ? 'flex' : 'none';
     if (projectAnnouncementEditBtn) projectAnnouncementEditBtn.style.display = isOwner ? 'inline-flex' : 'none';
     if (projectAnnouncementClearBtn) projectAnnouncementClearBtn.style.display = isOwner ? 'inline-flex' : 'none';
+    renderAnnouncementDate();
   } else {
     projectAnnouncementEl.style.display = 'none';
     projectAnnouncementAddToggle.hidden = !isOwner;
@@ -1405,6 +1428,7 @@ function renderProjectNav() {
     const label = document.createElement('span');
     label.className = 'nav-label';
     label.textContent = p.name;
+    label.title = p.name;
 
     const count = document.createElement('span');
     count.className = 'nav-count';
@@ -1434,7 +1458,6 @@ function renderProjectSelect() {
   }
 }
 
-// ===== Date helpers — LOCAL TIME =====
 function todayStr() {
   const d = new Date();
   const y = d.getFullYear();
@@ -1544,7 +1567,6 @@ navItems.forEach(btn => {
   btn.addEventListener('click', () => setView(btn.dataset.view));
 });
 
-// ===== Task list sort mode & category filter =====
 let taskSortMode = 'default';
 let taskCategoryFilterValue = '';
 
@@ -1556,15 +1578,21 @@ function getFilteredTodos() {
   else if (currentView === 'project') filtered = filtered.filter(t => String(t.projectId) === String(currentProjectId));
   if (taskCategoryFilterValue) filtered = filtered.filter(t => (t.category || '') === taskCategoryFilterValue);
   if (taskSortMode === 'manual') {
-    // Preserve the underlying todos array order — drag-to-reorder mutates
-    // that order directly, so no extra sort is applied here.
+    filtered.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
   } else if (taskSortMode === 'oldest') {
-    filtered.sort((a, b) => a.id - b.id);
+    filtered.sort((a, b) => {
+      if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+      return a.id - b.id;
+    });
   } else if (taskSortMode === 'newest') {
-    filtered.sort((a, b) => b.id - a.id);
+    filtered.sort((a, b) => {
+      if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+      return b.id - a.id;
+    });
   } else {
     const priorityRank = { high: 0, medium: 1, low: 2 };
     filtered.sort((a, b) => {
+      if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
       if (a.done !== b.done) return a.done ? 1 : -1;
       if (priorityRank[a.priority] !== priorityRank[b.priority]) return priorityRank[a.priority] - priorityRank[b.priority];
       return (a.due || '9999').localeCompare(b.due || '9999');
@@ -1665,7 +1693,16 @@ const ICON_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
 const ICON_SHIELD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>';
 const ICON_FLAG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V4"></path><path d="M4 4h13l-2.5 4L17 12H4"></path></svg>';
 const ICON_GRIP = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="9" cy="6" r="1.5"></circle><circle cx="15" cy="6" r="1.5"></circle><circle cx="9" cy="12" r="1.5"></circle><circle cx="15" cy="12" r="1.5"></circle><circle cx="9" cy="18" r="1.5"></circle><circle cx="15" cy="18" r="1.5"></circle></svg>';
-const ICON_PIN = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 17v5"></path><path d="M9 3h6l1 6 3 2.2c.5.4.2 1.3-.4 1.3H6.4c-.6 0-.9-.9-.4-1.3L9 9l1-6z"></path></svg>';
+const ICON_PIN = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M16 3a1 1 0 0 1 1 1v6.29l2.55 3.4A1.5 1.5 0 0 1 18.35 16H13v5a1 1 0 1 1-2 0v-5H5.65a1.5 1.5 0 0 1-1.2-2.31L7 10.29V4a1 1 0 0 1 1-1zM9 5v5.62a1 1 0 0 1-.2.6L6.5 14h11l-2.3-2.78a1 1 0 0 1-.2-.6V5z"></path></svg>';
+
+function truncateWords(str, maxLen) {
+  if (!str) return '';
+  if (str.length <= maxLen) return str;
+  const cut = str.slice(0, maxLen);
+  const lastSpace = cut.lastIndexOf(' ');
+  const trimmed = lastSpace > Math.floor(maxLen * 0.4) ? cut.slice(0, lastSpace) : cut;
+  return trimmed.replace(/[\s.,;:!?-]+$/, '') + '…';
+}
 
 function pillIcon(svgMarkup) {
   const span = document.createElement('span');
@@ -1674,9 +1711,6 @@ function pillIcon(svgMarkup) {
   return span;
 }
 
-// Meta pill rows built during this render pass whose scroll-overflow state
-// (see markTaskMetaOverflow) needs checking once they're actually laid out
-// in the DOM — a row's scrollWidth isn't meaningful before that.
 let taskMetaRowsNeedingOverflowCheck = [];
 function markTaskMetaOverflow() {
   taskMetaRowsNeedingOverflowCheck.forEach(meta => {
@@ -1706,6 +1740,7 @@ function renderTodos() {
 
     const card = document.createElement('div');
     card.className = `task-card priority-${t.priority}` + (t.done ? ' completed' : '') + (t.pinned ? ' is-pinned' : '') + (bulkSelectMode && bulkSelectedIds.has(t.id) ? ' bulk-selected' : '');
+    card.setAttribute('aria-label', `${t.text}${t.priority !== 'low' ? ', ' + priorityLabel.toLowerCase() : ''}${t.due ? ', due ' + t.due : ''}`);
     card.draggable = window.innerWidth > 760 && !bulkSelectMode;
     card.addEventListener('dragstart', (e) => {
       e.dataTransfer.setData('text/plain', String(t.id));
@@ -1750,51 +1785,25 @@ function renderTodos() {
       openTaskDetail(t.id);
     });
 
-    if (!bulkSelectMode) {
-      const handle = document.createElement('span');
-      handle.className = 'task-drag-handle';
-      handle.title = 'Drag to reorder';
-      handle.setAttribute('aria-hidden', 'true');
-      handle.innerHTML = ICON_GRIP;
-      card.appendChild(handle);
-    }
+    const handle = document.createElement('span');
+    handle.className = 'task-drag-handle';
+    handle.title = 'Drag to reorder';
+    handle.setAttribute('aria-hidden', 'true');
+    handle.innerHTML = ICON_GRIP;
+    card.appendChild(handle);
 
-    // ----- Content: the whole card is now one column starting at the
-    // left edge — title, description, metadata and progress all share
-    // that edge. The completion checkbox (and, in bulk mode, the select
-    // checkbox) moves to the top-right of the headline instead of its
-    // own leading column, so the left side is free for the priority dot
-    // + title to use the full card width.
     const content = document.createElement('div');
     content.className = 'task-card-content';
 
     const headline = document.createElement('div');
     headline.className = 'task-card-headline';
 
-    const headlineLeft = document.createElement('div');
-    headlineLeft.className = 'task-headline-left';
-
-    if (!bulkSelectMode) {
-      // A quiet colored dot rather than a full flag icon — small enough to
-      // read as metadata, not a component of its own, but still
-      // immediately distinguishable by color across the three priorities.
-      const dot = document.createElement('span');
-      dot.className = 'task-priority-dot priority-' + t.priority;
-      dot.title = priorityLabel;
-      dot.setAttribute('aria-label', priorityLabel);
-      headlineLeft.appendChild(dot);
-    }
-
     const title = document.createElement('div');
     title.className = 'task-title';
-    title.textContent = t.text;
-    headlineLeft.appendChild(title);
-    headline.appendChild(headlineLeft);
+    title.textContent = truncateWords(t.text, 25);
+    if (title.textContent !== t.text) title.title = t.text;
+    headline.appendChild(title);
 
-    // ----- Right-hand cluster: rename/delete actions, then the
-    // completion (or bulk-select) checkbox last, furthest to the right —
-    // the single most important control on the card, but out of the way
-    // of the title/description reading path on the left.
     const headlineRight = document.createElement('div');
     headlineRight.className = 'task-headline-right';
 
@@ -1822,6 +1831,15 @@ function renderTodos() {
       actions.appendChild(del);
     }
     headlineRight.appendChild(actions);
+
+    if (t.pinned) {
+      const pin = document.createElement('span');
+      pin.className = 'task-pin-badge';
+      pin.title = 'Pinned';
+      pin.setAttribute('aria-label', 'Pinned task');
+      pin.innerHTML = ICON_PIN;
+      headlineRight.appendChild(pin);
+    }
 
     const checkWrap = document.createElement('div');
     checkWrap.className = 'task-card-check-col';
@@ -1856,31 +1874,24 @@ function renderTodos() {
         if (t.done) showToast('complete');
       });
       checkWrap.appendChild(checkbox);
-
-      if (t.pinned) {
-        const pin = document.createElement('span');
-        pin.className = 'task-pin-badge';
-        pin.title = 'Pinned';
-        pin.setAttribute('aria-label', 'Pinned task');
-        pin.innerHTML = ICON_PIN;
-        checkWrap.appendChild(pin);
-      }
     }
     headlineRight.appendChild(checkWrap);
 
     headline.appendChild(headlineRight);
     content.appendChild(headline);
 
+    const desc = document.createElement('div');
+    desc.className = 'task-desc';
     if (t.desc) {
-      const desc = document.createElement('div');
-      desc.className = 'task-desc';
-      desc.textContent = t.desc;
-      content.appendChild(desc);
+      desc.textContent = truncateWords(t.desc, 35);
+      if (desc.textContent !== t.desc) desc.title = t.desc;
+    } else {
+      desc.classList.add('task-desc-empty');
     }
+    content.appendChild(desc);
 
-    // ----- Grouped, visually quiet metadata: due date, project/folder,
-    // category and tracked time all live together as one scannable row,
-    // clearly secondary to the title above them.
+    // Secondary tier: due date and (when it's not the default) priority.
+    // These sit at full contrast, right after the description.
     const meta = document.createElement('div');
     meta.className = 'task-meta';
     if (t.due) {
@@ -1894,15 +1905,29 @@ function renderTodos() {
       due.appendChild(dueText);
       meta.appendChild(due);
     }
+    if (!t.done && t.priority !== 'low') {
+      const prio = document.createElement('span');
+      prio.className = 'task-pill priority-tag priority-' + t.priority;
+      prio.title = priorityLabel;
+      prio.appendChild(pillIcon(ICON_FLAG));
+      const prioText = document.createElement('span');
+      prioText.textContent = t.priority === 'high' ? 'High' : 'Medium';
+      prio.appendChild(prioText);
+      meta.appendChild(prio);
+    }
+
+    // Tertiary tier: project, category, time and assignee. Same row, but
+    // visually quieter so they don't compete with the due date/priority.
     if (t.projectId && currentView !== 'project') {
       const p = getProject(t.projectId);
       if (p) {
         const shared = !isProjectOwner(p.id);
         const tag = document.createElement('span');
-        tag.className = 'task-pill project-tag' + (shared ? ' shared-tag' : '');
+        tag.className = 'task-pill tag-quiet project-tag' + (shared ? ' shared-tag' : '');
         tag.appendChild(pillIcon(shared ? ICON_PEOPLE : ICON_FOLDER));
         const tagText = document.createElement('span');
-        tagText.textContent = p.name;
+        tagText.textContent = truncateWords(p.name, 18);
+        tag.title = p.name;
         tag.appendChild(tagText);
         tag.addEventListener('click', (e) => { e.stopPropagation(); currentProjectId = p.id; setView('project'); });
         meta.appendChild(tag);
@@ -1910,20 +1935,21 @@ function renderTodos() {
     }
     if (t.category) {
       const cat = document.createElement('span');
-      cat.className = 'task-pill task-card-category';
-      cat.textContent = t.category;
+      cat.className = 'task-pill tag-quiet task-card-category';
+      cat.textContent = truncateWords(t.category, 18);
+      cat.title = t.category;
       meta.appendChild(cat);
     }
     if (t.done && t.timeSpentSec > 0) {
       const timePill = document.createElement('span');
-      timePill.className = 'task-pill';
+      timePill.className = 'task-pill tag-quiet';
       timePill.title = 'Time tracked in Pomodoro';
       timePill.textContent = `⏱ ${formatDuration(t.timeSpentSec)}`;
       meta.appendChild(timePill);
     }
     if (t.assigneeEmail) {
       const assignee = document.createElement('span');
-      assignee.className = 'task-pill assignee-tag';
+      assignee.className = 'task-pill tag-quiet assignee-tag';
       assignee.title = 'Assigned to ' + t.assigneeEmail;
       assignee.appendChild(pillIcon(ICON_PEOPLE));
       const assigneeText = document.createElement('span');
@@ -1932,14 +1958,15 @@ function renderTodos() {
       meta.appendChild(assignee);
     }
     if (meta.children.length) content.appendChild(meta);
+    else meta.classList.add('task-meta-empty'), content.appendChild(meta);
     if (meta.children.length > 1) taskMetaRowsNeedingOverflowCheck.push(meta);
 
     const progress = subtaskProgress(t);
     if (progress) {
-      const pct = Math.round((progress.done / progress.total) * 100);
       const subtaskWrap = document.createElement('div');
       subtaskWrap.className = 'task-card-subtask-wrap';
 
+      const pct = Math.round((progress.done / progress.total) * 100);
       const barWrap = document.createElement('div');
       barWrap.className = 'task-card-subtask-bar';
       barWrap.title = `${progress.done}/${progress.total} checklist items done`;
@@ -1961,9 +1988,6 @@ function renderTodos() {
     frag.appendChild(card);
   });
   todoListEl.appendChild(frag);
-  // Runs after the fragment is actually in the DOM (and thus laid out),
-  // and on the next resize so orientation changes / sidebar toggles
-  // re-evaluate which pill rows need the scroll fade.
   requestAnimationFrame(markTaskMetaOverflow);
 }
 if (!window.__taskMetaResizeBound) {
@@ -2016,7 +2040,6 @@ function startInlineEdit(titleEl, t) {
   });
 }
 
-// ===== Task detail side panel =====
 const taskDetailOverlay = document.getElementById('task-detail-overlay');
 const taskDetailCheck = document.getElementById('task-detail-check');
 const taskDetailTitle = document.getElementById('task-detail-title');
@@ -2116,6 +2139,8 @@ function openTaskDetail(taskId) {
     }
   }
 
+  renderSubtaskList(t);
+
   taskDetailOverlay.classList.add('open');
 }
 
@@ -2163,7 +2188,6 @@ taskDetailRecurrence.addEventListener('change', () => {
 
 taskDetailAddCategoryBtn.addEventListener('click', () => addTaskCategory(taskDetailCategory));
 
-// ===== Subtasks / checklist =====
 const taskDetailSubtaskList = document.getElementById('task-detail-subtask-list');
 const taskDetailSubtaskInput = document.getElementById('task-detail-subtask-input');
 const taskDetailSubtaskAddBtn = document.getElementById('task-detail-subtask-add-btn');
@@ -2314,7 +2338,6 @@ taskDetailDeleteBtn.addEventListener('click', () => {
   closeTaskDetail();
 });
 
-// ===== Drag a task onto Pomodoro or Trash =====
 const dragDropzones = document.createElement('div');
 dragDropzones.id = 'drag-dropzones';
 dragDropzones.className = 'drag-dropzones';
@@ -2535,7 +2558,7 @@ function renderViewHeader() {
   renderHomeSummary();
 }
 
-const COMPLETION_LOG_KEY = 'aschertypeCompletionLog';
+const COMPLETION_LOG_KEY = 'mosstaskCompletionLog';
 function loadCompletionLog() {
   return safeParse(COMPLETION_LOG_KEY, []);
 }
@@ -2594,7 +2617,14 @@ function renderHomeSummary() {
   renderHomeProgress();
   renderHomeMiniCal();
   renderHomeStreak();
+  reorderHomeWidgetsWithTipLast();
   homeWidgetsEl.style.display = 'flex';
+}
+
+function reorderHomeWidgetsWithTipLast() {
+  if (!homeWidgetsEl || !tipsBarEl) return;
+  if (!homeWidgetsEl.contains(tipsBarEl)) return;
+  homeWidgetsEl.appendChild(tipsBarEl);
 }
 
 function renderHomeFocus() {
@@ -2804,7 +2834,6 @@ clearBtn.addEventListener('click', () => {
   });
 });
 
-// ===== Permissions popover =====
 const permPopover = document.getElementById('perm-popover');
 let permPopoverMember = null;
 
@@ -2881,7 +2910,6 @@ window.addEventListener('resize', () => {
   if (isPermPopoverOpen()) closePermPopover();
 });
 
-// ===== Collaborator panel + FAB =====
 const collabPanel = document.getElementById('project-collab-panel');
 const collabBody = document.getElementById('collab-body');
 const collabEmpty = document.getElementById('collab-empty');
@@ -3050,7 +3078,6 @@ async function removeMember(member) {
 }
 collabInviteBtn.addEventListener('click', () => openInviteModal());
 
-// ===== Invite modal =====
 const inviteOverlay = document.getElementById('invite-overlay');
 const inviteEmailInput = document.getElementById('invite-email');
 const inviteErrorEl = document.getElementById('invite-error');
@@ -3117,8 +3144,7 @@ inviteSendBtn.addEventListener('click', async () => {
   await loadNotifications();
 });
 
-// ===== Notification inbox =====
-const GUEST_NOTIF_READ_KEY = 'aschertypeGuestNotifRead';
+const GUEST_NOTIF_READ_KEY = 'mosstaskGuestNotifRead';
 function getGuestNotifReadIds() {
   return new Set(safeParse(GUEST_NOTIF_READ_KEY, []));
 }
@@ -3132,11 +3158,6 @@ function markAllGuestNotifRead(ids) {
   ids.forEach(id => set.add(id));
   safeSetItem(GUEST_NOTIF_READ_KEY, JSON.stringify(Array.from(set)));
 }
-// Guests have no account to sync notifications from, but they still get
-// useful local reminders (overdue / due-today tasks) computed from their
-// own on-device task list. Read state persists locally so it doesn't
-// re-notify every render, and this never touches the cloud `notifications`
-// array used for signed-in users, so nothing is duplicated between the two.
 function computeGuestNotifications() {
   const readIds = getGuestNotifReadIds();
   const todayKey = todayStr();
@@ -3316,7 +3337,6 @@ async function loadNotifications() {
   renderNotifList();
 }
 
-// ===== Refresh shared data =====
 async function refreshSharedData() {
   if (!supabaseReady || !currentUser) return;
   const [remoteProjects, remoteTodos, remoteMembers] = await Promise.all([
@@ -3325,7 +3345,7 @@ async function refreshSharedData() {
     dbFetchProjectMembers(),
   ]);
   if (remoteProjects) {
-    projects = remoteProjects.map(p => ({ id: p.id, name: p.name, userId: p.user_id }));
+    projects = remoteProjects.map(p => ({ id: p.id, name: p.name, userId: p.user_id, announcement: p.announcement || '', announcementUpdatedAt: p.announcement_updated_at || null }));
     saveProjects();
   }
   if (remoteTodos) {
@@ -3372,7 +3392,6 @@ window.addEventListener('resize', () => {
   if (profilePopover.style.display === 'flex') positionProfilePopover();
 });
 
-// ===== Calendar =====
 let events = safeParse('events', []);
 let calViewDate = new Date();
 calViewDate.setDate(1);
@@ -3572,7 +3591,6 @@ eventDeleteBtn.addEventListener('click', () => {
   renderDayPanel();
 });
 
-// ===== Notes =====
 let notes = safeParse('notes', []);
 let noteCategories = safeParse('noteCategories', null) || ['General'];
 let activeCategory = 'All';
@@ -3701,7 +3719,6 @@ noteForm.addEventListener('submit', (e) => {
   noteTitleInput.focus();
 });
 
-// ===== Closeout =====
 const CLOSEOUT_TIME_KEY = 'closeoutTime';
 const CLOSEOUT_ENABLED_KEY = 'closeoutEnabled';
 const CLOSEOUT_LAST_SHOWN_KEY = 'closeoutLastShown';
@@ -3798,7 +3815,6 @@ function maybeAutoOpenCloseout() {
 }
 setInterval(maybeAutoOpenCloseout, 60 * 1000);
 
-// ===== Realtime =====
 let realtimeRenderTimer = null;
 function debouncedSharedRender() {
   if (realtimeRenderTimer) clearTimeout(realtimeRenderTimer);
@@ -3948,7 +3964,7 @@ function handleRealtimeMember(payload) {
     if (!haveProject) {
       dbFetchProjects().then((data) => {
         if (!data) return;
-        projects = data.map(p => ({ id: p.id, name: p.name, userId: p.user_id }));
+        projects = data.map(p => ({ id: p.id, name: p.name, userId: p.user_id, announcement: p.announcement || '', announcementUpdatedAt: p.announcement_updated_at || null }));
         saveProjects();
         renderProjectNav();
         renderProjectSelect();
@@ -4068,7 +4084,6 @@ function detachRealtimeSubscriptions() {
   if (typeof teardownRealtime === 'function') teardownRealtime();
 }
 
-// ===== Loading screen =====
 const loadingScreen = document.getElementById('loading-screen');
 const statusDotEl = document.getElementById('status-dot');
 const statusTextEl = document.getElementById('status-text');
@@ -4108,7 +4123,7 @@ function markLoadingReady() {
   setLoadingStage(pickLoadingPhrase());
   setTimeout(() => {
     if (!loadingDismissed) dismissLoading();
-  }, 1100);
+  }, 250);
 }
 
 function dismissLoading() {
@@ -4129,8 +4144,7 @@ updateConnectionStatus();
 window.addEventListener('online', updateConnectionStatus);
 window.addEventListener('offline', updateConnectionStatus);
 
-// ===== Welcome modal =====
-const WELCOME_KEY = 'aschertypeWelcomeSeen';
+const WELCOME_KEY = 'mosstaskWelcomeSeen';
 let onboardingChainNext = null;
 const welcomeOverlay = document.getElementById('welcome-overlay');
 const welcomeDismissBtn = document.getElementById('welcome-dismiss-btn');
@@ -4173,8 +4187,7 @@ if (welcomeOverlay) {
   });
 }
 
-// ===== Tips intro modal =====
-const TIPS_INTRO_KEY = 'aschertypeTipsIntroSeen';
+const TIPS_INTRO_KEY = 'mosstaskTipsIntroSeen';
 let tipsChainNext = null;
 const tipsIntroOverlay = document.getElementById('tips-intro-overlay');
 const tipsIntroDismissBtn = document.getElementById('tips-intro-dismiss-btn');
@@ -4198,29 +4211,7 @@ if (tipsIntroOverlay) {
   });
 }
 
-// ===== Onboarding tutorial =====
-//
-// This is a small state machine rather than a flat "highlight this
-// selector" list, because a tutorial that moves the user between real
-// features (Dashboard → Tasks → Calendar → Notes → Pomodoro → Projects →
-// Settings) has to solve three problems every step, in order:
-//
-//   1. Navigation  — am I even on the right view for this step? If not,
-//      switch to it first (via the app's own setView/sidebar functions,
-//      never by guessing coordinates).
-//   2. Readiness   — has the destination actually finished rendering, and
-//      is the target element really visible (not display:none, not
-//      zero-size, not detached)? Wait until it is, with a bounded timeout.
-//   3. Sequencing  — if the user mashes Next/Back/Skip, or the app state
-//      changes while we're mid-wait, make sure only the *latest* request
-//      is allowed to paint a spotlight. Stale async work is discarded.
-//
-// Every step therefore goes through the same pipeline (tutorialShowStep),
-// and every async operation is tagged with a "run token" that is bumped
-// each time the step changes; any callback that finishes after its token
-// has been superseded simply no-ops instead of rendering out of order.
-
-const TUTORIAL_KEY = 'aschertypeTutorialSeen';
+const TUTORIAL_KEY = 'mosstaskTutorialSeen';
 const tutorialOverlay = document.getElementById('tutorial-overlay');
 const tutorialSpotlight = document.getElementById('tutorial-spotlight');
 const tutorialTooltip = document.getElementById('tutorial-tooltip');
@@ -4231,27 +4222,12 @@ const tutorialBackBtn = document.getElementById('tutorial-back-btn');
 const tutorialNextBtn = document.getElementById('tutorial-next-btn');
 const tutorialSkipBtn = document.getElementById('tutorial-skip-btn');
 
-// Existing users (anyone who already dismissed the welcome guide before this
-// feature existed) should never be auto-enrolled into the tutorial — only
-// genuinely first-time users see it automatically. They can still replay it
-// manually from Settings at any time.
 if (safeGetItem(WELCOME_KEY) === 'true' && safeGetItem(TUTORIAL_KEY) !== 'true') {
   safeSetItem(TUTORIAL_KEY, 'true');
 }
 
 const TUTORIAL_MOBILE_BREAKPOINT = 860;
 
-// Each step declares:
-//   view       — the app view (setView() target) this step's target lives
-//                on, or null if it doesn't require switching (e.g. the
-//                target is visible from any view, like the sidebar).
-//   inSidebar  — true if the target lives inside the collapsible sidebar,
-//                so it needs the sidebar opened on narrow viewports.
-//   selector / getTarget — how to find the live element. Most steps use a
-//                plain selector; a couple need to pick between a mobile and
-//                a desktop equivalent (e.g. the notification bell has two
-//                different buttons depending on layout), so those provide
-//                a getTarget() function instead.
 const TUTORIAL_STEPS = [
   {
     id: 'home', view: 'all', inSidebar: true, selector: '#all-tasks-btn',
@@ -4323,11 +4299,6 @@ let tutorialSidebarOpenedByUs = false;
 let tutorialRafId = null;
 let tutorialSettleTimer = null;
 
-// A target counts as highlightable only if it's actually connected AND
-// rendered with real, on-screen dimensions — not just "exists in the DOM".
-// offsetParent is null for anything with display:none on itself or an
-// ancestor (cheap to check every animation frame); the size check catches
-// the rest (visibility:hidden, zero-height collapsed containers, etc).
 function tutorialIsVisible(el) {
   if (!el || !el.isConnected) return false;
   const style = window.getComputedStyle(el);
@@ -4343,13 +4314,6 @@ function tutorialResolveTarget(step) {
   return tutorialIsVisible(el) ? el : null;
 }
 
-// Waits for a step's target to exist AND be visible, up to a timeout.
-// Combines a MutationObserver (reacts immediately to DOM/attribute changes
-// from setView/render calls) with a per-frame poll (catches layout changes
-// that don't touch attributes, like a CSS media-query breakpoint). Bails
-// out early — and stops all work — the moment `token` is superseded by a
-// newer step request, so a slow render can never paint over a step the
-// user has already navigated away from.
 function tutorialWaitForTarget(step, token, timeoutMs) {
   return new Promise((resolve) => {
     const deadline = performance.now() + (timeoutMs || 4000);
@@ -4386,13 +4350,6 @@ function tutorialWaitForTarget(step, token, timeoutMs) {
   });
 }
 
-// Recomputes and applies spotlight + tooltip position from the target
-// element's LIVE bounding rect, every animation frame while this token is
-// still current. This is what makes the highlight track scrolling,
-// resizing, and layout changes in any container without ever going stale
-// — and it self-heals if the target genuinely disappears mid-step (e.g. a
-// window resize closes the sidebar) by re-running the full step pipeline
-// instead of continuing to draw a spotlight around nothing.
 function tutorialTrack(token) {
   if (token !== tutorialRunToken || !tutorialActive) return;
   const step = TUTORIAL_STEPS[tutorialStep];
@@ -4416,8 +4373,6 @@ function tutorialTrack(token) {
   tutorialSpotlight.style.width = Math.max(0, width) + 'px';
   tutorialSpotlight.style.height = Math.max(0, height) + 'px';
 
-  // Position the tooltip using its actual measured size so it never runs
-  // off any edge of the viewport, at any screen size.
   const margin = 16;
   const tw = tutorialTooltip.offsetWidth || 280;
   const th = tutorialTooltip.offsetHeight || 140;
@@ -4452,33 +4407,22 @@ function tutorialRenderStepChrome(i) {
   tutorialNextBtn.textContent = i === TUTORIAL_STEPS.length - 1 ? 'Done' : 'Next';
 }
 
-// The single entry point for rendering step `i`. Every transition —
-// Next, Back, auto-skip past a missing target, and the initial start —
-// goes through this one function, so there is exactly one place that
-// decides "what should be on screen right now."
 async function tutorialShowStep(i) {
   const step = TUTORIAL_STEPS[i];
   if (!tutorialActive || !step) { tutorialEnd(); return; }
 
-  const token = ++tutorialRunToken; // supersedes any wait/track loop from a previous step
+  const token = ++tutorialRunToken;
   tutorialStep = i;
 
-  // Hide whatever was on screen — never leave last step's spotlight
-  // sitting over this step's (possibly different) layout while we
-  // navigate and wait.
   tutorialSpotlight.classList.add('is-loading');
   tutorialTooltip.classList.add('is-loading');
   if (tutorialRafId) { cancelAnimationFrame(tutorialRafId); tutorialRafId = null; }
   if (tutorialSettleTimer) { clearTimeout(tutorialSettleTimer); tutorialSettleTimer = null; }
 
-  // 1. Navigate to this step's feature first, through the app's real
-  // navigation function — never by assuming we're already there.
   if (step.view && step.view !== currentView && typeof setView === 'function') {
     setView(step.view);
   }
 
-  // 2. Open/close the sidebar on narrow viewports so the target is where
-  // this step expects it to be.
   const needsSidebar = !!step.inSidebar && window.innerWidth <= TUTORIAL_MOBILE_BREAKPOINT;
   if (needsSidebar) {
     if (typeof openSidebar === 'function' && !sidebar.classList.contains('open')) {
@@ -4490,14 +4434,10 @@ async function tutorialShowStep(i) {
     tutorialSidebarOpenedByUs = false;
   }
 
-  // 3. Wait for the destination to finish rendering and the real target
-  // element to be visible. Nothing below this line runs on a stale token.
   const el = await tutorialWaitForTarget(step, token);
   if (token !== tutorialRunToken || !tutorialActive) return;
 
   if (!el) {
-    // The target never showed up — skip forward instead of ever
-    // displaying a spotlight with nothing valid to point at.
     tutorialGoTo(i + 1);
     return;
   }
@@ -4505,8 +4445,6 @@ async function tutorialShowStep(i) {
   tutorialRenderStepChrome(i);
   el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
 
-  // Give the scroll a moment to settle, then start tracking — checking
-  // the token again in case Next/Back/Skip fired during that wait.
   tutorialSettleTimer = setTimeout(() => {
     if (token !== tutorialRunToken || !tutorialActive) return;
     tutorialSpotlight.classList.remove('is-loading');
@@ -4515,8 +4453,6 @@ async function tutorialShowStep(i) {
   }, 260);
 }
 
-// Central sequencing gate: every requested move goes through here, so a
-// step can never be shown out of order or after the tutorial has ended.
 function tutorialGoTo(i) {
   if (!tutorialActive) return;
   if (i < 0) return;
@@ -4537,7 +4473,7 @@ function tutorialStart() {
 function tutorialEnd() {
   safeSetItem(TUTORIAL_KEY, 'true');
   tutorialActive = false;
-  tutorialRunToken += 1; // invalidate any pending waits/frames immediately
+  tutorialRunToken += 1;
   tutorialOverlay.style.display = 'none';
   document.body.classList.remove('tutorial-scroll-lock');
   tutorialSpotlight.classList.remove('is-loading');
@@ -4556,13 +4492,16 @@ if (tutorialNextBtn) tutorialNextBtn.addEventListener('click', () => tutorialGoT
 if (tutorialBackBtn) tutorialBackBtn.addEventListener('click', () => { if (tutorialStep > 0) tutorialGoTo(tutorialStep - 1); });
 if (tutorialSkipBtn) tutorialSkipBtn.addEventListener('click', tutorialEnd);
 
-// Recalculate immediately on scroll/resize instead of waiting for the next
-// animation frame, so the spotlight never lags a fast scroll or a device
-// rotation even for a single frame. The continuous rAF loop in
-// tutorialTrack() already keeps it correct every frame while active; these
-// listeners just make the very next update happen as soon as possible.
-// `true` (capture) so this also fires for scroll events on inner
-// containers (e.g. the scrollable sidebar or task list), not just window.
+// Keyboard access to the tutorial's own controls only — Escape/Arrow keys
+// work while it's active, everything else stays swallowed by the overlay
+// (see the keydown guard near the shortcut handler above).
+document.addEventListener('keydown', (e) => {
+  if (!tutorialActive) return;
+  if (e.key === 'Escape') { e.preventDefault(); tutorialEnd(); }
+  else if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); tutorialGoTo(tutorialStep + 1); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); if (tutorialStep > 0) tutorialGoTo(tutorialStep - 1); }
+}, true);
+
 window.addEventListener('scroll', () => {
   if (tutorialActive && tutorialRafId == null && tutorialStep >= 0) tutorialTrack(tutorialRunToken);
 }, true);
@@ -4570,9 +4509,6 @@ window.addEventListener('resize', () => {
   if (tutorialActive && tutorialRafId == null && tutorialStep >= 0) tutorialTrack(tutorialRunToken);
 });
 
-// Settings → "Replay interactive tutorial": launches the exact same
-// tutorial system used for first-time users, starting from step 1,
-// regardless of which settings section (or view) is currently open.
 const showTutorialBtn = document.getElementById('show-tutorial-btn');
 if (showTutorialBtn) {
   showTutorialBtn.addEventListener('click', () => {
@@ -4587,10 +4523,6 @@ function maybeStartTutorial() {
   tutorialStart();
 }
 
-// Single entry point for the full onboarding sequence (Welcome guide → tips
-// intro → interactive tutorial), used both for first-time users at boot and
-// for a manual replay from Settings, so there is exactly one implementation
-// of "the tutorial" and one place that decides what happens next.
 function runWelcomeGuideFlow(opts) {
   const forced = !!(opts && opts.forced);
   const afterTips = () => { if (forced) tutorialStart(); else maybeStartTutorial(); };
@@ -4614,7 +4546,6 @@ function runWelcomeGuideFlow(opts) {
   }
 }
 
-// ===== Modal focus trap =====
 (function setupModalFocusTrap() {
   const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
   let lastFocused = null;
@@ -4669,9 +4600,6 @@ function runWelcomeGuideFlow(opts) {
   });
 })();
 
-// ============================================================
-// ===== Global search (opt-in, keyboard-first) =====
-// ============================================================
 const searchOverlay = document.getElementById('search-overlay');
 const searchInput = document.getElementById('global-search-input');
 const searchResultsEl = document.getElementById('search-results');
@@ -4753,9 +4681,6 @@ document.getElementById('search-trigger-btn')?.addEventListener('click', openSea
 document.getElementById('mobile-search-btn')?.addEventListener('click', openSearch);
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && searchOverlay && searchOverlay.style.display === 'flex') closeSearch(); });
 
-// ============================================================
-// ===== Keyboard shortcuts panel =====
-// ============================================================
 const shortcutsOverlay = document.getElementById('shortcuts-overlay');
 function openShortcuts() { if (shortcutsOverlay) shortcutsOverlay.style.display = 'flex'; }
 function closeShortcuts() { if (shortcutsOverlay) shortcutsOverlay.style.display = 'none'; }
@@ -4764,12 +4689,9 @@ document.getElementById('shortcuts-close-btn')?.addEventListener('click', closeS
 if (shortcutsOverlay) shortcutsOverlay.addEventListener('click', (e) => { if (e.target === shortcutsOverlay) closeShortcuts(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && shortcutsOverlay && shortcutsOverlay.style.display === 'flex') closeShortcuts(); });
 
-// ============================================================
-// ===== Backup & restore (export/import JSON) =====
-// ============================================================
 function buildExportPayload() {
   return {
-    app: 'Aschertype',
+    app: 'MossTask',
     version: 1,
     exportedAt: new Date().toISOString(),
     todos, projects, notes, events,
@@ -4782,7 +4704,7 @@ document.getElementById('export-data-btn')?.addEventListener('click', () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `aschertype-backup-${todayStr()}.json`;
+  a.download = `mosstask-backup-${todayStr()}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -4844,9 +4766,6 @@ function applyImportedData(data) {
   showSimpleToast({ emoji: '✅', text: 'Backup imported.' });
 }
 
-// ============================================================
-// ===== Bulk task selection (opt-in via the toolbar toggle) =====
-// ============================================================
 let bulkSelectMode = false;
 let bulkSelectedIds = new Set();
 const taskSelectToggleBtn = document.getElementById('task-select-toggle-btn');
@@ -4940,9 +4859,6 @@ if (bulkMoveSelect) {
   });
 }
 
-// ============================================================
-// ===== Home: streak heatmap (uses the existing completion log) =====
-// ============================================================
 function renderHomeStreak() {
   const el = document.getElementById('home-streak');
   if (!el) return;
@@ -4974,17 +4890,102 @@ function renderHomeStreak() {
     else break;
   }
 
+  const gridWrap = document.createElement('div');
+  gridWrap.className = 'home-streak-grid-wrap';
+
   const grid = document.createElement('div');
   grid.className = 'home-streak-grid';
+
+  const tooltip = document.createElement('div');
+  tooltip.className = 'home-streak-tooltip';
+  tooltip.setAttribute('role', 'tooltip');
+  tooltip.hidden = true;
+
+  let pinnedCell = null;
+
+  function tooltipText(key, count) {
+    const dateLabel = formatAppDate(new Date(key), { month: 'short', day: 'numeric', year: 'numeric' });
+    const countLabel = window.I18N
+      ? window.I18N.t(count === 1 ? 'widget.streak.tasksDone_one' : 'widget.streak.tasksDone_other', '{n} tasks completed').replace('{n}', count)
+      : `${count} task${count === 1 ? '' : 's'} completed`;
+    return { dateLabel, countLabel };
+  }
+
+  function positionTooltip(cell) {
+    tooltip.hidden = false;
+    const wrapRect = gridWrap.getBoundingClientRect();
+    const cellRect = cell.getBoundingClientRect();
+    tooltip.style.left = '0px';
+    tooltip.style.top = '-9999px';
+    requestAnimationFrame(() => {
+      const ttRect = tooltip.getBoundingClientRect();
+      let left = (cellRect.left - wrapRect.left) + cellRect.width / 2 - ttRect.width / 2;
+      left = Math.max(0, Math.min(left, wrapRect.width - ttRect.width));
+      let top = (cellRect.top - wrapRect.top) - ttRect.height - 8;
+      if (top < 0) top = (cellRect.bottom - wrapRect.top) + 8;
+      tooltip.style.left = `${left}px`;
+      tooltip.style.top = `${top}px`;
+    });
+  }
+
+  function showTooltipFor(cell) {
+    const key = Number(cell.dataset.key);
+    const count = Number(cell.dataset.count);
+    const { dateLabel, countLabel } = tooltipText(key, count);
+    tooltip.innerHTML = '';
+    const d = document.createElement('div');
+    d.className = 'home-streak-tooltip-date';
+    d.textContent = dateLabel;
+    const c = document.createElement('div');
+    c.className = 'home-streak-tooltip-count';
+    c.textContent = countLabel;
+    tooltip.append(d, c);
+    positionTooltip(cell);
+  }
+
+  function hideTooltip() {
+    tooltip.hidden = true;
+    if (pinnedCell) pinnedCell.classList.remove('is-selected');
+    pinnedCell = null;
+  }
+
   for (let i = totalDays - 1; i >= 0; i--) {
     const key = today.getTime() - i * dayMs;
     const count = counts.get(key) || 0;
-    const cell = document.createElement('span');
+    const cell = document.createElement('button');
+    cell.type = 'button';
     cell.className = 'home-streak-cell' + (count > 0 ? ' level-' + Math.min(4, count) : '');
-    cell.title = `${formatAppDate(new Date(key), { month: 'short', day: 'numeric' })}: ${count} done`;
+    cell.dataset.key = String(key);
+    cell.dataset.count = String(count);
+    const { dateLabel, countLabel } = tooltipText(key, count);
+    cell.setAttribute('aria-label', `${dateLabel}: ${countLabel}`);
+
+    cell.addEventListener('mouseenter', () => { if (!pinnedCell) showTooltipFor(cell); });
+    cell.addEventListener('mouseleave', () => { if (!pinnedCell) hideTooltip(); });
+    cell.addEventListener('focus', () => showTooltipFor(cell));
+    cell.addEventListener('blur', () => { if (!pinnedCell) hideTooltip(); });
+    cell.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (pinnedCell === cell) { hideTooltip(); return; }
+      if (pinnedCell) pinnedCell.classList.remove('is-selected');
+      pinnedCell = cell;
+      cell.classList.add('is-selected');
+      showTooltipFor(cell);
+    });
+
     grid.appendChild(cell);
   }
-  el.appendChild(grid);
+
+  gridWrap.append(grid, tooltip);
+  el.appendChild(gridWrap);
+  gridWrap._hideTooltip = hideTooltip;
+  if (!window.__streakOutsideClickBound) {
+    window.__streakOutsideClickBound = true;
+    document.addEventListener('click', (e) => {
+      const wrap = document.querySelector('.home-streak-grid-wrap');
+      if (wrap && !wrap.contains(e.target) && wrap._hideTooltip) wrap._hideTooltip();
+    });
+  }
 
   const caption = document.createElement('p');
   caption.className = 'home-widget-caption';
@@ -4994,11 +4995,46 @@ function renderHomeStreak() {
   el.appendChild(caption);
 }
 
-// ===== Startup =====
 window.initApp = async function initApp(user) {
   currentUser = user || null;
 
-  setLoadingStage(supabaseReady ? 'Loading your data…' : 'Starting locally…');
+  applyTheme(getTheme());
+  renderSettingsUI();
+  renderProjectNav();
+  renderProjectSelect();
+  renderTodos();
+  renderCounts();
+  renderViewHeader();
+  updateTaskFormForView();
+  renderTaskCategorySelects();
+  tipsBarEl.style.display = areTipsEnabled() ? 'flex' : 'none';
+  refreshTip();
+
+  document.querySelectorAll('.nav-item[data-view="assistant"]').forEach((el) => {
+    el.style.display = 'none';
+  });
+  const homeAiWidget = document.querySelector('.home-widget-ai');
+  if (homeAiWidget) homeAiWidget.style.display = 'none';
+  const magicBtn = document.getElementById('todo-magic-btn');
+  if (magicBtn) magicBtn.style.display = 'none';
+
+  const deferRenderHiddenViews = () => {
+    renderPomodoro();
+    renderCalendar();
+    renderDayPanel();
+    renderCategoryTabs();
+    renderNoteCategorySelect();
+    renderNotes();
+  };
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(deferRenderHiddenViews, { timeout: 2000 });
+  } else {
+    setTimeout(deferRenderHiddenViews, 200);
+  }
+
+  markLoadingReady();
+
+  setLoadingStage(supabaseReady ? 'Syncing…' : 'Starting locally…');
 
   if (currentUser) {
     const [remoteTodos, remoteNotes, remoteEvents, remoteProjects, remoteMembers, remoteNotifs] = await Promise.all([
@@ -5011,7 +5047,7 @@ window.initApp = async function initApp(user) {
     ]);
 
     if (remoteProjects) {
-      projects = remoteProjects.map(p => ({ id: p.id, name: p.name, userId: p.user_id }));
+      projects = remoteProjects.map(p => ({ id: p.id, name: p.name, userId: p.user_id, announcement: p.announcement || '', announcementUpdatedAt: p.announcement_updated_at || null }));
       saveProjects();
     }
     if (remoteTodos) {
@@ -5039,59 +5075,32 @@ window.initApp = async function initApp(user) {
     }
     if (remoteMembers) projectMembers = remoteMembers;
     if (remoteNotifs) notifications = remoteNotifs;
+
+    await loadProfile();
+
+    renderProjectNav();
+    renderProjectSelect();
+    renderTodos();
+    renderCounts();
+    renderViewHeader();
+    renderTaskCategorySelects();
+    deferRenderHiddenViews();
   } else {
     projectMembers = [];
     notifications = [];
-    currentProfile = currentUser ? { id: currentUser.id, email: currentUser.email, display_name: null } : null;
+    currentProfile = null;
+    await loadProfile();
   }
 
-  await loadProfile();
-
-  applyTheme(getTheme());
-  renderSettingsUI();
-  renderProjectNav();
-  renderProjectSelect();
-  renderTodos();
-  renderCounts();
-  renderViewHeader();
-  updateTaskFormForView();
   renderCollabPanel();
   updateCollabFabVisibility();
   renderNotifBadge();
   renderNotifList();
-  renderTaskCategorySelects();
-  tipsBarEl.style.display = areTipsEnabled() ? 'flex' : 'none';
-  refreshTip();
-
-  // Hide AI surfaces — AI removed
-  document.querySelectorAll('.nav-item[data-view="assistant"]').forEach((el) => {
-    el.style.display = 'none';
-  });
-  const homeAiWidget = document.querySelector('.home-widget-ai');
-  if (homeAiWidget) homeAiWidget.style.display = 'none';
-  const magicBtn = document.getElementById('todo-magic-btn');
-  if (magicBtn) magicBtn.style.display = 'none';
-
-  const deferRenderHiddenViews = () => {
-    renderPomodoro();
-    renderCalendar();
-    renderDayPanel();
-    renderCategoryTabs();
-    renderNoteCategorySelect();
-    renderNotes();
-  };
-  if ('requestIdleCallback' in window) {
-    requestIdleCallback(deferRenderHiddenViews, { timeout: 2000 });
-  } else {
-    setTimeout(deferRenderHiddenViews, 200);
-  }
 
   setTimeout(maybeAutoOpenCloseout, 4000);
   requestNotifPermissionIfNeeded();
   checkEventNotifications();
   attachRealtimeSubscriptions();
-
-  markLoadingReady();
 
   runWelcomeGuideFlow({ forced: false });
 };

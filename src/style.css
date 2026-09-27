@@ -19,11 +19,11 @@
   --shadow-lg: 0 12px 28px -6px rgba(30, 41, 59, 0.14), 0 8px 10px -6px rgba(30, 41, 59, 0.06);
 
   --low: #94a2ae;
-  --medium: #bb8a43;
-  --high: #b85f52;
+  --medium: #a5854e;
+  --high: #a66459;
   --low-bg: rgba(148, 162, 174, 0.10);
-  --medium-bg: rgba(187, 138, 67, 0.10);
-  --high-bg: rgba(184, 95, 82, 0.09);
+  --medium-bg: rgba(165, 133, 78, 0.10);
+  --high-bg: rgba(166, 100, 89, 0.09);
   --event-mark: #2f8a4f;
 
   --task-bg: #dfe0dd;
@@ -55,11 +55,11 @@
   --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.55);
 
   --low: #94a3b8;
-  --medium: #d4a75f;
-  --high: #d97c70;
+  --medium: #c3a06c;
+  --high: #c58a7e;
   --low-bg: rgba(148, 163, 184, 0.14);
-  --medium-bg: rgba(212, 167, 95, 0.16);
-  --high-bg: rgba(217, 124, 112, 0.16);
+  --medium-bg: rgba(195, 160, 108, 0.16);
+  --high-bg: rgba(197, 138, 126, 0.16);
   --event-mark: #4cb579;
 
   --task-bg: #1e2a3d;
@@ -108,7 +108,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
               box-shadow .25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ===== Loading screen ===== */
 #loading-screen {
   position: fixed; inset: 0; z-index: 999;
   background: var(--bg);
@@ -254,7 +253,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   100% { transform: translateX(350%); }
 }
 
-/* ===== Compact top bar ===== */
 .top-header-bar {
   display: flex;
   justify-content: flex-end;
@@ -324,7 +322,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 }
 .profile-caret { font-size: 9px; color: var(--ink-light); margin-left: -2px; }
 
-/* ===== Profile popover ===== */
 .profile-overlay {
   position: fixed; inset: 0; z-index: 690;
   background: transparent;
@@ -390,7 +387,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 }
 .profile-pop-edit-actions { display: flex; justify-content: flex-end; gap: 6px; }
 
-/* ===== Permissions popover ===== */
 .perm-popover {
   position: fixed;
   z-index: 710;
@@ -468,7 +464,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 }
 .checkbox-label input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
 
-/* ===== Auth ===== */
 #auth-screen {
   position: fixed; inset: 0; z-index: 500;
   background: rgba(15, 23, 42, 0.6);
@@ -519,9 +514,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .auth-link-btn:hover { color: var(--accent-ink); text-decoration: underline; }
 .auth-confirmation-actions { margin-top: -6px; text-align: center; }
 
-/* confirmation panel: must never overflow the auth card, even with long
-   emails or narrow viewports. every child gets min-width:0 + break-word
-   so a very long address wraps instead of pushing the layout sideways. */
 .confirmation-panel {
   display: flex;
   flex-direction: column;
@@ -586,7 +578,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .auth-legal-note a { color: var(--ink-light); text-decoration: underline; }
 .auth-legal-note a:hover { color: var(--accent-ink); }
 
-/* ===== Mobile Topbar ===== */
 .mobile-topbar {
   display: none; align-items: center; gap: 12px; padding: 12px 16px;
   border-bottom: 1px solid var(--border); background: var(--panel);
@@ -633,7 +624,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 #sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 45; }
 #sidebar-backdrop.show { display: block; }
 
-/* ===== Sidebar ===== */
 .sidebar {
   width: 240px; background: var(--panel); border-right: 1px solid var(--border);
   display: flex; flex-direction: column; padding: 24px 16px; flex-shrink: 0;
@@ -673,13 +663,9 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .sub-nav.open { display: flex; }
 .nav-item.sub { font-size: 13.5px; padding: 8px 12px; }
 
-
-
 #project-nav-list {
   display: flex; flex-direction: column; gap: 4px;
-  /* Cap at exactly 4 items. Each item is 34px tall (8+8 padding + 18 line-height)
-     plus 4px gap → 4 items = 4*34 + 3*4 = 148px. */
-  max-height: 148px;
+  max-height: 114px;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 6px;
@@ -741,7 +727,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 }
 #clear-completed:hover, #closeout-btn:hover, #shortcuts-btn:hover { background: var(--accent-soft); color: var(--accent-ink); }
 
-/* ===== Main ===== */
 .main {
   flex: 1;
   min-width: 0;
@@ -869,7 +854,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 }
 .home-pulse-dot { display: none; }
 
-/* ===== Task add ===== */
 .task-add { margin-bottom: 22px; }
 
 .task-add-toggle {
@@ -942,22 +926,22 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 }
 
 .project-announcement {
-  /* display is set inline by JS (flex/none) so it doesn't fight [hidden] rules */
-  align-items: flex-start; gap: 12px;
-  padding: 14px 16px;
-  border-radius: 14px;
-  background: var(--accent-soft);
-  border: 1px solid var(--accent);
+  align-items: flex-start; gap: 11px;
+  padding: 13px 15px 13px 13px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
   margin-bottom: 28px;
 }
 .project-announcement-icon {
-  flex-shrink: 0; width: 20px; height: 20px; margin-top: 1px; color: var(--accent);
+  flex-shrink: 0; width: 16px; height: 16px; margin-top: 2px; color: var(--accent);
 }
 .project-announcement-icon svg { width: 100%; height: 100%; }
 .project-announcement-body { flex: 1; min-width: 0; }
 .project-announcement-label {
-  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
-  color: var(--accent); margin-bottom: 3px;
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--accent); margin-bottom: 4px;
 }
 .project-announcement-text {
   font-size: 14px; line-height: 1.5; color: var(--ink); white-space: pre-wrap; word-break: break-word;
@@ -969,6 +953,9 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12.5px; background: var(--card); border: 1px solid var(--border);
   border-radius: 5px; padding: 1px 5px;
+}
+.project-announcement-date {
+  font-size: 11px; font-weight: 500; color: var(--ink-light); margin-top: 6px;
 }
 .project-announcement-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 
@@ -997,9 +984,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 }
 .announcement-form textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
-/* ===== Task toolbar: plain icon-only controls for sort & category filter =====
-   No background/border on the row itself — sits tucked under the add-task
-   box, aligned to the bottom-right, just the two icons. */
 .task-toolbar {
   display: flex;
   justify-content: flex-end;
@@ -1061,18 +1045,18 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   margin-top: 2px;
 }
 
-/* ===== Task list ===== */
 .task-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 18px;
+  align-items: stretch;
 }
 .task-card {
-  display: flex; flex-direction: row; align-items: flex-start; gap: 10px;
-  padding: 13px 14px 13px 12px;
+  display: flex; flex-direction: row; align-items: stretch; gap: 10px;
+  padding: 13px 14px 13px 11px;
   background: var(--card);
   border: 1px solid var(--border);
-  border-left: 3px solid transparent;
+  border-left: 3px solid var(--low);
   border-radius: 14px; position: relative;
   box-shadow:
     0 2px 4px rgba(30, 41, 59, 0.065),
@@ -1082,12 +1066,10 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   contain-intrinsic-size: 0 140px;
   transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease, opacity .15s ease;
 }
-/* Priority reads instantly from the edge of the card — the border tint
-   and the small dot in the leading column reinforce each other without
-   duplicating the same visual weight. */
+.task-card.priority-low { border-left-color: var(--accent); }
 .task-card.priority-medium { border-left-color: var(--medium); }
 .task-card.priority-high { border-left-color: var(--high); }
-.task-card.is-pinned { background: var(--accent-soft); }
+.task-card.is-pinned { border-color: var(--accent); }
 .task-detail-assignee-chip, .task-pill.assignee-tag { color: var(--ink-2); background: var(--task-bg); }
 .task-card:hover {
   border-color: var(--border-hover);
@@ -1106,13 +1088,22 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
     0 4px 8px rgba(0, 0, 0, 0.48),
     0 18px 36px -6px rgba(0, 0, 0, 0.63);
 }
-.task-card.completed { opacity: 0.55; }
-.task-card.completed .task-title { text-decoration: line-through; }
+.task-card.completed {
+  background: var(--task-bg);
+  box-shadow: 0 1px 2px rgba(30, 41, 59, 0.05);
+  border-left-color: transparent;
+}
+.task-card.completed:hover { transform: none; box-shadow: 0 2px 4px rgba(30, 41, 59, 0.08); }
+[data-theme="dark"] .task-card.completed { background: #15181f; box-shadow: none; }
+.task-card.completed .task-title { text-decoration: line-through; color: var(--ink-2); font-weight: 600; }
+.task-card.completed .task-desc { color: var(--ink-light); }
+.task-card.completed .task-pill { color: var(--ink-light); }
+.task-card.completed .task-meta { opacity: 0.75; }
 .task-card.dragging { opacity: 0.4; transform: scale(0.97); }
 .task-card.drag-over-top { box-shadow: inset 0 3px 0 0 var(--accent); }
 .task-card.drag-over-bottom { box-shadow: inset 0 -3px 0 0 var(--accent); }
 .task-drag-handle {
-  flex-shrink: 0; align-self: center; cursor: grab;
+  flex-shrink: 0; align-self: flex-start; cursor: grab;
   color: var(--ink-light); opacity: 0; transition: opacity .15s ease, color .15s ease;
   width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;
 }
@@ -1122,14 +1113,11 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .task-card.dragging .task-drag-handle { cursor: grabbing; }
 @media (max-width: 860px) { .task-drag-handle { display: none; } }
 
-/* Brief highlight while a task card is being pressed-and-held to queue it
-   into Pomodoro — same visual language as focus rings elsewhere. */
 .task-card.hold-armed {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-/* Minimal right-click menu for adding a task to the Pomodoro stack */
 .task-context-menu {
   position: fixed; z-index: 200; background: var(--card); border: 1px solid var(--border);
   border-radius: 12px; box-shadow: var(--shadow-lg); padding: 6px; min-width: 176px;
@@ -1144,17 +1132,12 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .task-context-menu-icon { font-size: 14px; }
 .task-card.touch-dragging { opacity: 0.45; }
 
-/* ----- Completion control -----
-   Now anchored at the top-right of the headline instead of a leading
-   column, so the priority dot + title on the left can use the card's
-   full width. Pin badge rides along on its corner. */
 .task-card-check-col {
   flex-shrink: 0;
   display: flex;
-  position: relative;
 }
 .task-check {
-  width: 22px; height: 22px; border-radius: 50%;
+  width: 18px; height: 18px; border-radius: 5px;
   border: 1.5px solid #aab1ba;
   background: #ffffff;
   flex-shrink: 0; cursor: pointer;
@@ -1165,53 +1148,43 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   border-color: #4d5a6d;
   background: #1a2334;
 }
-.task-check:hover { border-color: var(--accent); transform: scale(1.05); }
-.task-check:active { transform: scale(0.94); }
+.task-check:hover { border-color: var(--accent); transform: scale(1.06); }
+.task-check:active { transform: scale(0.92); }
 .task-check:checked {
   background: var(--accent);
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 .task-check:checked::after {
-  content: ""; width: 6px; height: 10px; border: solid var(--accent-contrast); border-width: 0 1.8px 1.8px 0;
+  content: ""; width: 5px; height: 9px; border: solid var(--accent-contrast); border-width: 0 1.6px 1.6px 0;
   transform: rotate(45deg) translate(-1px, -1px);
 }
 .task-check:disabled { opacity: .45; cursor: not-allowed; }
 .task-check:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* ----- Content column -----
-   Full card width now — title, description, metadata and progress all
-   start at the same left edge, with only the completion checkbox (and
-   rename/delete actions) pinned to the top-right. */
 .task-card-content {
   flex: 1; min-width: 0;
-  display: flex; flex-direction: column; gap: 5px;
+  display: flex; flex-direction: column; gap: 0;
 }
 
-.task-card-headline { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-.task-headline-left { display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1; }
-.task-headline-right { display: flex; align-items: center; gap: 4px; flex-shrink: 0; padding-top: 1px; }
+.task-card-headline { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 3px; }
+.task-headline-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; padding-top: 1px; }
 
 .task-title {
   flex: 1; min-width: 0;
   font-size: 15px; font-weight: 700; color: var(--ink); line-height: 1.4; word-break: break-word;
-  /* Extremely long titles wrap up to two lines, then truncate — the card
-     never grows arbitrarily tall just because of title length. */
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  min-height: calc(15px * 1.4 * 2);
 }
 
 .task-desc {
-  font-size: 13px; font-weight: 500; color: var(--ink-2); line-height: 1.5;
+  font-size: 13px; font-weight: 500; color: var(--ink-2); line-height: 1.5; margin-top: 0; margin-bottom: 6px;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   word-break: break-word;
+  min-height: calc(13px * 1.5 * 2);
 }
+.task-desc-empty { min-height: calc(13px * 1.5 * 2); }
 
-/* Grouped, visually quiet metadata row — due date, project, category and
-   tracked time all share the same muted pill treatment so none of them
-   competes with the title for attention. Kept to a single, horizontally
-   scrollable line (rather than wrapping) so a task with many pills never
-   makes the card grow tall — it scrolls sideways instead, on both mouse
-   and touch, with a soft fade hinting there's more off-screen. */
 .task-meta {
   display: flex; align-items: center; gap: 6px;
   flex-wrap: nowrap;
@@ -1221,10 +1194,8 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   -ms-overflow-style: none;
   -webkit-overflow-scrolling: touch;
   padding-right: 2px;
+  min-height: 20px;
 }
-/* Fade only appears once there's actually more to scroll to (see
-   markTaskMetaOverflow() in renderer.js), so a short pill row never shows
-   a misleading cut edge. */
 .task-meta.has-overflow {
   mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent 100%);
   -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 18px), transparent 100%);
@@ -1232,49 +1203,52 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .task-meta::-webkit-scrollbar { display: none; height: 0; }
 .task-meta .task-pill { flex-shrink: 0; }
 
-.task-card-subtask-wrap { display: flex; flex-direction: column; gap: 4px; }
+.task-card-subtask-wrap { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 
-/* A quiet colored dot rather than a full flag icon — sits right before
-   the title on the left, small enough to read as metadata rather than a
-   component of its own, still immediately distinguishable by color. */
-.task-priority-dot {
-  flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%;
-  background: var(--low); opacity: 0.55;
-}
-.task-priority-dot.priority-medium { background: var(--medium); opacity: 0.85; }
-.task-priority-dot.priority-high { background: var(--high); opacity: 1; }
-.task-card.completed .task-priority-dot { opacity: 0.35; }
-
-/* Pinned indicator sits as a small badge on the corner of the checkbox
-   rather than inline text before the title, so it never disturbs the
-   left-aligned title/description column. */
 .task-pin-badge {
-  position: absolute; top: -5px; right: -5px;
-  width: 14px; height: 14px; border-radius: 50%;
+  flex-shrink: 0;
+  width: 19px; height: 19px; border-radius: 6px;
   display: flex; align-items: center; justify-content: center;
-  background: var(--card); color: var(--accent-ink);
-  box-shadow: 0 0 0 1px var(--border);
+  background: var(--accent-soft); color: var(--accent-ink);
 }
-.task-pin-badge svg { width: 9px; height: 9px; fill: currentColor; }
-
+.task-pin-badge svg { width: 12px; height: 12px; fill: currentColor; }
+.task-card.completed .task-pin-badge { opacity: 0.6; }
 
 .task-pill {
   display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 500;
-  padding: 2.5px 8px 2.5px 6px; border-radius: 9999px; background: var(--task-bg); color: var(--ink-2); border: 1px solid transparent;
+  padding: 2px 2px; border-radius: 6px; background: none; color: var(--ink-light); border: 1px solid transparent;
   max-width: 100%; overflow: hidden;
 }
 .task-pill span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .task-pill svg { width: 10px; height: 10px; flex-shrink: 0; opacity: 0.85; }
 .pill-icon { display: inline-flex; align-items: center; }
-.task-pill.due-overdue { color: var(--high); background: var(--high-bg); }
-.task-pill.due-today { color: var(--accent-ink); background: var(--accent-soft); }
-.task-pill.project-tag { color: var(--ink-2); background: var(--task-bg); cursor: pointer; border: 1px solid var(--border); padding-left: 6px; max-width: 160px; }
+.task-pill.due-overdue { color: var(--high); background: var(--high-bg); padding: 2.5px 7px 2.5px 6px; border-radius: 6px; }
+.task-pill.due-today { color: var(--accent-ink); background: var(--accent-soft); padding: 2.5px 7px 2.5px 6px; border-radius: 6px; }
+.task-pill.project-tag { color: var(--ink-2); background: var(--task-bg); cursor: pointer; border: 1px solid var(--border); padding: 2.5px 8px 2.5px 6px; border-radius: 6px; max-width: 160px; }
 .task-pill.project-tag:hover { border-color: var(--border-hover); background: var(--task-bg-hover); }
 .task-pill .project-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .task-pill.shared-tag { color: var(--medium); background: var(--medium-bg); }
 
-/* Quiet, on-hover-only actions — kept out of the primary reading path,
-   anchored to the top-right corner of the headline. */
+/* Secondary tier: priority, shown only when it isn't the low/default case. */
+.task-pill.priority-tag { font-weight: 600; padding: 2.5px 7px 2.5px 6px; border-radius: 6px; }
+.task-pill.priority-tag svg { width: 9px; height: 9px; }
+.task-pill.priority-tag.priority-medium { color: var(--medium); background: var(--medium-bg); }
+.task-pill.priority-tag.priority-high { color: var(--high); background: var(--high-bg); }
+
+/* Tertiary tier: project, category, assignee, time spent. Quieter than the
+   due date / priority tags above so attention lands on what matters first. */
+.task-pill.tag-quiet {
+  color: var(--ink-light);
+  background: none;
+  border-color: transparent;
+  font-weight: 500;
+  opacity: 0.85;
+}
+.task-pill.tag-quiet.project-tag { cursor: pointer; }
+.task-pill.tag-quiet.project-tag:hover { color: var(--ink-2); opacity: 1; }
+.task-pill.tag-quiet.shared-tag { color: var(--medium); }
+.task-card.completed .task-pill.tag-quiet { opacity: 0.6; }
+
 .task-card-actions {
   display: flex; align-items: center; gap: 0px; flex-shrink: 0;
   opacity: 0; transform: translateX(4px);
@@ -1302,13 +1276,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   box-shadow: var(--shadow-lg); pointer-events: none;
 }
 
-/* ---- Floating Pomodoro / Trash drop targets shown while dragging a task ----
-   NOTE: the zones are kept in their final on-screen position at all times and
-   only fade in/out via opacity — they used to slide in with a `transform:
-   translate()` entrance, which meant getBoundingClientRect() briefly returned
-   a rect that was still mid-animation (off-screen), so a fast drag could miss
-   the hitbox entirely depending on timing. Opacity doesn't affect layout, so
-   the hit-test rect is always correct from the first frame. */
 .drag-dropzones {
   position: fixed; left: 50%; bottom: 26px; z-index: 199;
   transform: translate(-50%, 0) scale(0.92);
@@ -1335,8 +1302,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .drag-dropzone.danger.drop-target {
   border: 1px solid var(--high); background: var(--high-bg); color: var(--high);
 }
-/* Shown when dragging a completed task over the Pomodoro zone — it can't
-   accept it, so it visibly looks disabled instead of silently doing nothing. */
 .drag-dropzone.zone-invalid {
   opacity: 0.45; cursor: not-allowed;
   border-style: solid; border-color: var(--border);
@@ -1356,7 +1321,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   .drag-dropzone { padding: 16px; border-radius: 9999px; }
 }
 
-/* ===== Task detail side panel — spacious redesign ===== */
 .task-detail-overlay {
   position: fixed; inset: 0; z-index: 60;
   background: rgba(0,0,0,0.32);
@@ -1421,9 +1385,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .task-detail-title:focus { background: var(--bg); border-bottom-color: var(--accent); }
 .task-detail-title.completed { text-decoration: line-through; color: var(--ink-light); }
 
-/* Body: generous vertical rhythm between sections, each section separated
-   by a hairline card rather than crowded fields. Panel scrolls as a
-   whole so the head and footer stay pinned. */
 .task-detail-body {
   padding: 22px 32px 24px;
   display: flex; flex-direction: column; gap: 20px;
@@ -1436,9 +1397,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   border: 1px solid var(--home-line, rgba(43, 53, 66, 0.09));
   border-radius: 16px;
 }
-/* Secondary/quieter metadata: same shape as a primary section but flatter
-   and lower-contrast, so it visually recedes rather than competing with
-   priority/assignee/project above. */
 .task-detail-section-quiet {
   background: transparent;
   border: 1px dashed var(--home-line, rgba(43, 53, 66, 0.14));
@@ -1547,7 +1505,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   padding: 24px 20px; line-height: 1.6;
 }
 
-/* ===== Buttons ===== */
 .btn {
   padding: 11px 22px; border-radius: 12px; border: 1px solid var(--border);
   background: var(--card); color: var(--ink-2); cursor: pointer; font-size: 14px; font-weight: 600; font-family: inherit; box-shadow: var(--shadow-sm);
@@ -1560,13 +1517,11 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .btn.danger { background: none; color: var(--high); border-color: var(--high-bg); }
 .btn.danger:hover { background: var(--high-bg); border-color: var(--high); }
 
-/* ===== Pomodoro ===== */
 .pomodoro-card {
   background: var(--card); border: 1px solid var(--border); border-radius: 20px;
   padding: 36px 32px; display: flex; flex-direction: column; align-items: center; gap: 26px;
   box-shadow: var(--shadow); max-width: 480px; margin: 0 auto; position: relative;
 }
-/* ---- Current / up-next task strip — minimal, no card-stack illusion ---- */
 .pomodoro-stack {
   width: 100%; display: flex; flex-direction: column; gap: 10px;
   border-top: 1px solid var(--border); padding-top: 22px;
@@ -1622,7 +1577,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 }
 .pomodoro-sessions { font-size: 13px; color: var(--ink-light); font-weight: 500; }
 
-/* ---- Pomodoro focus stack: minimal queued-task list, "up next" first ---- */
 .pomodoro-queue { width: 100%; border-top: 1px solid var(--border); padding-top: 18px; }
 .pomodoro-queue-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .pomodoro-queue-title {
@@ -1649,7 +1603,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .pomodoro-queue-item-remove:hover { background: var(--high-bg); color: var(--high); }
 .pomodoro-queue-empty { font-size: 12.5px; color: var(--ink-light); text-align: center; padding: 6px 4px; margin: 0; }
 
-/* ===== Calendar ===== */
 .calendar-layout { display: grid; grid-template-columns: 1fr 340px; gap: 24px; }
 .cal-title-row { display: flex; align-items: center; gap: 12px; text-align: left; }
 .cal-badge {
@@ -1768,7 +1721,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 }
 .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
 
-/* ===== Notes ===== */
 .notes-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
 .category-tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
 .category-tab {
@@ -1808,7 +1760,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .note-card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border); }
 .note-card-time { font-size: 11px; color: var(--ink-light); }
 
-/* ===== Settings ===== */
 .settings-card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow); overflow: hidden; }
 .settings-block { padding: 22px 28px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 20px; }
 .settings-block:last-child { border-bottom: none; }
@@ -1845,11 +1796,6 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .theme-swatch.light { background: #e4e5e9; }
 .theme-swatch.dark { background: #111827; }
 
-/* ===== Onboarding tutorial ===== */
-/* Applied to <body> for the whole duration the tutorial is active. Locks
-   every place that can scroll independently so the highlighted element's
-   position, once calculated, can never drift out from under the
-   spotlight — there's simply nothing left for the user to scroll. */
 body.tutorial-scroll-lock {
   overflow: hidden !important;
   touch-action: none;
@@ -1867,8 +1813,12 @@ body.tutorial-scroll-lock .notes-list {
   overscroll-behavior: none;
 }
 .tutorial-overlay {
-  position: fixed; inset: 0; z-index: 650;
-  pointer-events: none;
+  position: fixed; inset: 0; z-index: 750;
+  /* Locks the underlying app: this layer sits above every other control
+     (toasts, popovers, modals) and swallows all pointer input except for
+     the tutorial's own spotlight/tooltip, which re-enable it below. */
+  pointer-events: auto;
+  cursor: default;
 }
 .tutorial-spotlight {
   position: fixed;
@@ -1897,9 +1847,6 @@ body.tutorial-scroll-lock .notes-list {
   flex-direction: column;
   gap: 2px;
 }
-/* While the engine is navigating to the next feature and waiting for its
-   real target element to render, keep the spotlight/tooltip hidden rather
-   than showing a stale or empty highlight. */
 .tutorial-spotlight.is-loading,
 .tutorial-tooltip.is-loading {
   opacity: 0;
@@ -1921,8 +1868,6 @@ body.tutorial-scroll-lock .notes-list {
 .tutorial-btn-primary { color: #fff; background: var(--accent); padding: 7px 14px; }
 .tutorial-btn-primary:hover { filter: brightness(1.08); }
 
-/* ---- Mobile: reflow footer instead of shrinking it, and keep the panel
-   fully inside the viewport even on short/narrow screens ---- */
 @media (max-width: 480px) {
   .tutorial-tooltip {
     width: calc(100vw - 20px);
@@ -1942,7 +1887,6 @@ body.tutorial-scroll-lock .notes-list {
   .tutorial-tooltip-desc { margin-bottom: 10px; }
 }
 
-/* ===== Modals ===== */
 .modal-overlay {
   position: fixed; inset: 0; z-index: 600;
   background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(8px);
@@ -1997,7 +1941,6 @@ body.tutorial-scroll-lock .notes-list {
 .category-modal-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .category-modal-error { color: var(--high); font-size: 12.5px; }
 
-/* ===== Welcome modal ===== */
 .welcome-card {
   max-width: 520px;
   padding: 32px 30px;
@@ -2062,7 +2005,6 @@ body.tutorial-scroll-lock .notes-list {
 }
 .welcome-item-desc strong { color: var(--ink-2); font-weight: 600; }
 
-/* ===== Tips intro modal ===== */
 .tips-intro-card {
   max-width: 400px;
   padding: 30px 26px;
@@ -2093,7 +2035,6 @@ body.tutorial-scroll-lock .notes-list {
 .tips-intro-text strong { color: var(--ink-2); font-weight: 600; }
 .tips-intro-card .modal-actions { align-self: stretch; justify-content: center; }
 
-/* ===== Toast ===== */
 .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 700; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
 .toast {
   pointer-events: auto; background: var(--card); border: 1px solid var(--border); border-radius: 12px;
@@ -2113,12 +2054,10 @@ body.tutorial-scroll-lock .notes-list {
 }
 .toast-action-btn:hover { background: var(--accent-soft); }
 
-/* ===== Confirm modal (e.g. trash confirmation) ===== */
 .confirm-modal-card { max-width: 380px; gap: 16px; }
 .confirm-modal-card .modal-title { font-size: 17px; }
 .confirm-modal-card .modal-sub { margin: 0; }
 
-/* ===== Pomodoro queue button + modal ===== */
 .pomodoro-queue-link {
   position: absolute; top: 16px; right: 18px;
   display: inline-flex; align-items: center; gap: 6px;
@@ -2159,13 +2098,6 @@ body.tutorial-scroll-lock .notes-list {
   .confirm-modal-card { max-width: 92vw; padding: 22px; }
 }
 
-/* ===== Tip (home widget) =====
-   Deliberately much lighter than a normal home widget — a passing tip,
-   not a content section — so label, refresh button and text share one
-   compact row instead of stacking. Higher specificity than the general
-   .home-widget padding rule further down, so this wins regardless of
-   source order. Functionality (the refresh button) is unchanged, just
-   laid out inline instead of on its own row. */
 .home-widget.tips-bar {
   flex-direction: row;
   align-items: center;
@@ -2198,7 +2130,6 @@ body.tutorial-scroll-lock .notes-list {
   .tips-text { font-size: 12px; flex-basis: 100%; }
 }
 
-/* ===== Notifications modal ===== */
 .notif-modal-card { max-width: 480px; }
 .notif-list { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; padding-right: 4px; }
 .notif-item {
@@ -2221,7 +2152,6 @@ body.tutorial-scroll-lock .notes-list {
 }
 .notif-empty { text-align: center; color: var(--ink-light); font-size: 13px; padding: 40px 20px; line-height: 1.6; }
 
-/* ===== Invite modal ===== */
 .invite-modal-card { max-width: 440px; }
 .invite-modal-card .field-label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-light); }
 .invite-modal-card .field-label input {
@@ -2239,9 +2169,6 @@ body.tutorial-scroll-lock .notes-list {
 .perm-row { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--ink-2); cursor: pointer; padding: 4px 0; }
 .perm-row input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
 
-/* ============================================================
-   ===== Project layout + collaborator rail =====
-   ============================================================ */
 .project-view-layout { display: block; width: 100%; margin: 0 auto; }
 .project-view-layout.with-collab {
   display: grid;
@@ -2428,9 +2355,6 @@ body.tutorial-scroll-lock .notes-list {
   border: 2px solid var(--bg);
 }
 
-/* ============================================================
-   ===== Tablet / narrow desktop =====
-   ============================================================ */
 @media (max-width: 1200px) {
   :root {
     --main-pad-y: 32px;
@@ -2499,9 +2423,6 @@ body.tutorial-scroll-lock .notes-list {
   .collab-action-btn { width: 26px; height: 26px; }
 }
 
-/* ============================================================
-   ===== Mobile =====
-   ============================================================ */
 @media (max-width: 860px) {
   :root {
     --main-pad-y: 20px;
@@ -2537,13 +2458,12 @@ body.tutorial-scroll-lock .notes-list {
 
   .task-list { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .task-card { padding: 13px 12px 13px 11px; border-radius: 12px; gap: 9px; }
-  .task-card-content { gap: 7px; }
-  .task-check { width: 20px; height: 20px; }
-  .task-title { font-size: 13px; -webkit-line-clamp: 2; }
-  /* Kept visible rather than hidden — description should stay visually
-     connected to the title at every width — just clamped to one line
-     since cards are narrower here. */
-  .task-desc { -webkit-line-clamp: 1; }
+  .task-card-headline { margin-bottom: 4px; }
+  .task-desc { margin-bottom: 7px; }
+  .task-card-subtask-wrap { margin-top: 7px; }
+  .task-check { width: 17px; height: 17px; }
+  .task-title { font-size: 13px; -webkit-line-clamp: 2; min-height: calc(13px * 1.4 * 2); }
+  .task-desc, .task-desc-empty { -webkit-line-clamp: 1; min-height: calc(13px * 1.5); }
 
   .calendar-layout { grid-template-columns: 1fr; gap: 14px; }
   .calendar-main, .day-panel { padding: 14px; border-radius: 16px; }
@@ -2674,10 +2594,6 @@ body.tutorial-scroll-lock .notes-list {
 }
 
 @media (max-width: 560px) {
-  /* Two columns of task cards on a real phone leaves too little width for
-     the title, priority flag and pill row to stay legible — one column
-     reads far better in portrait, and the card itself stays the same
-     compact height it has at wider widths. */
   .task-list { grid-template-columns: 1fr; }
 }
 
@@ -2708,7 +2624,6 @@ body.tutorial-scroll-lock .notes-list {
   .loading-inner { animation: none !important; }
 }
 
-/* ===== Password field with show/hide toggle ===== */
 .password-field {
   position: relative;
   display: block;
@@ -2756,9 +2671,6 @@ body.tutorial-scroll-lock .notes-list {
 .password-field.showing .password-toggle .icon-eye     { opacity: 0; }
 .password-field.showing .password-toggle .icon-eye-off { opacity: 1; }
 
-/* ============================================================
-   ===== Assistant (AI) =====
-   ============================================================ */
 .assistant-card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -2772,7 +2684,6 @@ body.tutorial-scroll-lock .notes-list {
   overflow: hidden;
 }
 
-/* ----- Header: name badge + status ----- */
 .main-header:has(.assistant-title-row) .main-header-block { align-items: flex-start; text-align: left; max-width: 980px; margin: 0 auto; }
 .assistant-title-row {
   display: flex;
@@ -2820,7 +2731,6 @@ body.tutorial-scroll-lock .notes-list {
   overflow-y: auto;
 }
 
-/* ----- Empty / welcome state ----- */
 .assistant-empty {
   padding: 34px 26px 10px;
   color: var(--ink-light);
@@ -2883,8 +2793,6 @@ body.tutorial-scroll-lock .notes-list {
   opacity: 0.8;
 }
 
-/* ----- Message layout (Claude-style: flat assistant text, avatar on
-   the left; compact soft bubble for the user's own messages on the right) ----- */
 .assistant-msg {
   display: flex;
   flex-direction: column;
@@ -2944,7 +2852,6 @@ body.tutorial-scroll-lock .notes-list {
   border: 1px solid var(--high-bg);
 }
 
-/* ----- "Thinking" indicator: Claude-style shimmering text ----- */
 .assistant-bubble.assistant-thinking { padding: 3px 0; }
 .assistant-thinking-shimmer {
   display: inline-block;
@@ -2962,9 +2869,6 @@ body.tutorial-scroll-lock .notes-list {
   100% { background-position: -60% 0; }
 }
 
-/* Visible confirmation that the assistant actually did something
-   (created/completed/updated/deleted a task, scheduled an event, sent an
-   invite), not just talk. */
 .assistant-action {
   align-self: flex-start;
   display: flex;
@@ -3086,7 +2990,6 @@ body.tutorial-scroll-lock .notes-list {
   color: var(--ink-light);
 }
 
-/* ===== Task add ✨ button ===== */
 .task-add-title-row {
   display: flex;
   gap: 8px;
@@ -3147,9 +3050,6 @@ body.tutorial-scroll-lock .notes-list {
   .assistant-empty-title { font-size: 15.5px; }
   .assistant-empty-sub { font-size: 12.5px; }
 }
-/* ============================================================
-   ===== Home redesign: calm, breathable =====
-   ============================================================ */
 .home-summary { margin: 12px 0 32px; }
 .home-greeting { margin: 0 0 18px; font-size: 34px; font-weight: 500; gap: 10px; }
 .home-date { font-size: 14px; font-weight: 400; }
@@ -3158,7 +3058,6 @@ body.tutorial-scroll-lock .notes-list {
 .home-pulse-num { font-family: var(--font-display); font-size: 20px; font-weight: 500; line-height: 1; }
 .home-pulse-label { font-size: 13px; font-weight: 400; }
 
-/* Focus */
 .home-focus {
   flex-direction: column;
   gap: 10px;
@@ -3202,16 +3101,11 @@ body.tutorial-scroll-lock .notes-list {
 .home-focus-item.is-overdue .home-focus-due { color: var(--high); background: var(--high-bg); }
 .home-focus-more { padding-top: 6px; font-size: 13px; color: var(--ink-light); }
 
-/* Home widgets must only ever appear on the home view. Enforced at the CSS
-   layer (not just JS) via #task-view.is-home, the single source of truth
-   toggled in renderTodos(), so a missed render call can never leave these
-   visible on a project or other view. */
 #home-summary, #home-focus, #home-widgets { display: none !important; }
 #task-view.is-home #home-summary { display: block !important; }
 #task-view.is-home #home-focus { display: flex !important; }
 #task-view.is-home #home-widgets { display: flex !important; }
 
-/* Widgets */
 .home-widgets {
   display: flex;
   flex-direction: column;
@@ -3290,7 +3184,6 @@ body.tutorial-scroll-lock .notes-list {
   white-space: pre-wrap;
 }
 
-/* Add task + list */
 #task-view.is-home .task-add { margin-bottom: 32px; }
 #task-view.is-home .task-add-toggle {
   border: none;
@@ -3313,7 +3206,6 @@ body.tutorial-scroll-lock .notes-list {
   .home-ai-plan-btn { width: 100%; justify-content: center; }
 }
 
-/* ===== Home polish: softer lines, flatter surfaces ===== */
 :root { --home-line: rgba(43, 53, 66, 0.09); }
 [data-theme="dark"] { --home-line: rgba(255, 255, 255, 0.08); }
 
@@ -3361,13 +3253,9 @@ body.tutorial-scroll-lock .notes-list {
   .home-widgets { gap: 12px; }
 }
 
-/* Category pill lives in the meta row, styled like its sibling pills.
-   Capped so one extremely long category name can't dominate the row —
-   it truncates with an ellipsis instead, same as the project pill. */
 .task-meta .task-card-category {
   max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-/* Language selector (Settings) */
 #language-select {
   appearance: none; -webkit-appearance: none;
   width: 100%; max-width: 220px;
@@ -3384,7 +3272,6 @@ body.tutorial-scroll-lock .notes-list {
   outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-/* ===== Auth + confirmation panel: small-screen tightening ===== */
 @media (max-width: 480px) {
   #auth-screen { padding: 12px; }
   .auth-card {
@@ -3461,7 +3348,6 @@ body.tutorial-scroll-lock .notes-list {
 }
 .task-detail-subtask-add-row input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
-/* ===== task card subtask progress bar ===== */
 .task-card-subtask-bar {
   height: 4px;
   border-radius: 2px;
@@ -3480,9 +3366,6 @@ body.tutorial-scroll-lock .notes-list {
   color: var(--ink-light);
 }
 
-/* ============================================================
-   ===== Global search =====
-   ============================================================ */
 .search-modal-card { max-width: 520px; padding: 18px; gap: 12px; }
 .search-modal-input {
   width: 100%; padding: 13px 16px; border: 1px solid var(--border); border-radius: 12px;
@@ -3505,9 +3388,6 @@ body.tutorial-scroll-lock .notes-list {
 .search-result-title { font-size: 13.5px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .search-result-sub { font-size: 11.5px; color: var(--ink-light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ============================================================
-   ===== Keyboard shortcuts panel =====
-   ============================================================ */
 .shortcuts-modal-card { max-width: 440px; }
 .shortcuts-list { display: flex; flex-direction: column; gap: 2px; }
 .shortcuts-row {
@@ -3525,12 +3405,10 @@ kbd {
   font-family: inherit; font-size: 11.5px; font-weight: 700;
 }
 
-/* ============================================================
-   ===== Bulk task selection =====
-   ============================================================ */
 .task-toolbar-icon-btn.active { background: var(--accent-soft); color: var(--accent); }
 .task-card.bulk-selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 #todo-list.bulk-mode .task-card-actions { display: none !important; }
+#todo-list.bulk-mode .task-drag-handle { visibility: hidden; }
 .bulk-select-checkbox { accent-color: var(--accent); }
 
 .bulk-action-bar {
@@ -3555,9 +3433,20 @@ kbd {
   .bulk-actions { justify-content: center; width: 100%; }
 }
 
-/* ============================================================
-   ===== Home: streak heatmap =====
-   ============================================================ */
+.home-streak-grid-wrap { position: relative; }
+.home-streak-tooltip {
+  position: absolute; z-index: 20; min-width: 128px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 7px 10px; box-shadow: var(--shadow-lg, 0 8px 20px rgba(0,0,0,0.18));
+  pointer-events: none;
+}
+.home-streak-tooltip-date { font-size: 11.5px; font-weight: 700; color: var(--ink); }
+.home-streak-tooltip-count { font-size: 11px; color: var(--ink-light); margin-top: 1px; }
+.home-streak-cell {
+  padding: 0; border: none; cursor: pointer;
+}
+.home-streak-cell:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.home-streak-cell.is-selected { outline: 2px solid var(--accent); outline-offset: 1px; }
 .home-streak-grid {
   display: grid; grid-template-rows: repeat(7, 11px); grid-auto-flow: column; gap: 3px;
   overflow-x: auto; padding-bottom: 2px;
