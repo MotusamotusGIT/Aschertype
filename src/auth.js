@@ -316,8 +316,7 @@ function startConfirmationPolling() {
             currentUser = sessData.session.user;
             isGuest = false;
             clearGuestSession();
-            hideAuthScreen();
-            window.initApp(currentUser);
+            finishSignIn(currentUser);
             return;
           }
           console.warn('[Auth] setSession from handoff failed:', sessErr && sessErr.message);
@@ -343,8 +342,7 @@ function startConfirmationPolling() {
             currentUser = result.data.user;
             isGuest = false;
             clearGuestSession();
-            hideAuthScreen();
-            window.initApp(currentUser);
+            finishSignIn(currentUser);
             return;
           }
         } catch (err) { /* show the manual fallback below */ }
@@ -440,6 +438,65 @@ function showAuthScreen() {
   armCaptchaOnInteraction();
 }
 
+// ---- Guest -> Sign in / Create account (opened from inside the running app) --
+// The guest session is deliberately NOT cleared here: if the user cancels they
+// land back on the screen they were on, still a guest. It is cleared only on a
+// successful sign-in (see finishSignIn).
+let authOpenedFromApp = false;
+let authReturnFocusEl = null;
+
+function openAuthFromGuest() {
+  if (!supabaseReady) return;
+  authOpenedFromApp = true;
+  authReturnFocusEl = document.activeElement;
+  authScreen.classList.add('from-app');
+  setAuthTab('login');
+  showAuthScreen();
+  if (captchaArmed) renderVisibleCaptcha();
+  const emailInput = document.getElementById('login-email');
+  if (emailInput) setTimeout(() => emailInput.focus(), 50);
+}
+
+function closeAuthToGuest() {
+  authOpenedFromApp = false;
+  authScreen.classList.remove('from-app');
+  stopConfirmationPolling();
+  clearPendingConfirmation();
+  pendingConfirmationEmail = '';
+  pendingConfirmationPassword = '';
+  pendingConfirmationToken = '';
+  showAuthError('');
+  showAuthNotice('');
+  hideAuthScreen();
+  const back = authReturnFocusEl;
+  authReturnFocusEl = null;
+  if (back && typeof back.focus === 'function') { try { back.focus(); } catch (err) {} }
+}
+
+// Every successful sign-in path ends here. When sign-in was started from a
+// running guest session the app is already initialised, so reload once and let
+// resolveInitialAuthState pick up the persisted Supabase session (the guest
+// flag is already cleared by the caller). Otherwise behave exactly as before.
+function finishSignIn(user) {
+  if (authOpenedFromApp) {
+    authOpenedFromApp = false;
+    location.reload();
+    return;
+  }
+  hideAuthScreen();
+  window.initApp(user);
+}
+
+window.openAuthFromGuest = openAuthFromGuest;
+
+const authCancelBtn = document.getElementById('auth-cancel-btn');
+if (authCancelBtn) authCancelBtn.addEventListener('click', closeAuthToGuest);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && authOpenedFromApp && !authScreen.classList.contains('hidden')) {
+    closeAuthToGuest();
+  }
+});
+
 function setButtonBusy(btn, busyText) {
   if (!btn) return;
   btn.dataset.originalText = btn.dataset.originalText || btn.textContent;
@@ -522,8 +579,7 @@ loginForm.addEventListener('submit', async (e) => {
     isGuest = false;
     clearGuestSession();
     clearPendingConfirmation();
-    hideAuthScreen();
-    window.initApp(currentUser);
+    finishSignIn(currentUser);
   } catch (err) {
     console.error('[Auth] Sign-in threw:', err);
     recordFailure('login');
@@ -611,8 +667,7 @@ registerForm.addEventListener('submit', async (e) => {
       currentUser = data.user;
       isGuest = false;
       clearGuestSession();
-      hideAuthScreen();
-      window.initApp(currentUser);
+      finishSignIn(currentUser);
     } else {
       showConfirmationWaiting(email);
     }
@@ -700,8 +755,7 @@ async function completeConfirmedSession() {
     currentUser = data.session.user;
     isGuest = false;
     clearGuestSession();
-    hideAuthScreen();
-    window.initApp(currentUser);
+    finishSignIn(currentUser);
   } catch (err) { /* confirmation can be retried by the next signal */ }
 }
 function listenForConfirmation() {

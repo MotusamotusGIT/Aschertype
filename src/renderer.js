@@ -140,9 +140,7 @@ accountSignoutBtn.addEventListener('click', () => {
   if (typeof signOutAndReset === 'function') signOutAndReset();
 });
 accountSwitchBtn.addEventListener('click', () => {
-  localStorage.removeItem('mosstaskGuest');
-  sessionStorage.removeItem('mosstaskGuest');
-  location.reload();
+  if (typeof window.openAuthFromGuest === 'function') window.openAuthFromGuest();
 });
 
 let savedTheme = null;
@@ -329,9 +327,7 @@ document.getElementById('profile-signout-btn').addEventListener('click', () => {
 });
 document.getElementById('profile-signin-btn').addEventListener('click', () => {
   closeProfilePopover();
-  localStorage.removeItem('mosstaskGuest');
-  sessionStorage.removeItem('mosstaskGuest');
-  location.reload();
+  if (typeof window.openAuthFromGuest === 'function') window.openAuthFromGuest();
 });
 
 document.getElementById('profile-edit-name-btn').addEventListener('click', () => {

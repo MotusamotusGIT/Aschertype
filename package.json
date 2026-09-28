@@ -1,14 +1,14 @@
 {
-  "name": "aschertype",
+  "name": "mosstask",
   "version": "1.0.0",
-  "description": "Aschertype - tasks, calendar, notes and focus timer",
+  "description": "MossTask - tasks, calendar, notes and focus timer",
   "author": {
-    "name": "Aschertype",
-    "email": "aschertype@gmail.com"
+    "name": "MossDev",
+    "email": "mossdev@gmail.com"
   },
   "main": "main.js",
   "scripts": {
-    "start": "mkdir -p \"${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}/aschertype-electron-tmp\" && TMPDIR=\"${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}/aschertype-electron-tmp\" electron .",
+    "start": "mkdir -p \"${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}/mosstask-electron-tmp\" && TMPDIR=\"${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}/mosstask-electron-tmp\" electron .",
     "cap:sync": "npx cap sync android",
     "cap:open": "npx cap open android",
     "cap:run": "npx cap run android",
@@ -29,12 +29,11 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",
-    "@capacitor/core": "^8.5.2",
     "@supabase/supabase-js": "^2.45.0"
   },
   "build": {
-    "appId": "com.aschertype.app",
-    "productName": "Aschertype",
+    "appId": "com.mosstask.app",
+    "productName": "MossTask",
     "icon": "src/favicon.png",
     "compression": "maximum",
     "afterPack": "build/afterPack.js",
