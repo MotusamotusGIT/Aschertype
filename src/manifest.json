@@ -1,6 +1,6 @@
 {
-  "name": "Aschertype",
-  "short_name": "Aschertype",
+  "name": "MossTask",
+  "short_name": "MossTask",
   "description": "Plan your day without the complexity.",
   "start_url": "./index.html",
   "scope": "./",

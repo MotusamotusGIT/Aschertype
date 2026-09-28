@@ -24,12 +24,12 @@
     markEl.classList.remove('err');
     titleEl.textContent = title;
     textEl.textContent = text;
-    primaryLink.textContent = 'Sign in to Aschertype';
+    primaryLink.textContent = 'Sign in to MossTask';
     primaryLink.href = './index.html';
     secondaryLink.textContent = 'Back to home';
     secondaryLink.href = './index.html';
     actionsEl.style.display = 'flex';
-    document.title = 'Email confirmed — Aschertype';
+    document.title = 'Email confirmed — MossTask';
   }
 
   function showErr(title, text) {
@@ -45,7 +45,7 @@
     secondaryLink.textContent = 'Need a new link? Sign up again';
     secondaryLink.href = './index.html';
     actionsEl.style.display = 'flex';
-    document.title = 'Confirmation failed — Aschertype';
+    document.title = 'Confirmation failed — MossTask';
   }
 
   function showNeutral(title, text) {
@@ -54,12 +54,12 @@
     iconErr.style.display = 'none';
     titleEl.textContent = title;
     textEl.textContent = text;
-    primaryLink.textContent = 'Open Aschertype';
+    primaryLink.textContent = 'Open MossTask';
     primaryLink.href = './index.html';
     secondaryLink.textContent = 'Back to home';
     secondaryLink.href = './index.html';
     actionsEl.style.display = 'flex';
-    document.title = 'Aschertype';
+    document.title = 'MossTask';
   }
 
   // Call a PostgREST RPC endpoint directly via fetch, with an explicit
@@ -146,6 +146,8 @@
         console.log('[Confirm] no handoffToken or no session access_token to send');
       }
 
+      // NOTE: these two names must stay in sync with auth.js
+      // ('aschertypeEmailConfirmed' and the 'aschertype-auth' channel).
       const signal = JSON.stringify({ at: Date.now() });
       try { localStorage.setItem('aschertypeEmailConfirmed', signal); } catch (e) { /* Firefox may block */ }
       if (typeof BroadcastChannel !== 'undefined') {
@@ -163,8 +165,8 @@
     iconOk.style.display = 'none';
     iconErr.style.display = 'none';
     titleEl.textContent = 'Choose a new password';
-    textEl.textContent = 'Enter a new password for your Aschertype account.';
-    document.title = 'Reset password — Aschertype';
+    textEl.textContent = 'Enter a new password for your MossTask account.';
+    document.title = 'Reset password — MossTask';
     resetForm.style.display = 'flex';
 
     resetForm.addEventListener('submit', async (e) => {
@@ -275,7 +277,7 @@
     });
     showOk(
       'Email confirmed',
-      'You\'re all set. Return to the Aschertype tab and we will finish signing you in.'
+      'You\'re all set. Return to the MossTask tab and we will finish signing you in.'
     );
     return;
   }
@@ -289,14 +291,14 @@
     });
     showOk(
       'Email confirmed',
-      'You\'re all set. Return to the Aschertype tab and we will finish signing you in.'
+      'You\'re all set. Return to the MossTask tab and we will finish signing you in.'
     );
     return;
   }
 
   console.log('[Confirm] no params — neutral branch');
   showNeutral(
-    'Aschertype',
+    'MossTask',
     'This page confirms your email after you click the link we send. If you just signed up, check your inbox for the confirmation email.'
   );
 })();
