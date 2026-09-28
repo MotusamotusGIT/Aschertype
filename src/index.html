@@ -34,7 +34,7 @@
                  img-src 'self' data: blob:;
                  style-src 'self' 'unsafe-inline' https://hcaptcha.com https://*.hcaptcha.com;
                  script-src 'self' https://hcaptcha.com https://*.hcaptcha.com;
-                 connect-src 'self' https://*.trycloudflare.com https://*.supabase.co wss://*.supabase.co https://hcaptcha.com https://*.hcaptcha.com;
+                 connect-src 'self' https://*.trycloudflare.com https://*.supabase.co wss://*.supabase.co https://hcaptcha.com https://*.hcaptcha.com https://api.pwnedpasswords.com;
                  font-src 'self';
                  worker-src 'self' blob:;
                  frame-src https://hcaptcha.com https://*.hcaptcha.com;
@@ -280,6 +280,10 @@
       .loading-progress-bar { animation: none !important; opacity: 0.5; width: 100%; transform: none; }
       .loading-inner { animation: none !important; }
     }
+
+    /* hCaptcha is rendered into these slots on first interaction.
+       Reserving the widget's height avoids a layout shift when it appears. */
+    .captcha-slot { min-height: 78px; }
   </style>
 
   <link rel="stylesheet" href="style.css">
@@ -359,7 +363,7 @@
           Forget login session when app closes
         </label>
         <button type="submit" class="btn primary auth-submit">Sign in</button>
-        <div class="h-captcha" data-sitekey="1b028ed2-db84-4806-8394-324c67987b3a" data-callback="onLoginCaptcha"></div>
+        <div id="login-captcha" class="captcha-slot"></div>
         <button type="button" id="forgot-password-btn" class="auth-link-btn">Forgot password?</button>
       </form>
 
@@ -398,7 +402,7 @@
           </span>
         </label>
         <button type="submit" class="btn primary auth-submit">Create account</button>
-        <div class="h-captcha" data-sitekey="1b028ed2-db84-4806-8394-324c67987b3a" data-callback="onRegisterCaptcha"></div>
+        <div id="register-captcha" class="captcha-slot"></div>
       </form>
 
       <section id="confirmation-panel" class="confirmation-panel" style="display:none" aria-live="polite">

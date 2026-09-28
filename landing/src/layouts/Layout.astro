@@ -6,13 +6,15 @@ export interface Props {
 }
 
 const {
-  title = 'Aschertype — Plan your day without the complexity',
+  title = 'MossTask — Plan your day without the complexity',
   description = 'A calm workspace for everyday life with simple tasks, calendar, notes, projects, and focus timers. Free to start, no account required.',
   heroImage,
 } = Astro.props;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
-const ogImage = new URL('/og-image.png', Astro.site);
+// Uses a screenshot that exists in /public. Swap for a dedicated
+// 1200x630 /og-image.png if you add one.
+const ogImage = new URL('/project.png', Astro.site);
 ---
 
 <!DOCTYPE html>
@@ -33,7 +35,7 @@ const ogImage = new URL('/og-image.png', Astro.site);
   <meta property="og:title" content={title} />
   <meta property="og:description" content={description} />
   <meta property="og:image" content={ogImage} />
-  <meta property="og:site_name" content="Aschertype" />
+  <meta property="og:site_name" content="MossTask" />
 
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:url" content={canonicalURL} />
@@ -50,7 +52,8 @@ const ogImage = new URL('/og-image.png', Astro.site);
   <script type="application/ld+json" set:html={JSON.stringify({
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: 'Aschertype',
+    name: 'MossTask',
+    alternateName: 'Aschertype',
     applicationCategory: 'ProductivityApplication',
     operatingSystem: 'Web, Windows, macOS, Linux',
     description,

@@ -49,16 +49,79 @@ function clearPendingConfirmation() {
   } catch (err) { /* ignore */ }
 }
 
+// ---- hCaptcha: loaded on first interaction, rendered explicitly -----------
+// hCaptcha is by far the heaviest thing on the sign-in page, so nothing is
+// fetched or rendered until the user focuses a field inside a form. Widgets
+// are rendered one at a time (login first, register when its tab opens).
+const HCAPTCHA_SITEKEY = '1b028ed2-db84-4806-8394-324c67987b3a';
+const CAPTCHA_SLOT_IDS = { login: 'login-captcha', register: 'register-captcha' };
+const captchaWidgetIds = { login: null, register: null };
+
 let loginCaptchaToken = null;
 let registerCaptchaToken = null;
+let captchaArmed = false;
 
 window.onLoginCaptcha = function (token) { loginCaptchaToken = token; };
 window.onRegisterCaptcha = function (token) { registerCaptchaToken = token; };
 
-function resetCaptcha(widgetIndex) {
-  if (typeof window.hcaptcha !== 'undefined') {
-    try { window.hcaptcha.reset(widgetIndex); } catch (err) {}
-  }
+function setCaptchaToken(kind, token) {
+  if (kind === 'login') window.onLoginCaptcha(token);
+  else window.onRegisterCaptcha(token);
+}
+
+let hcaptchaScriptPromise = null;
+function loadHcaptchaScript() {
+  if (hcaptchaScriptPromise) return hcaptchaScriptPromise;
+  hcaptchaScriptPromise = new Promise((resolve, reject) => {
+    if (typeof window.hcaptcha !== 'undefined') { resolve(); return; }
+    window.__aschertypeHcaptchaReady = resolve;
+    const s = document.createElement('script');
+    s.src = 'https://hcaptcha.com/1/api.js?render=explicit&onload=__aschertypeHcaptchaReady';
+    s.async = true;
+    s.defer = true;
+    s.onerror = () => {
+      hcaptchaScriptPromise = null; // allow a retry on the next interaction
+      reject(new Error('hCaptcha script failed to load'));
+    };
+    document.head.appendChild(s);
+  });
+  return hcaptchaScriptPromise;
+}
+
+function renderCaptcha(kind) {
+  if (captchaWidgetIds[kind] !== null) return;
+  const slot = document.getElementById(CAPTCHA_SLOT_IDS[kind]);
+  if (!slot) return;
+  loadHcaptchaScript().then(() => {
+    if (captchaWidgetIds[kind] !== null || !window.hcaptcha) return;
+    captchaWidgetIds[kind] = window.hcaptcha.render(slot, {
+      sitekey: HCAPTCHA_SITEKEY,
+      callback: (token) => setCaptchaToken(kind, token),
+      'expired-callback': () => setCaptchaToken(kind, null),
+      'error-callback': () => setCaptchaToken(kind, null),
+    });
+  }).catch((err) => console.warn('[Auth] hCaptcha failed to load:', err));
+}
+
+function resetCaptcha(kind) {
+  const id = captchaWidgetIds[kind];
+  if (id === null || id === undefined || !window.hcaptcha) return;
+  try { window.hcaptcha.reset(id); } catch (err) {}
+}
+
+function renderVisibleCaptcha() {
+  if (confirmationPanel && confirmationPanel.style.display === 'flex') return;
+  renderCaptcha(loginForm.style.display === 'none' ? 'register' : 'login');
+}
+
+function armCaptchaOnInteraction() {
+  const onFocus = (e) => {
+    if (!e.target || !e.target.closest || !e.target.closest('form')) return;
+    authScreen.removeEventListener('focusin', onFocus);
+    captchaArmed = true;
+    renderVisibleCaptcha();
+  };
+  authScreen.addEventListener('focusin', onFocus);
 }
 
 // ---- SHA-1 over UTF-8, synchronous ---------------------------------------
@@ -355,6 +418,7 @@ function setAuthTab(tab) {
   showAuthNotice('');
   showConfirmationActions(false);
   hideConfirmationWaiting();
+  if (captchaArmed) renderVisibleCaptcha();
 }
 authTabLogin.addEventListener('click', () => setAuthTab('login'));
 authTabRegister.addEventListener('click', () => setAuthTab('register'));
@@ -370,26 +434,10 @@ function dismissLoadingOverlay() {
   if (el) el.classList.add('hidden');
 }
 
-let hcaptchaScriptPromise = null;
-function loadHcaptchaScript() {
-  if (hcaptchaScriptPromise) return hcaptchaScriptPromise;
-  hcaptchaScriptPromise = new Promise((resolve, reject) => {
-    if (typeof window.hcaptcha !== 'undefined') { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = 'https://hcaptcha.com/1/api.js';
-    s.async = true;
-    s.defer = true;
-    s.onload = resolve;
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-  return hcaptchaScriptPromise;
-}
-
 function showAuthScreen() {
   dismissLoadingOverlay();
   authScreen.classList.remove('hidden');
-  loadHcaptchaScript().catch((err) => console.warn('[Auth] hCaptcha failed to load:', err));
+  armCaptchaOnInteraction();
 }
 
 function setButtonBusy(btn, busyText) {
@@ -482,7 +530,7 @@ loginForm.addEventListener('submit', async (e) => {
     showAuthError('Something went wrong signing in. Please try again.');
   } finally {
     clearButtonBusy(submitBtn);
-    resetCaptcha();
+    resetCaptcha('login');
     loginCaptchaToken = null;
   }
 });
@@ -575,7 +623,7 @@ registerForm.addEventListener('submit', async (e) => {
     clearPendingConfirmation();
   } finally {
     clearButtonBusy(submitBtn);
-    resetCaptcha();
+    resetCaptcha('register');
     registerCaptchaToken = null;
   }
 });
