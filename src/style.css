@@ -2319,46 +2319,6 @@ body.tutorial-scroll-lock .notes-list {
 .collab-action-btn:hover { background: var(--bg); color: var(--accent-ink); }
 .collab-action-btn.danger:hover { color: var(--high); }
 
-.collab-fab {
-  display: none;
-  position: fixed;
-  right: 16px;
-  bottom: calc(50px + env(safe-area-inset-bottom, 0px));
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--ink-light);
-  box-shadow: var(--shadow);
-  cursor: pointer;
-  z-index: 57;
-  align-items: center;
-  justify-content: center;
-  transition: transform .15s ease, border-color .15s ease, color .15s ease;
-}
-.collab-fab:hover { border-color: var(--accent); color: var(--accent-ink); transform: translateY(-1px); }
-.collab-fab:active { transform: translateY(0); }
-.collab-fab svg { width: 18px; height: 18px; }
-
-.collab-fab-count {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 9999px;
-  background: var(--accent);
-  color: var(--accent-contrast);
-  font-size: 10px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid var(--bg);
-}
-
 @media (max-width: 1200px) {
   :root {
     --main-pad-y: 32px;
@@ -3477,11 +3437,6 @@ kbd {
 .store-tier-features li::before { content: "✓"; position: absolute; left: 0; color: var(--accent-ink); }
 .guest-project-benefits { margin: 4px 0 8px; padding-left: 18px; color: var(--ink-light); font-size: 13.5px; line-height: 1.7; }
 
-/* ---- Project tabs + TeamChat ---- */
-.project-tabs { display: flex; gap: 6px; margin: 4px 0 12px; }
-.project-tab { border: 1px solid var(--border); background: transparent; color: var(--ink-light); border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 13.5px; cursor: pointer; }
-.project-tab.active { color: var(--ink); border-color: var(--border-hover); font-weight: 600; }
-.project-view-main.chat-mode > :not(.main-header):not(#project-tabs):not(#teamchat-panel) { display: none !important; }
 /* roles in the members panel */
 .collab-role-tag { font-size: 11.5px; color: var(--ink-light); overflow-wrap: anywhere; }
 .collab-role-select { max-width: 100%; margin-top: 4px; font: inherit; font-size: 12px; background: transparent; color: var(--ink); border: 1px solid var(--border); border-radius: 6px; padding: 2px 4px; }
@@ -3505,7 +3460,6 @@ kbd {
 @media (min-width: 1201px) {
   .project-view-layout.with-collab { display: block; }
   .view-panel:has(.project-view-layout.with-collab) { max-width: 1120px; }
-  .collab-fab { bottom: 24px; }
 
   .project-collab-panel {
     position: fixed; inset: 0; top: 0; z-index: 62;
@@ -3553,104 +3507,305 @@ kbd {
   .project-collab-panel, .project-collab-panel .collab-sheet, .project-collab-panel .collab-backdrop { transition: none !important; }
 }
 
-/* ================= TeamChat ================= */
-.teamchat-panel, .teamchat-banner, .teamchat-notice, .teamchat-form { box-sizing: border-box; }
-.teamchat-panel[hidden], .teamchat-banner[hidden], .teamchat-notice[hidden], .teamchat-form[hidden] { display: none !important; }
-.teamchat-panel {
-  --tc-other: var(--bg-elev);
-  --tc-field: var(--bg-elev);
-  display: flex; flex-direction: column; min-width: 0; min-height: 320px;
-  height: calc(100dvh - 240px);
-  background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
-}
-@supports (background: color-mix(in srgb, red 50%, blue)) {
-  .teamchat-panel {
-    --tc-other: color-mix(in srgb, var(--ink) 7%, var(--card));
-    --tc-field: color-mix(in srgb, var(--ink) 5%, var(--card));
-  }
-}
+/* ---- Sidebar groups ---- */
+.sidebar-group { margin-bottom: 14px; }
+.sidebar-group + .sidebar-group { border-top: 1px solid var(--border); padding-top: 14px; }
 
-/* header */
-.teamchat-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); flex: none; }
-.teamchat-head-icon { width: 34px; height: 34px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-ink); display: grid; place-items: center; flex: none; }
-.teamchat-head-icon svg { width: 17px; height: 17px; }
-.teamchat-head-text { min-width: 0; }
-.teamchat-title { font-size: 15px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.teamchat-sub { font-size: 12px; color: var(--ink-light); }
-.teamchat-sub:empty { display: none; }
-
-/* status strips */
-.teamchat-banner { flex: none; padding: 6px 16px; font-size: 12.5px; color: var(--ink-light); background: var(--accent-soft); text-align: center; }
-.teamchat-notice { flex: none; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; align-items: center; text-align: center; font-size: 13.5px; color: var(--ink-2); border-top: 1px solid var(--border); }
-.teamchat-notice p { margin: 0; }
-.teamchat-empty { color: var(--ink-light); font-size: 13.5px; text-align: center; margin: auto; max-width: 260px; line-height: 1.5; }
-
-/* message list: scrolls on its own */
-.teamchat-list { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 14px 16px; display: flex; flex-direction: column; gap: 3px; scrollbar-width: thin; }
-.tc-more { align-self: center; background: none; border: 0; color: var(--ink-light); font: inherit; font-size: 12.5px; cursor: pointer; padding: 4px 10px; margin-bottom: 6px; border-radius: 999px; }
-.tc-more:hover { background: var(--accent-soft); color: var(--accent-ink); }
-
-/* message */
-.tc-msg { position: relative; display: flex; flex-direction: column; align-items: flex-start; min-width: 0; max-width: min(80%, 640px); margin-left: 38px; }
-.tc-msg.own { align-self: flex-end; align-items: flex-end; margin-left: 0; }
-.tc-msg.head { margin-top: 12px; }
-.tc-msg.head:first-child { margin-top: 0; }
-.tc-msg.head:not(.own)[data-initial]::before {
-  content: attr(data-initial);
-  position: absolute; left: -38px; top: 0; width: 28px; height: 28px; border-radius: 50%;
-  background: var(--accent-soft); color: var(--accent-ink); font-size: 12.5px; font-weight: 700;
-  display: grid; place-items: center;
-}
-.tc-msg.head:not(.own):has(.tc-meta)::before { top: 0; }
-
-.tc-meta { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; font-size: 12.5px; margin: 0 4px 3px; }
-.tc-name { font-weight: 600; color: var(--ink-2); }
-.tc-role { color: var(--ink-light); font-size: 11px; }
-.tc-time { color: var(--ink-light); font-size: 11px; }
-.tc-msg.own .tc-name, .tc-msg.own .tc-role { display: none; }
-
-.tc-bubble {
-  width: fit-content; max-width: 100%; box-sizing: border-box; padding: 8px 12px;
-  border-radius: 16px; background: var(--tc-other); color: var(--ink);
-  font-size: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
-}
-.tc-msg.head:not(.own) .tc-bubble { border-top-left-radius: 5px; }
-.tc-msg.own .tc-bubble { background: var(--accent); color: var(--accent-contrast); }
-.tc-msg.own.head .tc-bubble { border-top-right-radius: 5px; }
-.tc-edited { opacity: .7; font-size: 11px; }
-.tc-status { font-size: 11px; color: var(--ink-light); margin: 2px 4px 0; }
-.tc-status.failed { color: var(--high); }
-
-/* per-message actions: floating chip, no layout shift */
-.tc-actions { display: none; gap: 10px; position: absolute; top: -12px; right: 6px; padding: 2px 9px; background: var(--card); border: 1px solid var(--border); border-radius: 999px; box-shadow: var(--shadow-sm); z-index: 1; }
-.tc-msg:not(.own) .tc-actions { right: auto; left: 6px; }
-.tc-msg:hover .tc-actions, .tc-msg:focus-within .tc-actions { display: flex; }
-@media (hover: none) {
-  .tc-actions { display: flex; position: static; background: none; border: 0; box-shadow: none; padding: 0; margin: 2px 4px 0; }
-}
-.tc-link { background: none; border: 0; padding: 0; font: inherit; font-size: 11.5px; color: var(--ink-light); cursor: pointer; }
-.tc-link:hover { color: var(--accent-ink); text-decoration: underline; }
-.tc-msg:has(.tc-edit) { width: min(100%, 520px); max-width: 100%; }
-.tc-edit { width: 100%; box-sizing: border-box; font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--tc-field); color: var(--ink); resize: vertical; }
-.tc-edit-row { display: flex; gap: 6px; margin-top: 6px; }
-
-/* composer */
-.teamchat-form { flex: none; display: flex; gap: 8px; align-items: flex-end; padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--border); background: var(--card); }
-.teamchat-form textarea { flex: 1; min-width: 0; resize: none; max-height: 140px; font: inherit; font-size: 14px; line-height: 1.4; padding: 9px 14px; border: 1px solid transparent; border-radius: 20px; background: var(--tc-field); color: var(--ink); outline: none; }
-.teamchat-form textarea:focus { border-color: var(--accent); }
-.teamchat-form textarea::placeholder { color: var(--ink-light); }
-.teamchat-form #teamchat-send { flex: none; width: 38px; height: 38px; padding: 0; border-radius: 50%; display: grid; place-items: center; }
-.teamchat-form #teamchat-send svg { width: 17px; height: 17px; }
-.teamchat-form:has(textarea:placeholder-shown) #teamchat-send { opacity: .45; }
-
-/* mobile: compact, messaging-app feel */
+/* ---- Personal / Projects hubs ---- */
+.hub-view { box-sizing: border-box; }
+.hub-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 26px; flex-wrap: wrap; }
+.hub-title { margin: 0; font-family: var(--font-display); font-size: 26px; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
+.hub-sub { margin: 4px 0 0; font-size: 13px; color: var(--ink-light); }
+.hub-sub:empty { display: none; }
+.hub-body { display: flex; flex-direction: column; gap: 26px; min-width: 0; }
+.hub-section-title { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-light); }
+.hub-section-title span { font-weight: 600; letter-spacing: 0; }
+.hub-list { display: flex; flex-direction: column; gap: 2px; }
+.hub-row { display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; padding: 10px 10px; border: 0; border-radius: 10px; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; min-width: 0; transition: background-color .15s ease; }
+.hub-row:hover, .hub-row:focus-visible { background: var(--accent-soft); outline: none; }
+.hub-row-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.hub-row-name { font-size: 14.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hub-row-meta { font-size: 12px; color: var(--ink-light); white-space: nowrap; }
+.hub-task { justify-content: space-between; }
+.hub-task .hub-row-name { flex: 1; min-width: 0; }
+.hub-invite { cursor: default; }
+.hub-invite:hover { background: none; }
+.hub-invite-actions { display: flex; gap: 6px; flex: none; }
+.hub-empty { margin: 4px 10px; font-size: 13px; color: var(--ink-light); line-height: 1.5; }
 @media (max-width: 640px) {
-  .teamchat-panel { border-radius: 12px; height: calc(100dvh - 250px); }
-  .teamchat-head { padding: 10px 12px; }
-  .teamchat-list { padding: 10px 10px; }
-  .tc-msg { max-width: 88%; margin-left: 34px; }
-  .tc-msg.own { margin-left: 0; }
-  .tc-msg.head:not(.own)[data-initial]::before { left: -34px; width: 26px; height: 26px; font-size: 12px; }
-  .tc-bubble { padding: 7px 11px; }
-  .teamchat-form { padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .hub-title { font-size: 22px; }
+  .hub-head { margin-bottom: 18px; }
+  .hub-invite { flex-wrap: wrap; }
+}
+
+/* ---- Hub refinements: page header is separate from the global top bar ---- */
+.main:has(.hub-view:not([style*="display: none"]):not([style*="display:none"])) .top-header-bar {
+  margin-bottom: 22px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+}
+.hub-head { align-items: flex-end; }
+.hub-action { border-color: var(--accent); color: var(--accent-ink); background: transparent; }
+.hub-action:hover { background: var(--accent-soft); }
+.nav-item:focus-visible, .hub-row:focus-visible, .hub-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hub-project { align-items: flex-start; }
+.hub-project .project-nav-tile { margin-top: 2px; flex: none; }
+.hub-row-desc { font-size: 13px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hub-row-meta { white-space: normal; }
+.hub-progress { display: block; height: 3px; border-radius: 3px; background: var(--border); margin-top: 6px; max-width: 320px; overflow: hidden; }
+.hub-progress-fill { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.hub-prio { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--ink-light); }
+.hub-prio.prio-high { background: var(--high); }
+.hub-prio.prio-medium { background: var(--medium, var(--accent)); }
+.hub-prio.prio-low { background: var(--ink-light); opacity: .6; }
+.hub-task .hub-row-meta { white-space: nowrap; flex: none; }
+.hub-day { margin: 10px 10px 2px; font-size: 12px; font-weight: 600; color: var(--ink-light); }
+.hub-day:first-child { margin-top: 0; }
+.hub-empty-action { margin: 4px 10px; }
+.hub-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.hub-filter, .hub-sort { font: inherit; font-size: 13.5px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--ink); min-width: 0; }
+.hub-filter { flex: 1 1 200px; }
+.hub-filter:focus, .hub-sort:focus { outline: none; border-color: var(--accent); }
+@media (max-width: 860px) {
+  .hub-head { align-items: flex-start; }
+}
+.btn.ghost { background: transparent; color: var(--ink-2); border: 1px solid var(--border); }
+.btn.ghost:hover { background: var(--accent-soft); color: var(--ink); }
+.btn.ghost:disabled, .btn.primary:disabled { opacity: .55; cursor: default; }
+
+/* description vs announcement */
+.project-description { margin: 2px 0 6px; max-width: 60ch; font-size: 14px; line-height: 1.5; color: var(--ink-2); overflow-wrap: anywhere; text-align: inherit; }
+.hub-row-note { font-size: 12px; color: var(--ink-light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hub-today { margin: 0; }
+#project-description-input { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--ink); }
+#project-description-input:focus { outline: none; border-color: var(--accent); }
+.field-optional { font-weight: 400; color: var(--ink-light); }
+
+/* ===== Project workspace: identity -> context -> work ===== */
+.project-description-add { background: none; border: 0; padding: 2px 0; font: inherit; font-size: 13.5px; color: var(--ink-light); cursor: pointer; }
+.project-description-add:hover { color: var(--accent-ink); text-decoration: underline; }
+.project-description-add:focus-visible, .header-icon-btn:focus-visible, .project-more-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+#task-view.is-project .project-announcement { margin-bottom: 26px; }
+.project-section-label { margin: 0 0 10px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-light); }
+
+.header-icon-btn { width: 34px; height: 34px; }
+.header-icon-btn svg { width: 16px; height: 16px; }
+.project-more-wrap { position: relative; }
+.project-more-menu { position: absolute; right: 0; top: calc(100% + 4px); min-width: 170px; padding: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-lg); z-index: 40; }
+.project-more-menu[hidden] { display: none; }
+.project-more-item { display: block; width: 100%; text-align: left; padding: 9px 12px; border: 0; border-radius: 8px; background: none; font: inherit; font-size: 13.5px; color: var(--ink-2); cursor: pointer; }
+.project-more-item:hover { background: var(--accent-soft); color: var(--ink); }
+.project-more-item.danger { color: var(--high); }
+.project-more-item.danger:hover { background: var(--high-bg); color: var(--high); }
+#project-modal-announcement { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--ink); }
+#project-modal-announcement:focus { outline: none; border-color: var(--accent); }
+
+/* ===== Project workspace: one content column, one spacing scale ===== */
+/* Scoped spacing scale (the app had no spacing tokens). Every gap below uses these. */
+#task-view.is-project {
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;  --sp-4: 16px;
+  --sp-5: 24px; --sp-6: 32px; --sp-7: 40px;
+  --tile: 56px;        /* project avatar; the title row is as tall as it so they centre together */
+  --edit-slot: 36px;   /* room kept beside title/description so the hover pencil never changes layout */
+  --ph-gap: 24px;      /* gutter on each side of the identity | about divider */
+  --ph-actions: 64px;  /* fixed width reserved for Members / More so the two halves stay symmetric */
+}
+
+/* Outer width is untouched: the existing .view-panel / .project-view-main container is reused as-is. */
+#task-view.is-project .project-view-main > * { min-width: 0; }
+
+/* --- Identity (icon | content | actions) --- */
+.project-identity, .project-identity-body, .project-title-row { display: contents; }
+.project-identity-tile[hidden], .inline-edit-btn[hidden], .project-about[hidden],
+.project-title-row[hidden], .project-about-row[hidden], .inline-edit-form[hidden], .inline-edit-error[hidden] { display: none !important; }
+
+#task-view.is-project .main-header { margin: calc(var(--sp-7) + var(--sp-3)) 0 calc(var(--sp-7) + var(--sp-2)); }
+#task-view.is-project .main-header-block { display: block; text-align: left; }
+/* Two-column identity: [tile + title + status] on the left, "About this project" on the right,
+   actions parked top-right. Only this internal grid changes; the outer workspace width is untouched. */
+#task-view.is-project .project-identity {
+  /* Symmetric halves: identity (tile + title) | hairline | about, each exactly half of the row that
+     remains after the actions column. The right track is half of that row; the left track is what is
+     left of the other half after the tile, so the divider sits dead centre at any desktop width. */
+  display: grid;
+  grid-template-columns:
+    var(--tile)
+    minmax(0, 1fr)
+    minmax(0, calc((100% - var(--ph-actions) - var(--ph-gap)) / 2))
+    var(--ph-actions);
+  grid-template-areas:
+    "tile title about actions"
+    ".    meta  about actions";
+  column-gap: var(--ph-gap); row-gap: 0; align-items: start; width: 100%;
+}
+#task-view.is-project .project-identity-tile {
+  grid-area: tile; display: flex; width: var(--tile); height: var(--tile); border-radius: 16px; font-size: 24px;
+}
+/* body dissolves so title / status / about can each sit in their own grid area */
+#task-view.is-project .project-identity-body { display: contents; }
+#task-view.is-project .project-title-row, #task-view.is-project #project-title-form { grid-area: title; }
+#task-view.is-project .project-header-actions { grid-area: actions; justify-self: end; display: flex; align-items: center; align-self: start; min-height: var(--tile); gap: var(--sp-1); }
+
+#task-view.is-project .project-title-row { display: flex; align-items: center; position: relative; width: fit-content; max-width: calc(100% - var(--edit-slot)); min-height: var(--tile); }
+#task-view.is-project #project-title-form { min-height: var(--tile); display: flex; flex-direction: column; justify-content: center; }
+#task-view.is-project .main-header h1 { font-size: 30px; line-height: 1.2; min-width: 0; overflow-wrap: anywhere; word-break: normal; }
+#task-view.is-project .project-title-row .inline-edit-btn { top: 50%; transform: translateY(-50%); }
+
+/* About this project */
+.project-about { margin-top: 0; }
+#task-view.is-project .project-about {
+  grid-area: about; align-self: stretch; min-width: 0;
+  padding: var(--sp-2) 0 var(--sp-1) var(--ph-gap);
+  border-left: 1px solid var(--border);
+}
+.project-about-label {
+  margin: 0 0 var(--sp-2); font-size: 11px; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--ink-light);
+}
+.project-about-row { position: relative; display: block; width: fit-content; max-width: calc(100% - var(--edit-slot)); min-width: 0; }
+#task-view.is-project .project-description {
+  margin: 0; max-width: 64ch; font-size: 15px; line-height: 1.65; color: var(--ink-2);
+  white-space: pre-line; overflow-wrap: anywhere;
+}
+#task-view.is-project .project-description-add { margin: 0; padding: var(--sp-1) 0; font-size: 14px; }
+.project-about-row .inline-edit-btn { top: -4px; }
+
+/* Status: metadata, quieter than everything above it */
+#task-view.is-project .main-header-meta { grid-area: meta; display: block; margin-top: calc(var(--sp-2) * -1); }
+#task-view.is-project #view-subtitle { display: block; font-size: 12.5px; font-weight: 500; letter-spacing: .01em; color: var(--ink-light); text-align: left; margin: 0; }
+
+/* Edit pencil: overlaid beside the text (absolute) so showing it never moves anything */
+.inline-edit-btn {
+  position: absolute; left: 100%; margin-left: var(--sp-1);
+  width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: transparent;
+  color: var(--ink-light); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity .15s ease, background-color .15s ease, color .15s ease;
+}
+.inline-edit-btn svg { width: 14px; height: 14px; }
+.project-title-row:hover .inline-edit-btn,
+.project-title-row:focus-within .inline-edit-btn,
+.project-about-row:hover .inline-edit-btn,
+.project-about-row:focus-within .inline-edit-btn,
+.inline-edit-btn:focus-visible { opacity: 1; }
+.inline-edit-btn:hover { background: var(--accent-soft); color: var(--accent-ink); }
+.inline-edit-btn:focus-visible, .inline-edit-icon:focus-visible, .project-description-add:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+/* Touch: no hover exists, so the pencil is simply present (still overlaid, still no layout cost) */
+@media (hover: none) {
+  .inline-edit-btn { opacity: .85; width: 40px; height: 40px; }
+  .project-about-row .inline-edit-btn { top: -8px; }
+  #task-view.is-project { --edit-slot: 44px; --ph-actions: 92px; }
+  #task-view.is-project .header-icon-btn { width: 40px; height: 40px; }
+  .project-description-add { min-height: 40px; }
+}
+@media (prefers-reduced-motion: reduce) { .inline-edit-btn { transition: none; } }
+
+/* Inline forms */
+.inline-edit-form { margin: 0; min-width: 0; }
+.inline-edit-row { display: flex; align-items: center; gap: var(--sp-2); }
+.inline-edit-form input[type="text"], .inline-edit-form textarea {
+  width: 100%; box-sizing: border-box; font: inherit; color: var(--ink);
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: var(--sp-2) var(--sp-3);
+}
+.inline-edit-form input[type="text"] {
+  flex: 1 1 auto; min-width: 0; font-family: var(--font-display); font-size: 22px; font-weight: 600;
+  letter-spacing: -0.015em; line-height: 1.25;
+}
+.inline-edit-form textarea { font-size: 14.5px; line-height: 1.6; resize: vertical; min-height: 84px; max-width: 62ch; display: block; }
+.inline-edit-form input:focus, .inline-edit-form textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.inline-edit-form input:disabled, .inline-edit-form textarea:disabled { opacity: .65; }
+.inline-edit-icon {
+  flex: none; width: 40px; height: 40px; padding: 0; border-radius: 10px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid var(--border); color: var(--ink-2);
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+.inline-edit-icon svg { width: 16px; height: 16px; }
+.inline-edit-icon:hover { background: var(--accent-soft); color: var(--ink); border-color: var(--border-hover, var(--border)); }
+.inline-edit-icon.save { background: var(--accent-soft); color: var(--accent-ink); border-color: transparent; }
+.inline-edit-icon.save:hover { background: var(--accent); color: var(--accent-contrast, #fff); }
+.inline-edit-icon:disabled { opacity: .55; cursor: default; }
+.inline-edit-actions { display: flex; gap: var(--sp-2); margin-top: var(--sp-2); }
+.inline-edit-error { margin: var(--sp-2) 0 0; font-size: 12.5px; line-height: 1.4; color: var(--high); }
+
+/* --- Announcement: distinct context card with room inside --- */
+#task-view.is-project .project-announcement {
+  gap: var(--sp-4); padding: var(--sp-4) var(--sp-5) var(--sp-4) var(--sp-4);
+  margin-bottom: var(--sp-7); min-width: 0;
+}
+#task-view.is-project .project-announcement-icon { margin-top: 1px; }
+#task-view.is-project .project-announcement-label { margin-bottom: var(--sp-2); }
+#task-view.is-project .project-announcement-text { line-height: 1.6; overflow-wrap: anywhere; }
+#task-view.is-project .project-announcement-date { margin-top: var(--sp-3); }
+#task-view.is-project .project-announcement-actions { align-self: flex-start; margin: -6px -10px 0 0; }
+#task-view.is-project .announcement-add-toggle,
+#task-view.is-project .announcement-form { margin-bottom: var(--sp-7); }
+
+/* --- Tasks: a new layer, then add -> controls -> list at one rhythm --- */
+#task-view.is-project .project-section-label { margin: 0 0 var(--sp-3); }
+#task-view.is-project .task-add { margin-bottom: var(--sp-3); }
+#task-view.is-project .task-toolbar { margin: 0 0 var(--sp-4); }   /* replaces the old negative-margin pull-up */
+#task-view.is-project .task-toolbar-icon-btn { width: 36px; height: 36px; }
+#task-view.is-project .empty-state { margin: 0; padding: var(--sp-5) 0; text-align: left; }
+
+/* --- Narrow desktop / tablet: not enough width for two comfortable columns, so the description
+       drops beneath the identity at full width rather than being squeezed --- */
+@media (max-width: 1100px) {
+  #task-view.is-project .project-identity {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "tile title actions"
+      ".    meta  actions"
+      "about about about";
+    row-gap: var(--sp-1);
+  }
+  #task-view.is-project .project-about { margin: var(--sp-4) 0 0; padding: 0; border-left: 0; align-self: start; }
+}
+
+/* --- Tablet: keep the grid, tighten only the gaps that need it --- */
+@media (max-width: 860px) {
+  #task-view.is-project .main-header { margin-top: var(--sp-2); margin-bottom: var(--sp-6); }
+  #task-view.is-project .project-announcement,
+  #task-view.is-project .announcement-add-toggle,
+  #task-view.is-project .announcement-form { margin-bottom: var(--sp-6); }
+  #task-view.is-project .task-toolbar { margin-bottom: var(--sp-3); }
+}
+
+/* --- Mobile: reflow structurally, actions drop under the identity --- */
+@media (max-width: 600px) {
+  /* Centred stack: icon, title, status, then the description, all on the centre line */
+  #task-view.is-project .project-identity {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "tile" "title" "meta" "about" "actions";
+    column-gap: 0; justify-items: center; text-align: center;
+  }
+  #task-view.is-project { --tile: 44px; }
+  #task-view.is-project .project-identity-tile { border-radius: 13px; font-size: 19px; margin-bottom: var(--sp-2); }
+  #task-view.is-project .project-title-row { min-height: 0; max-width: calc(100% - var(--edit-slot) * 2); justify-content: center; }
+  #task-view.is-project #project-title-form { min-height: 0; justify-self: stretch; width: 100%; }
+  #task-view.is-project .main-header h1 { text-align: center; }
+  #task-view.is-project .project-identity { row-gap: var(--sp-1); }
+  /* body dissolves so description + status use the full width instead of sitting beside the avatar */
+  #task-view.is-project .project-identity-body { display: contents; }
+  #task-view.is-project .project-title-row, #task-view.is-project #project-title-form { grid-area: title; }
+  #task-view.is-project .project-about { grid-area: about; margin-top: var(--sp-4); width: 100%; text-align: center; }
+  #task-view.is-project .project-about-row { margin: 0 auto; max-width: calc(100% - var(--edit-slot) * 2); }
+  #task-view.is-project .project-description { text-align: center; }
+  #task-view.is-project .inline-edit-actions { justify-content: center; }
+  #task-view.is-project .main-header-meta { grid-area: meta; margin-top: 0; }
+  #task-view.is-project #view-subtitle { text-align: center; }
+  #task-view.is-project .project-header-actions { min-height: 0; }
+  #task-view.is-project .project-header-actions { justify-self: center; margin: var(--sp-3) 0 0; }
+  #task-view.is-project .project-more-menu { right: auto; left: 0; }
+  #task-view.is-project .main-header h1 { font-size: 24px; }
+  .inline-edit-form input[type="text"] { font-size: 19px; }
+  .inline-edit-form textarea, #task-view.is-project .project-description { max-width: none; }
+  /* Announcement: header row (icon, label, actions) then full-width text and date */
+  #task-view.is-project .project-announcement { flex-wrap: wrap; align-items: center; padding: var(--sp-4); gap: var(--sp-2) var(--sp-3); }
+  #task-view.is-project .project-announcement-body { display: contents; }
+  #task-view.is-project .project-announcement-icon { order: 0; margin-top: 0; }
+  #task-view.is-project .project-announcement-label { order: 1; flex: 1 1 0; min-width: 0; margin: 0; }
+  #task-view.is-project .project-announcement-actions { order: 2; margin: -6px -10px -6px 0; }
+  #task-view.is-project .project-announcement-text { order: 3; flex: 1 1 100%; }
+  #task-view.is-project .project-announcement-date { order: 4; flex: 1 1 100%; margin-top: var(--sp-1); }
 }

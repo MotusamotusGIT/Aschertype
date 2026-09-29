@@ -1140,24 +1140,26 @@ todoAddCategoryBtn.addEventListener('click', () => addTaskCategory(todoCategoryS
 
 let projects = safeParse('projects', []);
 let currentProjectId = null;
-let projectTab = 'tasks'; // 'tasks' | 'chat' (declared early: setView reads it)
 let projectMembers = [];
 let notifications = [];
 
-const projectNavListEl = document.getElementById('project-nav-list');
-const projectEmptyHintEl = document.getElementById('project-empty-hint');
 const addProjectBtn = document.getElementById('add-project-btn');
-const personalNavListEl = document.getElementById('personal-nav-list');
-const personalEmptyHintEl = document.getElementById('personal-empty-hint');
 const addPersonalBtn = document.getElementById('add-personal-btn');
 const projectSelectEl = document.getElementById('todo-project-select');
 const projectHeaderActions = document.getElementById('project-header-actions');
 const projectRenameBtn = document.getElementById('project-rename-btn');
 const projectDeleteBtn = document.getElementById('project-delete-btn');
+const projectMoreBtn = document.getElementById('project-more-btn');
+const projectMoreMenu = document.getElementById('project-more-menu');
+const projectMembersBtn = document.getElementById('project-members-btn');
+const projectDescriptionAddBtn = document.getElementById('project-description-add');
+const projectModalAnnouncementInput = document.getElementById('project-modal-announcement');
+const projectAnnouncementFieldEl = document.getElementById('project-announcement-field');
 
 const projectModalOverlay = document.getElementById('project-modal-overlay');
 const projectModalTitle = document.getElementById('project-modal-title');
 const projectNameInput = document.getElementById('project-name-input');
+const projectDescriptionInput = document.getElementById('project-description-input');
 const projectPreviewTile = document.getElementById('project-preview-tile');
 const projectModalSaveBtn = document.getElementById('project-modal-save-btn');
 const projectModalCancelBtn = document.getElementById('project-modal-cancel-btn');
@@ -1410,8 +1412,12 @@ function openProjectModal(existingProject = null, type = 'personal') {
   pendingProjectType = type === 'team' ? 'team' : 'personal';
   editingProjectId = existingProject ? existingProject.id : null;
   if (!existingProject && pendingProjectType === 'team') refreshProjectModalUsage(); else projectModalUsageEl.style.display = 'none';
-  projectModalTitle.textContent = existingProject ? 'Rename project' : (pendingProjectType === 'personal' ? 'New personal project' : 'New project');
+  projectModalTitle.textContent = existingProject ? 'Edit project' : (pendingProjectType === 'personal' ? 'New personal project' : 'New project');
   projectNameInput.value = existingProject ? existingProject.name : '';
+  projectDescriptionInput.value = existingProject ? (existingProject.description || '') : '';
+  const canEditAnnouncement = !!existingProject && isProjectOwner(existingProject.id);
+  projectAnnouncementFieldEl.style.display = canEditAnnouncement ? '' : 'none';
+  projectModalAnnouncementInput.value = canEditAnnouncement ? (existingProject.announcement || '') : '';
   previewTileColor = projectTileColor(existingProject || { id: 'preview-' + Date.now(), name: '' });
   projectPreviewTile.style.background = previewTileColor;
   updateProjectPreviewLetter();
@@ -1444,13 +1450,28 @@ projectModalOverlay.addEventListener('click', (e) => { if (e.target === projectM
 
 projectModalSaveBtn.addEventListener('click', async () => {
   const name = projectNameInput.value.trim();
+  const description = projectDescriptionInput.value.trim().slice(0, 240);
   if (!name) { projectNameInput.focus(); return; }
   if (editingProjectId) {
     const p = getProject(editingProjectId);
     if (p) {
+      const prev = { name: p.name, description: p.description || '' };
+      const newAnnouncement = projectModalAnnouncementInput.value.trim().slice(0, 500);
+      const announcementChanged = isProjectOwner(p.id) && newAnnouncement !== (p.announcement || '');
       p.name = name;
+      p.description = description;
+      if (currentUser) {
+        setButtonBusy(projectModalSaveBtn, 'Saving…');
+        const { error } = await dbUpdate('projects', p.id, { name, description: description || null });
+        clearButtonBusy(projectModalSaveBtn);
+        if (error) {
+          p.name = prev.name; p.description = prev.description;      // keep the modal open with the user's input intact
+          showProjectModalError("Couldn't save your changes. " + friendlyPlanError(error.message));
+          return;
+        }
+      }
       saveProjects();
-      if (currentUser) dbUpdate('projects', p.id, { name });
+      if (announcementChanged) setProjectAnnouncement(p.id, newAnnouncement); // sets the real timestamp + syncs
     }
   } else {
     // Guests have no account, so nothing on the server can count their projects —
@@ -1458,7 +1479,7 @@ projectModalSaveBtn.addEventListener('click', async () => {
     // checked by the database trigger below (source of truth; can't be bypassed).
     const type = pendingProjectType;
     if (type === 'team' && (!currentUser || !supabaseReady)) { closeProjectModal(); return; } // defensive: guests never reach here
-    const p = { id: Date.now(), name, userId: currentUser ? currentUser.id : null, type };
+    const p = { id: Date.now(), name, description, userId: currentUser ? currentUser.id : null, type };
     if (currentUser) {
       setButtonBusy(projectModalSaveBtn, 'Saving…');
       const { error } = await dbUpsert('projects', projectRemoteRow(p));
@@ -1518,7 +1539,158 @@ projectDeleteBtn.addEventListener('click', () => {
     },
   });
 });
+function closeProjectMoreMenu() {
+  projectMoreMenu.hidden = true;
+  projectMoreBtn.setAttribute('aria-expanded', 'false');
+}
+projectMoreBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const open = projectMoreMenu.hidden;
+  projectMoreMenu.hidden = !open;
+  projectMoreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+});
+document.addEventListener('click', (e) => { if (!projectMoreMenu.hidden && !e.target.closest('.project-more-wrap')) closeProjectMoreMenu(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !projectMoreMenu.hidden) { closeProjectMoreMenu(); projectMoreBtn.focus(); } });
+projectDeleteBtn.addEventListener('click', closeProjectMoreMenu);
+projectMembersBtn.addEventListener('click', () => { const c = document.getElementById('project-collab-panel'); if (c) c.classList.add('open'); });
+// ===== Inline editing of project name / description (project header) =====
+const projectIdentityTileEl = document.getElementById('project-identity-tile');
+const projectTitleEditBtn = document.getElementById('project-title-edit-btn');
+const projectTitleRowEl = document.getElementById('project-title-row');
+const projectTitleForm = document.getElementById('project-title-form');
+const projectTitleInput = document.getElementById('project-title-input');
+const projectTitleSaveBtn = document.getElementById('project-title-save');
+const projectTitleCancelBtn = document.getElementById('project-title-cancel');
+const projectTitleErrorEl = document.getElementById('project-title-error');
+const projectAboutEl = document.getElementById('project-about');
+const projectAboutRowEl = document.getElementById('project-about-row');
+const projectDescriptionEl = document.getElementById('project-description');
+const projectDescriptionEditBtn = document.getElementById('project-description-edit-btn');
+const projectDescriptionForm = document.getElementById('project-description-form');
+const projectDescriptionInline = document.getElementById('project-description-inline');
+const projectDescriptionSaveBtn = document.getElementById('project-description-save');
+const projectDescriptionCancelBtn = document.getElementById('project-description-cancel');
+const projectDescriptionErrorEl = document.getElementById('project-description-error');
+
+const PROJECT_NAME_MAX = 60;
+const PROJECT_DESCRIPTION_MAX = 240;
+// Only one field is edited at a time. `projectId` pins the edit to the project it started on.
+let inlineEdit = { field: null, projectId: null, saving: false };
+
+function setInlineError(field, msg) {
+  const node = field === 'title' ? projectTitleErrorEl : projectDescriptionErrorEl;
+  node.textContent = msg || '';
+  node.hidden = !msg;
+}
+function setInlineBusy(busy) {
+  inlineEdit.saving = busy;
+  [projectTitleInput, projectTitleSaveBtn, projectTitleCancelBtn,
+   projectDescriptionInline, projectDescriptionSaveBtn, projectDescriptionCancelBtn]
+    .forEach((n) => { if (n) n.disabled = busy; });
+  projectDescriptionSaveBtn.textContent = busy ? 'Saving…' : 'Save';
+  projectTitleForm.classList.toggle('is-saving', busy);
+}
+function openInlineEdit(field) {
+  if (inlineEdit.saving || currentView !== 'project' || !currentProjectId) return;
+  if (!canRenameProject(currentProjectId)) return;
+  const p = getProject(currentProjectId);
+  if (!p) return;
+  inlineEdit = { field, projectId: p.id, saving: false };
+  setInlineError('title', ''); setInlineError('description', '');
+  if (field === 'title') projectTitleInput.value = p.name || '';
+  else projectDescriptionInline.value = p.description || '';
+  renderViewHeader();
+  const focusEl = field === 'title' ? projectTitleInput : projectDescriptionInline;
+  setTimeout(() => {
+    focusEl.focus();
+    if (field === 'title') focusEl.select();
+    else focusEl.setSelectionRange(focusEl.value.length, focusEl.value.length);
+  }, 0);
+}
+function closeInlineEdit(returnFocus) {
+  const field = inlineEdit.field;
+  inlineEdit = { field: null, projectId: null, saving: false };
+  setInlineBusy(false);
+  renderViewHeader();
+  if (returnFocus && field) {
+    const target = field === 'title'
+      ? (projectTitleEditBtn.hidden ? null : projectTitleEditBtn)
+      : (projectDescriptionEditBtn.hidden ? document.getElementById('project-description-add') : projectDescriptionEditBtn);
+    if (target && target.offsetParent !== null) target.focus();
+  }
+}
+async function commitInlineEdit(fromOutside) {
+  if (inlineEdit.saving || !inlineEdit.field) return;
+  const field = inlineEdit.field;
+  const pid = inlineEdit.projectId;
+  const p = getProject(pid);
+  if (!p) { closeInlineEdit(false); return; }
+  if (!canRenameProject(pid)) { setInlineError(field, "You don't have permission to edit this project."); return; }
+
+  const prop = field === 'title' ? 'name' : 'description';
+  const raw = field === 'title' ? projectTitleInput.value : projectDescriptionInline.value;
+  const value = raw.trim().slice(0, field === 'title' ? PROJECT_NAME_MAX : PROJECT_DESCRIPTION_MAX);
+
+  if (field === 'title' && !value) { setInlineError('title', 'Give the project a name.'); projectTitleInput.focus(); return; }
+  if (value === (p[prop] || '')) { closeInlineEdit(!fromOutside); return; } // nothing changed
+
+  setInlineError(field, '');
+  setInlineBusy(true);
+  if (currentUser) {
+    const patch = field === 'title' ? { name: value } : { description: value || null };
+    const { error } = await dbUpdateChecked('projects', pid, patch);
+    if (error) {
+      // Keep the form open with the user's text intact so nothing is lost.
+      setInlineBusy(false);
+      setInlineError(field, "Couldn't save. " + friendlyPlanError(error.message));
+      (field === 'title' ? projectTitleInput : projectDescriptionInline).focus();
+      return;
+    }
+  }
+  // The object may have been replaced by a realtime update while we were saving.
+  const fresh = getProject(pid);
+  if (fresh) { fresh[prop] = value; saveProjects(); }
+  inlineEdit = { field: null, projectId: null, saving: false };
+  setInlineBusy(false);
+  renderProjectNav();
+  renderProjectSelect();
+  renderViewHeader();
+  renderTodos(); // task cards show the project name
+  // Give focus back to the pencil only if nothing else took it (e.g. an outside click).
+  if (document.activeElement === document.body || !document.activeElement) {
+    const btn = field === 'title' ? projectTitleEditBtn : (projectDescriptionEditBtn.hidden ? projectDescriptionAddBtn : projectDescriptionEditBtn);
+    if (btn && btn.offsetParent !== null) btn.focus();
+  }
+}
+
+projectTitleEditBtn.addEventListener('click', () => openInlineEdit('title'));
+projectDescriptionEditBtn.addEventListener('click', () => openInlineEdit('description'));
+projectDescriptionAddBtn.addEventListener('click', () => openInlineEdit('description'));
+projectTitleForm.addEventListener('submit', (e) => { e.preventDefault(); commitInlineEdit(); });
+projectDescriptionForm.addEventListener('submit', (e) => { e.preventDefault(); commitInlineEdit(); });
+projectTitleCancelBtn.addEventListener('click', () => closeInlineEdit(true));
+projectDescriptionCancelBtn.addEventListener('click', () => closeInlineEdit(true));
+projectTitleInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!inlineEdit.saving) closeInlineEdit(true); }
+});
+projectDescriptionInline.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!inlineEdit.saving) closeInlineEdit(true); }
+  else if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); commitInlineEdit(); } // Shift+Enter = new line
+});
+// Clicking outside saves a valid change (least surprising: nothing typed is lost); an empty name just cancels.
+document.addEventListener('pointerdown', (e) => {
+  if (!inlineEdit.field || inlineEdit.saving) return;
+  const form = inlineEdit.field === 'title' ? projectTitleForm : projectDescriptionForm;
+  if (form.contains(e.target)) return;
+  if (inlineEdit.field === 'title' && !projectTitleInput.value.trim()) { closeInlineEdit(false); return; }
+  commitInlineEdit(true);
+});
+projectTitleInput.addEventListener('input', () => setInlineError('title', ''));
+projectDescriptionInline.addEventListener('input', () => setInlineError('description', ''));
+
+// "Edit project details" (in the ⋯ menu) opens the full modal: name, description and announcement.
 projectRenameBtn.addEventListener('click', () => {
+  closeProjectMoreMenu();
   const p = getProject(currentProjectId);
   if (p) openProjectModal(p);
 });
@@ -1531,43 +1703,239 @@ function projectTileColor(p) {
   return PROJECT_TILE_COLORS[hash % PROJECT_TILE_COLORS.length];
 }
 
+// ===== Personal / Projects hubs (replace the old sidebar project lists) =====
+const RECENT_PROJECTS_KEY = 'recentProjectIds';
+function getRecentProjectIds() {
+  try { const v = JSON.parse(safeGetItem(RECENT_PROJECTS_KEY) || '[]'); return Array.isArray(v) ? v : []; }
+  catch (e) { return []; }
+}
+function touchRecentProject(id) {
+  if (!id) return;
+  const list = [String(id)].concat(getRecentProjectIds().filter(x => String(x) !== String(id))).slice(0, 8);
+  safeSetItem(RECENT_PROJECTS_KEY, JSON.stringify(list));
+}
+function myPendingInvites() {
+  if (!currentUser) return [];
+  const email = (currentUser.email || '').toLowerCase();
+  return projectMembers.filter(m => m.status === 'pending' &&
+    (m.member_id === currentUser.id || (m.member_email || '').toLowerCase() === email));
+}
+function hubSection(title, count) {
+  const sec = document.createElement('section');
+  sec.className = 'hub-section';
+  const h = document.createElement('h2');
+  h.className = 'hub-section-title';
+  h.textContent = title;
+  if (count != null) { const c = document.createElement('span'); c.textContent = count; h.appendChild(c); }
+  sec.appendChild(h);
+  return sec;
+}
+function hubEmpty(text) {
+  const p = document.createElement('p'); p.className = 'hub-empty'; p.textContent = text; return p;
+}
+// ---- data helpers (reuse already-loaded state; no extra queries) ----
+function projectStats(p) {
+  const list = todos.filter(t => String(t.projectId) === String(p.id));
+  const done = list.filter(t => t.done).length;
+  return { total: list.length, done, open: list.length - done };
+}
+function projectMemberCount(p) {
+  if (projectTypeOf(p) !== 'team') return 0;
+  return membersForProject(p.id).filter(m => m.status === 'accepted').length + 1; // + owner
+}
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+}
+function buildHubProjectRow(p) {
+  const st = projectStats(p);
+  const btn = el('button', 'hub-row hub-project');
+  btn.type = 'button';
+  const tile = el('span', 'project-nav-tile', (p.name || '?').trim().charAt(0).toUpperCase() || '?');
+  tile.style.background = projectTileColor(p);
+  const info = el('span', 'hub-row-info');
+  const name = el('span', 'hub-row-name', p.name); name.title = p.name;
+  info.appendChild(name);
+  if (p.description) info.appendChild(el('span', 'hub-row-desc', p.description));
+  const note = String(p.announcement || '').split('\n').map(x => x.trim()).find(Boolean);
+  if (note) info.appendChild(el('span', 'hub-row-note', 'Announcement: ' + note));
+  const bits = [`${st.open} open`];
+  if (st.done) bits.push(`${st.done} completed`);
+  const mc = projectMemberCount(p);
+  if (mc > 1) bits.push(`${mc} members`);
+  if (projectTypeOf(p) === 'team' && !isProjectOwner(p.id)) bits.push('Shared with you');
+  info.appendChild(el('span', 'hub-row-meta', bits.join(' · ')));
+  if (st.total) {
+    const bar = el('span', 'hub-progress'); bar.setAttribute('role', 'progressbar');
+    bar.setAttribute('aria-valuemin', '0'); bar.setAttribute('aria-valuemax', String(st.total)); bar.setAttribute('aria-valuenow', String(st.done));
+    const fill = el('span', 'hub-progress-fill'); fill.style.width = Math.round(st.done / st.total * 100) + '%';
+    bar.appendChild(fill); info.appendChild(bar);
+  }
+  btn.append(tile, info);
+  btn.addEventListener('click', () => { currentProjectId = p.id; setView('project'); });
+  return btn;
+}
+function hubList(list) {
+  const wrap = el('div', 'hub-list');
+  list.forEach(p => wrap.appendChild(buildHubProjectRow(p)));
+  return wrap;
+}
+function recentProjectsFor(list) {
+  const byId = new Map(list.map(p => [String(p.id), p]));
+  return getRecentProjectIds().map(id => byId.get(String(id))).filter(Boolean).slice(0, 3);
+}
+function buildHubTaskRow(t, metaText) {
+  const row = el('button', 'hub-row hub-task'); row.type = 'button';
+  row.appendChild(el('span', 'hub-prio prio-' + (t.priority || 'medium')));
+  const name = el('span', 'hub-row-name', t.text); name.title = t.text;
+  row.appendChild(name);
+  row.appendChild(el('span', 'hub-row-meta', metaText));
+  row.addEventListener('click', () => openTaskDetail(t.id));
+  return row;
+}
+const PRIO_RANK = { high: 0, medium: 1, low: 2 };
+function byPriorityThenDue(a, b) {
+  return (PRIO_RANK[a.priority] ?? 1) - (PRIO_RANK[b.priority] ?? 1) || (a.due || '9999').localeCompare(b.due || '9999');
+}
+function prioLabel(t) { return t.priority === 'high' ? 'High' : t.priority === 'low' ? 'Low' : 'Medium'; }
+function dayLabelFor(dateStr) {
+  if (dateStr === tomorrowStr()) return 'Tomorrow';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return formatAppDate(new Date(y, m - 1, d), { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
+function renderPersonalHub() {
+  const body = document.getElementById('personal-hub-body');
+  if (!body) return;
+  body.innerHTML = '';
+  const personal = projects.filter(p => projectTypeOf(p) === 'personal');
+  const ids = new Set(personal.map(p => String(p.id)));
+  const mine = todos.filter(t => !t.done && (!t.projectId || ids.has(String(t.projectId))));
+  const today = todayStr();
+  const dueToday = mine.filter(t => t.due === today);
+  const overdue = mine.filter(t => t.due && t.due < today);
+  const sub = [`${mine.length} open`, `${dueToday.length} due today`];
+  if (overdue.length) sub.push(`${overdue.length} overdue`);
+  document.getElementById('personal-hub-sub').textContent = sub.join(' · ');
+
+  // TODAY: due today, overdue, pinned (existing task data only)
+  const attention = mine.filter(t => (t.due && t.due <= today) || t.pinned)
+    .sort((a, b) => ((b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)) || byPriorityThenDue(a, b));
+  const tsec = hubSection('Today');
+  if (!attention.length) tsec.appendChild(hubEmpty('Nothing due today.'));
+  else {
+    const wrap = el('div', 'task-list hub-today');
+    attention.slice(0, 8).forEach(t => wrap.appendChild(buildTaskCard(t, today, { hub: true })));
+    tsec.appendChild(wrap);
+  }
+  body.appendChild(tsec);
+
+  // PERSONAL PROJECTS
+  const psec = hubSection('Personal projects', personal.length || null);
+  if (!personal.length) {
+    psec.appendChild(hubEmpty('No personal projects yet.'));
+    const b = el('button', 'btn ghost small hub-empty-action', '+ New project'); b.type = 'button';
+    b.addEventListener('click', () => openProjectModal(null, 'personal'));
+    psec.appendChild(b);
+  } else {
+    const recents = recentProjectsFor(personal).map(p => String(p.id));
+    const ordered = personal.slice().sort((a, b) => {
+      const ra = recents.indexOf(String(a.id)), rb = recents.indexOf(String(b.id));
+      return (ra < 0 ? 99 : ra) - (rb < 0 ? 99 : rb) || String(a.name).localeCompare(String(b.name));
+    });
+    psec.appendChild(hubList(ordered));
+  }
+  body.appendChild(psec);
+
+  // UP NEXT: after today, grouped by day, only if something exists
+  const upcoming = mine.filter(t => t.due && t.due > today).sort((a, b) => a.due.localeCompare(b.due) || byPriorityThenDue(a, b)).slice(0, 6);
+  if (upcoming.length) {
+    const usec = hubSection('Up next');
+    let lastDay = null;
+    const wrap = el('div', 'hub-list');
+    upcoming.forEach(t => {
+      if (t.due !== lastDay) { wrap.appendChild(el('div', 'hub-day', dayLabelFor(t.due))); lastDay = t.due; }
+      wrap.appendChild(buildHubTaskRow(t, prioLabel(t)));
+    });
+    usec.appendChild(wrap); body.appendChild(usec);
+  }
+  requestAnimationFrame(markTaskMetaOverflow);
+  // No "Recent activity": personal data has no activity records, so nothing is shown rather than invented.
+}
+
+let projectsHubFilter = '';
+let projectsHubSort = 'name';
+function renderProjectsHub() {
+  const body = document.getElementById('projects-hub-body');
+  if (!body) return;
+  const hadFocus = document.activeElement && document.activeElement.id === 'projects-hub-filter';
+  body.innerHTML = '';
+  const sub = document.getElementById('projects-hub-sub');
+  if (!currentUser) {
+    sub.textContent = '';
+    body.appendChild(hubEmpty('Sign in to create projects and collaborate with others.'));
+    return;
+  }
+  const team = projects.filter(p => projectTypeOf(p) === 'team');
+  const invites = myPendingInvites();
+  const ownedAll = team.filter(p => isProjectOwner(p.id));
+  const sharedAll = team.filter(p => !isProjectOwner(p.id));
+  sub.textContent = team.length ? `${ownedAll.length} yours · ${sharedAll.length} shared with you` : '';
+
+  if (!team.length && !invites.length) {
+    body.appendChild(hubEmpty('No projects yet. Create one to work with others.'));
+    return;
+  }
+
+  if (team.length >= 5) {
+    const bar = el('div', 'hub-tools');
+    const input = el('input', 'hub-filter'); input.id = 'projects-hub-filter'; input.type = 'search';
+    input.placeholder = 'Filter projects'; input.value = projectsHubFilter; input.setAttribute('aria-label', 'Filter projects');
+    const sel = el('select', 'hub-sort'); sel.setAttribute('aria-label', 'Sort projects');
+    [['name', 'Name'], ['open', 'Most open tasks']].forEach(([v, l]) => { const o = el('option', null, l); o.value = v; sel.appendChild(o); });
+    sel.value = projectsHubSort;
+    input.addEventListener('input', () => { projectsHubFilter = input.value; renderProjectsHub(); });
+    sel.addEventListener('change', () => { projectsHubSort = sel.value; renderProjectsHub(); });
+    bar.append(input, sel); body.appendChild(bar);
+    if (hadFocus) setTimeout(() => { const f = document.getElementById('projects-hub-filter'); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 0);
+  }
+  const q = projectsHubFilter.trim().toLowerCase();
+  const prep = (list) => list.filter(p => !q || String(p.name).toLowerCase().includes(q)).sort((a, b) =>
+    projectsHubSort === 'open' ? (projectStats(b).open - projectStats(a).open) || String(a.name).localeCompare(String(b.name))
+                               : String(a.name).localeCompare(String(b.name)));
+
+  const add = (title, list) => { if (!list.length) return; const sec = hubSection(title, list.length); sec.appendChild(hubList(list)); body.appendChild(sec); };
+  add('Your projects', prep(ownedAll));
+  add('Shared projects', prep(sharedAll));
+
+  if (invites.length) {
+    const sec = hubSection('Available projects', invites.length);
+    const wrap = el('div', 'hub-list');
+    invites.forEach(m => {
+      const p = getProject(m.project_id);
+      const row = el('div', 'hub-row hub-invite');
+      const info = el('span', 'hub-row-info');
+      info.appendChild(el('span', 'hub-row-name', p ? p.name : 'Project invitation'));
+      info.appendChild(el('span', 'hub-row-meta', 'You were invited to collaborate'));
+      const acts = el('span', 'hub-invite-actions');
+      const notif = notifications.find(n => String(n.member_row_id) === String(m.id)) || null;
+      const yes = el('button', 'btn primary small', 'Join'); yes.type = 'button';
+      const no = el('button', 'btn ghost small', 'Decline'); no.type = 'button';
+      yes.addEventListener('click', () => { yes.disabled = no.disabled = true; respondToInvite(notif, m.id, true); });
+      no.addEventListener('click', () => { yes.disabled = no.disabled = true; respondToInvite(notif, m.id, false); });
+      acts.append(yes, no); row.append(info, acts); wrap.appendChild(row);
+    });
+    sec.appendChild(wrap); body.appendChild(sec);
+  }
+  if (q && !body.querySelector('.hub-section')) body.appendChild(hubEmpty('No projects match your filter.'));
+}
+
+// Kept under its old name: it is called from many data-change paths. Now refreshes whichever hub is showing.
 function renderProjectNav() {
-  personalNavListEl.innerHTML = '';
-  projectNavListEl.innerHTML = '';
-  // Guests never see Team projects (and no Team section unless one is accessible).
-  const visible = currentUser ? projects : projects.filter(p => projectTypeOf(p) === 'personal');
-  const personal = visible.filter(p => projectTypeOf(p) === 'personal');
-  const team = visible.filter(p => projectTypeOf(p) === 'team');
-  personalEmptyHintEl.style.display = personal.length ? 'none' : 'block';
-  projectEmptyHintEl.style.display = (currentUser && !team.length) ? 'block' : 'none';
-
-  const fill = (listEl, list) => list.forEach(p => {
-    const isOwned = isProjectOwner(p.id);
-    const btn = document.createElement('button');
-    btn.className = 'nav-item project-item' + (currentView === 'project' && String(currentProjectId) === String(p.id) ? ' active' : '') + (isOwned ? '' : ' shared');
-    btn.dataset.view = 'project';
-    btn.dataset.projectId = p.id;
-
-    const tile = document.createElement('span');
-    tile.className = 'project-nav-tile' + (isOwned ? '' : ' shared-dot');
-    tile.style.background = projectTileColor(p);
-    tile.textContent = (p.name || '?').trim().charAt(0).toUpperCase() || '?';
-
-    const lbl = document.createElement('span');
-    lbl.className = 'nav-label';
-    lbl.textContent = p.name;
-    lbl.title = p.name;
-
-    const count = document.createElement('span');
-    count.className = 'nav-count';
-    count.textContent = todos.filter(t => String(t.projectId) === String(p.id)).length;
-
-    btn.append(tile, lbl, count);
-    btn.addEventListener('click', () => { currentProjectId = p.id; setView('project'); });
-    listEl.appendChild(btn);
-  });
-  fill(personalNavListEl, personal);
-  fill(projectNavListEl, team);
+  if (currentView === 'personal') renderPersonalHub();
+  else if (currentView === 'projects') renderProjectsHub();
 }
 
 function renderProjectSelect() {
@@ -1636,6 +2004,7 @@ function projectRemoteRow(p) {
     name: p.name,
     announcement: p.announcement || null,
     announcement_updated_at: p.announcementUpdatedAt || null,
+    description: p.description || null,
     project_type: projectTypeOf(p),
   };
 }
@@ -1646,7 +2015,11 @@ function showView(view) {
   document.getElementById('calendar-view').style.display = 'none';
   document.getElementById('notes-view').style.display = 'none';
   document.getElementById('settings-view').style.display = 'none';
-  if (view === 'pomodoro') document.getElementById('pomodoro-view').style.display = 'block';
+  document.getElementById('personal-view').style.display = 'none';
+  document.getElementById('projects-view').style.display = 'none';
+  if (view === 'personal') document.getElementById('personal-view').style.display = 'block';
+  else if (view === 'projects') document.getElementById('projects-view').style.display = 'block';
+  else if (view === 'pomodoro') document.getElementById('pomodoro-view').style.display = 'block';
   else if (view === 'settings') document.getElementById('settings-view').style.display = 'block';
   else if (view === 'calendar') document.getElementById('calendar-view').style.display = 'block';
   else if (view === 'notes') document.getElementById('notes-view').style.display = 'block';
@@ -1654,19 +2027,19 @@ function showView(view) {
 }
 
 function setView(view) {
-  if (projectTab === 'chat') setProjectTab('tasks');
   const collabPanel = document.getElementById('project-collab-panel');
-  const collabFab = document.getElementById('collab-fab');
   if (view !== 'project') {
     if (collabPanel) collabPanel.classList.remove('open');
-    if (collabFab) collabFab.style.display = 'none';
   }
   closeTaskAdd();
   closePermPopover();
 
   currentView = view;
   if (view !== 'project') currentProjectId = null;
-  navItems.forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  if (view === 'project') touchRecentProject(currentProjectId);
+  // One active item: inside a project, highlight the hub it belongs to.
+  const navKey = view === 'project' ? (isTeamProject(currentProjectId) ? 'projects' : 'personal') : view;
+  navItems.forEach(b => b.classList.toggle('active', b.dataset.view === navKey));
   allTasksBtn.classList.toggle('active', ['all', 'today', 'active', 'completed'].includes(view));
   showView(view);
   if (view === 'settings') renderSettingsUI();
@@ -1852,18 +2225,9 @@ function markTaskMetaOverflow() {
   taskMetaRowsNeedingOverflowCheck = [];
 }
 
-function renderTodos() {
-  renderTaskSortMenu();
-  renderTaskCategoryFilterOptions();
-  todoListEl.classList.toggle('bulk-mode', bulkSelectMode);
-  const filtered = getFilteredTodos();
-  todoListEl.innerHTML = '';
-  emptyState.style.display = filtered.length ? 'none' : 'block';
-  const todayKey = todayStr();
-  const frag = document.createDocumentFragment();
-  taskMetaRowsNeedingOverflowCheck = [];
-
-  filtered.forEach(t => {
+function buildTaskCard(t, todayKey, opts) {
+  opts = opts || {};
+  const bulk = bulkSelectMode && !opts.hub;
     const canToggle = canToggleTaskIn(t.projectId);
     const canRemove = canRemoveTaskFrom(t.projectId);
     const canRename = canRenameTaskIn(t.projectId);
@@ -1871,9 +2235,9 @@ function renderTodos() {
     const priorityLabel = t.priority === 'high' ? 'High priority' : t.priority === 'medium' ? 'Medium priority' : 'Low priority';
 
     const card = document.createElement('div');
-    card.className = `task-card priority-${t.priority}` + (t.done ? ' completed' : '') + (t.pinned ? ' is-pinned' : '') + (bulkSelectMode && bulkSelectedIds.has(t.id) ? ' bulk-selected' : '');
+    card.className = `task-card priority-${t.priority}` + (t.done ? ' completed' : '') + (t.pinned ? ' is-pinned' : '') + (bulk && bulkSelectedIds.has(t.id) ? ' bulk-selected' : '');
     card.setAttribute('aria-label', `${t.text}${t.priority !== 'low' ? ', ' + priorityLabel.toLowerCase() : ''}${t.due ? ', due ' + t.due : ''}`);
-    card.draggable = window.innerWidth > 760 && !bulkSelectMode;
+    card.draggable = !opts.hub && window.innerWidth > 760 && !bulk;
     card.addEventListener('dragstart', (e) => {
       e.dataTransfer.setData('text/plain', String(t.id));
       e.dataTransfer.effectAllowed = 'move';
@@ -1886,7 +2250,7 @@ function renderTodos() {
       todoListEl.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => el.classList.remove('drag-over-top', 'drag-over-bottom'));
     });
     card.addEventListener('dragover', (e) => {
-      if (bulkSelectMode) return;
+      if (bulk) return;
       e.preventDefault();
       const rect = card.getBoundingClientRect();
       const before = (e.clientY - rect.top) < rect.height / 2;
@@ -1897,7 +2261,7 @@ function renderTodos() {
       card.classList.remove('drag-over-top', 'drag-over-bottom');
     });
     card.addEventListener('drop', (e) => {
-      if (bulkSelectMode) return;
+      if (bulk) return;
       e.preventDefault();
       e.stopPropagation();
       const before = card.classList.contains('drag-over-top');
@@ -1907,7 +2271,7 @@ function renderTodos() {
       reorderTask(draggedId, t.id, before);
     });
     card.addEventListener('click', (e) => {
-      if (bulkSelectMode) {
+      if (bulk) {
         if (e.target.closest('.bulk-select-checkbox')) return;
         const cb = card.querySelector('.bulk-select-checkbox');
         if (cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); }
@@ -1976,7 +2340,7 @@ function renderTodos() {
     const checkWrap = document.createElement('div');
     checkWrap.className = 'task-card-check-col';
 
-    if (bulkSelectMode) {
+    if (bulk) {
       const bulkCb = document.createElement('input');
       bulkCb.type = 'checkbox';
       bulkCb.className = 'task-check bulk-select-checkbox';
@@ -2001,7 +2365,7 @@ function renderTodos() {
         const wasDone = t.done;
         t.done = checkbox.checked;
         if (!wasDone && t.done) recordCompletion();
-        saveTodos(); renderTodos(); renderCounts();
+        saveTodos(); renderTodos(); renderCounts(); renderProjectNav();
         if (currentUser) dbUpdate('todos', t.id, { done: t.done });
         if (t.done) showToast('complete');
       });
@@ -2117,8 +2481,21 @@ function renderTodos() {
     }
 
     card.appendChild(content);
-    frag.appendChild(card);
-  });
+  return card;
+}
+
+function renderTodos() {
+  renderTaskSortMenu();
+  renderTaskCategoryFilterOptions();
+  todoListEl.classList.toggle('bulk-mode', bulkSelectMode);
+  const filtered = getFilteredTodos();
+  todoListEl.innerHTML = '';
+  emptyState.style.display = filtered.length ? 'none' : 'block';
+  const todayKey = todayStr();
+  const frag = document.createDocumentFragment();
+  taskMetaRowsNeedingOverflowCheck = [];
+
+  filtered.forEach(t => { frag.appendChild(buildTaskCard(t, todayKey)); });
   todoListEl.appendChild(frag);
   requestAnimationFrame(markTaskMetaOverflow);
 }
@@ -2668,23 +3045,79 @@ function renderViewHeader() {
   const taskViewEl = document.getElementById('task-view');
   if (taskViewEl) taskViewEl.classList.toggle('is-home', currentView === 'all');
   const titles = { all: 'Home', today: 'Today', active: 'Active', completed: 'Completed' };
-  if (currentView === 'project') {
-    const p = getProject(currentProjectId);
+  const inProject = currentView === 'project';
+  const p = inProject ? getProject(currentProjectId) : null;
+
+  // An edit in progress belongs to one project; drop it if the user navigated away or it vanished.
+  if (inlineEdit.field && (!inProject || !p || String(inlineEdit.projectId) !== String(p.id) || !canRenameProject(p.id))) {
+    inlineEdit = { field: null, projectId: null, saving: false };
+    setInlineBusy(false);
+  }
+  const editingTitle = inlineEdit.field === 'title';
+  const editingDesc = inlineEdit.field === 'description';
+
+  if (inProject) {
+    const mayEdit = !!p && canRenameProject(p.id);
+    const isOwner = !!p && isProjectOwner(p.id);
     viewTitle.textContent = p ? p.name : 'Project';
     projectHeaderActions.style.display = 'flex';
-    const mayRename = canRenameProject(currentProjectId);
-    projectRenameBtn.style.display = mayRename ? 'inline-flex' : 'none';
-    projectDeleteBtn.style.display = isProjectOwner(currentProjectId) ? 'inline-flex' : 'none';
+
+    // Visual anchor: same coloured tile used in the sidebar / project list.
+    if (p) {
+      projectIdentityTileEl.textContent = (p.name || '?').trim().charAt(0).toUpperCase() || '?';
+      projectIdentityTileEl.style.background = projectTileColor(p);
+      projectIdentityTileEl.hidden = false;
+    } else projectIdentityTileEl.hidden = true;
+
+    // Title: display <-> inline form
+    projectTitleRowEl.hidden = editingTitle;
+    projectTitleForm.hidden = !editingTitle;
+    projectTitleEditBtn.hidden = !mayEdit;
+
+    // Description (About this project)
+    const desc = p && p.description ? p.description : '';
+    const showAbout = !!p && (desc || mayEdit || editingDesc);
+    projectAboutEl.hidden = !showAbout;
+    projectAboutRowEl.hidden = editingDesc;
+    projectDescriptionForm.hidden = !editingDesc;
+    projectDescriptionEl.textContent = desc;
+    projectDescriptionEl.style.display = desc ? '' : 'none';
+    projectDescriptionEditBtn.hidden = !(desc && mayEdit);
+    // Empty state: only people who can edit see the "Add a description" prompt.
+    projectDescriptionAddBtn.style.display = (!desc && mayEdit) ? '' : 'none';
+
+    // ⋯ menu: only render it when it has something in it.
+    projectRenameBtn.style.display = mayEdit ? 'block' : 'none';
+    projectDeleteBtn.style.display = isOwner ? 'block' : 'none';
+    projectMoreBtn.style.display = (mayEdit || isOwner) ? 'inline-flex' : 'none';
+    projectMembersBtn.style.display = (currentUser && p && isTeamProject(p.id)) ? 'inline-flex' : 'none';
+    if (!mayEdit && !isOwner) closeProjectMoreMenu();
   } else {
     viewTitle.textContent = titles[currentView] || 'Tasks';
     projectHeaderActions.style.display = 'none';
+    projectIdentityTileEl.hidden = true;
+    projectTitleRowEl.hidden = false;
+    projectTitleForm.hidden = true;
+    projectTitleEditBtn.hidden = true;
+    projectAboutEl.hidden = true;
+    projectDescriptionEl.textContent = '';
+    projectDescriptionEl.style.display = 'none';
+    projectDescriptionAddBtn.style.display = 'none';
   }
+  if (taskViewEl) taskViewEl.classList.toggle('is-project', currentView === 'project');
+  const tasksLabel = document.getElementById('project-tasks-label');
+  if (tasksLabel) tasksLabel.style.display = currentView === 'project' ? '' : 'none';
   if (currentView === 'all') {
     viewSubtitle.textContent = '';
     if (mainHeaderEl) mainHeaderEl.style.display = 'none';
   } else {
     const remaining = getFilteredTodos().filter(t => !t.done).length;
     viewSubtitle.textContent = `${remaining} remaining`;
+    if (currentView === 'project') {
+      const pp = getProject(currentProjectId);
+      const st = pp ? projectStats(pp) : null;
+      if (st) viewSubtitle.textContent = `${st.open} open` + (st.done ? ` · ${st.done} completed` : '');
+    }
     if (mainHeaderEl) mainHeaderEl.style.display = '';
   }
   renderProjectAnnouncement();
@@ -3048,34 +3481,23 @@ const collabBody = document.getElementById('collab-body');
 const collabEmpty = document.getElementById('collab-empty');
 const collabInviteBtn = document.getElementById('collab-invite-btn');
 const collabBackdrop = document.getElementById('collab-backdrop');
-const collabFab = document.getElementById('collab-fab');
-const collabFabCount = document.getElementById('collab-fab-count');
 const projectViewLayout = document.getElementById('project-view-layout');
 
 function isNarrowLayout() {
   return window.matchMedia('(max-width: 1200px)').matches;
 }
 
+// Members live in the project header. This only keeps that button's label/tooltip in sync
+// (the old floating button is gone).
 function updateCollabFabVisibility() {
-  if (!collabFab) return;
-  if (currentView !== 'project' || !currentProjectId || !currentUser || !isTeamProject(currentProjectId)) {
-    collabFab.style.display = 'none';
-    return;
-  }
-  const members = membersForProject(currentProjectId).filter(m => m.status === 'accepted');
-  const n = members.length + 1;
-  collabFab.style.display = 'flex';
-  if (n > 1) {
-    collabFabCount.textContent = String(n);
-    collabFabCount.style.display = 'flex';
-  } else {
-    collabFabCount.style.display = 'none';
-  }
+  if (!projectMembersBtn) return;
+  if (currentView !== 'project' || !currentProjectId || !currentUser || !isTeamProject(currentProjectId)) return;
+  const n = membersForProject(currentProjectId).filter(m => m.status === 'accepted').length + 1;
+  const label = `View project members (${n})`;
+  projectMembersBtn.setAttribute('aria-label', label);
+  projectMembersBtn.title = label;
 }
 
-collabFab.addEventListener('click', () => {
-  collabPanel.classList.add('open');
-});
 function closeCollabPanel() {
   collabPanel.classList.remove('open');
   closePermPopover();
@@ -3090,50 +3512,7 @@ collabBackdrop.addEventListener('click', () => {
 });
 
 
-// ===== Project tabs, lazy TeamChat, and roles =====
-let teamChatLoading = null;
-function loadTeamChat() {
-  if (window.TeamChat) return Promise.resolve();
-  if (!teamChatLoading) {
-    teamChatLoading = new Promise((resolve, reject) => {
-      const el = document.createElement('script');
-      el.src = 'teamchat.js';
-      el.onload = resolve;
-      el.onerror = () => { teamChatLoading = null; reject(new Error('teamchat load failed')); };
-      document.head.appendChild(el);
-    });
-  }
-  return teamChatLoading;
-}
-function setProjectTab(tab) {
-  projectTab = tab === 'chat' ? 'chat' : 'tasks';
-  const chat = projectTab === 'chat';
-  const main = document.querySelector('.project-view-main');
-  const panel = document.getElementById('teamchat-panel');
-  if (main) main.classList.toggle('chat-mode', chat);
-  if (panel) panel.hidden = !chat;
-  [['project-tab-tasks', !chat], ['project-tab-chat', chat]].forEach(([id, on]) => {
-    const b = document.getElementById(id);
-    if (b) { b.classList.toggle('active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); }
-  });
-  if (chat) {
-    loadTeamChat()
-      .then(() => { if (projectTab === 'chat' && currentView === 'project' && currentProjectId) window.TeamChat.open(currentProjectId); })
-      .catch(() => { showSimpleToast({ emoji: '⚠️', text: "Couldn't load TeamChat. Check your connection." }); setProjectTab('tasks'); });
-  } else if (window.TeamChat) {
-    window.TeamChat.close();
-  }
-}
-function updateProjectTabs() {
-  const tabs = document.getElementById('project-tabs');
-  if (!tabs) return;
-  const show = !!(currentView === 'project' && currentProjectId && currentUser && isTeamProject(currentProjectId));
-  tabs.style.display = show ? '' : 'none';
-  if (!show && projectTab === 'chat') setProjectTab('tasks');
-}
-document.getElementById('project-tab-tasks').addEventListener('click', () => setProjectTab('tasks'));
-document.getElementById('project-tab-chat').addEventListener('click', () => setProjectTab('chat'));
-
+// ===== Project roles =====
 const projectRolesCache = new Map();   // projectId -> [{id, name}]
 const projectRolesRequested = new Set();
 async function ensureProjectRoles(projectId, force) {
@@ -3220,7 +3599,6 @@ document.getElementById('collab-role-self').addEventListener('change', async (e)
 
 function renderCollabPanel() {
   if (!collabPanel) return;
-  updateProjectTabs();
   if (currentView !== 'project' || !currentProjectId || !currentUser || !isTeamProject(currentProjectId)) {
     collabPanel.style.display = 'none';
     projectViewLayout.classList.remove('with-collab');
@@ -3598,8 +3976,7 @@ function renderNotifList() {
 async function respondToInvite(notif, memberRowId, accept) {
   const { error } = await dbRespondToInvite(memberRowId, accept);
   if (error) return;
-  notif.read = true;
-  await dbMarkNotificationRead(notif.id);
+  if (notif) { notif.read = true; await dbMarkNotificationRead(notif.id); }
   await refreshSharedData();
   await loadNotifications();
   showToast(accept ? 'invite' : 'permission');
@@ -3646,7 +4023,7 @@ async function refreshSharedData() {
     dbFetchProjectMembers(),
   ]);
   if (remoteProjects) {
-    projects = remoteProjects.map(p => ({ id: p.id, name: p.name, userId: p.user_id, type: p.project_type === 'team' ? 'team' : 'personal', membersCanSetRole: !!p.members_can_set_role, announcement: p.announcement || '', announcementUpdatedAt: p.announcement_updated_at || null }));
+    projects = remoteProjects.map(p => ({ id: p.id, name: p.name, userId: p.user_id, type: p.project_type === 'team' ? 'team' : 'personal', membersCanSetRole: !!p.members_can_set_role, announcement: p.announcement || '', announcementUpdatedAt: p.announcement_updated_at || null, description: p.description || '' }));
     saveProjects();
   }
   if (remoteTodos) {
@@ -4247,7 +4624,10 @@ function handleRealtimeProject(payload) {
   const prevP = idx >= 0 ? projects[idx] : {};
   const mapped = { ...prevP, id: row.id, name: row.name, userId: row.user_id,
     type: row.project_type ? (row.project_type === 'team' ? 'team' : 'personal') : projectTypeOf(prevP),
-    membersCanSetRole: row.members_can_set_role != null ? !!row.members_can_set_role : !!prevP.membersCanSetRole };
+    membersCanSetRole: row.members_can_set_role != null ? !!row.members_can_set_role : !!prevP.membersCanSetRole,
+    announcement: row.announcement != null ? row.announcement : (prevP.announcement || ''),
+    announcementUpdatedAt: row.announcement != null ? (row.announcement_updated_at || null) : (prevP.announcementUpdatedAt || null),
+    description: row.description != null ? row.description : (prevP.description || '') };
   if (idx >= 0) projects[idx] = mapped;
   else projects.push(mapped);
   saveProjects();
@@ -4311,7 +4691,7 @@ function handleRealtimeMember(payload) {
     if (!haveProject) {
       dbFetchProjects().then((data) => {
         if (!data) return;
-        projects = data.map(p => ({ id: p.id, name: p.name, userId: p.user_id, type: p.project_type === 'team' ? 'team' : 'personal', membersCanSetRole: !!p.members_can_set_role, announcement: p.announcement || '', announcementUpdatedAt: p.announcement_updated_at || null }));
+        projects = data.map(p => ({ id: p.id, name: p.name, userId: p.user_id, type: p.project_type === 'team' ? 'team' : 'personal', membersCanSetRole: !!p.members_can_set_role, announcement: p.announcement || '', announcementUpdatedAt: p.announcement_updated_at || null, description: p.description || '' }));
         saveProjects();
         renderProjectNav();
         renderProjectSelect();
@@ -4679,9 +5059,14 @@ const TUTORIAL_STEPS = [
     desc: 'Run timed focus sessions and queue up the tasks you want to work through.',
   },
   {
-    id: 'projects', view: 'all', inSidebar: true, selector: '#add-project-btn',
-    title: 'Create projects',
-    desc: 'Group related tasks into a project to keep things organized.',
+    id: 'personal', view: 'all', inSidebar: true, selector: '#nav-personal-btn',
+    title: 'Personal',
+    desc: 'Personal opens your own workspace: what needs attention today, your personal projects, and what is coming up.',
+  },
+  {
+    id: 'projects', view: 'all', inSidebar: true, selector: '#nav-projects-btn',
+    title: 'Projects',
+    desc: 'Projects opens the project hub, where you create, find and join shared projects. Pick one to open its workspace.',
   },
   {
     id: 'notif',
@@ -5702,7 +6087,7 @@ window.initApp = async function initApp(user) {
     // Failed migration: keep local guest data untouched instead of replacing it with (empty) remote data.
     if (!migration.ok) { remoteProjects = remoteTodos = remoteNotes = remoteEvents = null; }
     if (remoteProjects) {
-      projects = remoteProjects.map(p => ({ id: p.id, name: p.name, userId: p.user_id, type: p.project_type === 'team' ? 'team' : 'personal', membersCanSetRole: !!p.members_can_set_role, announcement: p.announcement || '', announcementUpdatedAt: p.announcement_updated_at || null }));
+      projects = remoteProjects.map(p => ({ id: p.id, name: p.name, userId: p.user_id, type: p.project_type === 'team' ? 'team' : 'personal', membersCanSetRole: !!p.members_can_set_role, announcement: p.announcement || '', announcementUpdatedAt: p.announcement_updated_at || null, description: p.description || '' }));
       saveProjects();
     }
     if (remoteTodos) {

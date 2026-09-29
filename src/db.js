@@ -172,9 +172,25 @@ async function dbFetchProjectActivity(projectId, limit) {
 }
 
 async function dbUpdate(table, id, patch) {
-  if (!supabaseReady) return;
+  if (!supabaseReady) return { error: null };
   const { error } = await supabaseClient.from(table).update(patch).eq('id', id);
   if (error) reportSyncError(table, 'update', error.message);
+  return { error };
+}
+
+// Like dbUpdate, but treats "0 rows changed" as a failure. Under RLS a denied
+// UPDATE returns no error at all, so without this check an unauthorised edit
+// would look like it succeeded. Use for user-visible edits (inline rename etc).
+async function dbUpdateChecked(table, id, patch) {
+  if (!supabaseReady) return { error: null };
+  const { data, error } = await supabaseClient.from(table).update(patch).eq('id', id).select('id');
+  if (error) { reportSyncError(table, 'update', error.message); return { error }; }
+  if (!data || data.length === 0) {
+    const denied = { message: "You don't have permission to change this project." };
+    reportSyncError(table, 'update', denied.message);
+    return { error: denied };
+  }
+  return { error: null };
 }
 
 async function dbDelete(table, id, userId) {

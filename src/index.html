@@ -459,7 +459,7 @@
         <span class="logo-text">MossTask</span>
       </div>
 
-      <nav class="sidebar-section">
+      <nav class="sidebar-section" aria-label="Main">
         <button class="nav-item active" id="all-tasks-btn" data-view="all">
           <span class="nav-label" data-i18n="nav.home">Home</span>
           <span class="nav-count" id="count-all">0</span>
@@ -481,26 +481,16 @@
         </div>
       </nav>
 
-      <div class="sidebar-section" id="personal-section">
-        <div class="sidebar-title-row">
-          <div class="sidebar-title">Personal</div>
-          <button type="button" id="add-personal-btn" class="icon-btn plus" title="New personal project">+</button>
-        </div>
-        <div id="personal-nav-list" class="project-scroll-list"></div>
-        <p id="personal-empty-hint" class="sidebar-empty-hint" style="display:none">No personal projects yet</p>
+      <div class="sidebar-section sidebar-group">
+        <button class="nav-item" id="nav-personal-btn" data-view="personal">
+          <span class="nav-label">Personal</span>
+        </button>
+        <button class="nav-item" id="nav-projects-btn" data-view="projects">
+          <span class="nav-label">Projects</span>
+        </button>
       </div>
 
-      <div class="sidebar-section" id="team-section">
-        <div class="sidebar-title-row">
-          <div class="sidebar-title">Project</div>
-          <button type="button" id="add-project-btn" class="icon-btn plus" title="New project">+</button>
-        </div>
-        <div id="project-nav-list" class="project-scroll-list"></div>
-        <p id="project-empty-hint" class="sidebar-empty-hint" style="display:none">No projects yet</p>
-      </div>
-
-      <div class="sidebar-section">
-        <div class="sidebar-title" data-i18n="nav.tools">Tools</div>
+      <div class="sidebar-section sidebar-group">
         <button class="nav-item" data-view="calendar">
           <span class="nav-label" data-i18n="nav.calendar">Calendar</span>
         </button>
@@ -549,34 +539,58 @@
           <div class="project-view-main">
             <header class="main-header">
               <div class="main-header-block">
-                <h1 id="view-title">To-do list</h1>
-                <div class="main-header-meta">
-                  <span id="view-subtitle"></span>
+                <div class="project-identity" id="project-identity">
+                  <span id="project-identity-tile" class="project-nav-tile project-identity-tile" aria-hidden="true" hidden></span>
+                  <div class="project-identity-body">
+                    <div class="project-title-row" id="project-title-row">
+                      <h1 id="view-title">To-do list</h1>
+                      <button type="button" id="project-title-edit-btn" class="inline-edit-btn" title="Edit project name" aria-label="Edit project name" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
+                    </div>
+                    <form id="project-title-form" class="inline-edit-form" hidden novalidate>
+                      <div class="inline-edit-row">
+                        <input type="text" id="project-title-input" maxlength="60" autocomplete="off" aria-label="Project name">
+                        <button type="submit" class="inline-edit-icon save" id="project-title-save" title="Save name" aria-label="Save project name"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg></button>
+                        <button type="button" class="inline-edit-icon" id="project-title-cancel" title="Cancel" aria-label="Cancel renaming"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                      </div>
+                      <p class="inline-edit-error" id="project-title-error" role="alert" hidden></p>
+                    </form>
+
+                    <section class="project-about" id="project-about" aria-labelledby="project-about-label" hidden>
+                      <div class="project-about-label" id="project-about-label">About this project</div>
+                      <div class="project-about-row" id="project-about-row">
+                        <p id="project-description" class="project-description" style="display:none"></p>
+                        <button type="button" id="project-description-add" class="project-description-add" style="display:none">Add a description</button>
+                        <button type="button" id="project-description-edit-btn" class="inline-edit-btn" title="Edit project description" aria-label="Edit project description" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>
+                      </div>
+                      <form id="project-description-form" class="inline-edit-form" hidden novalidate>
+                        <textarea id="project-description-inline" rows="3" maxlength="240" aria-label="Project description" placeholder="What is this project about?"></textarea>
+                        <p class="inline-edit-error" id="project-description-error" role="alert" hidden></p>
+                        <div class="inline-edit-actions">
+                          <button type="button" class="btn small" id="project-description-cancel">Cancel</button>
+                          <button type="submit" class="btn primary small" id="project-description-save">Save</button>
+                        </div>
+                      </form>
+                    </section>
+
+                    <div class="main-header-meta">
+                      <span id="view-subtitle"></span>
+                    </div>
+                  </div>
                   <div class="project-header-actions" id="project-header-actions" style="display:none">
-                    <button type="button" id="project-rename-btn" class="header-icon-btn" title="Rename project" aria-label="Rename project">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 20h9"></path>
-                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path>
-                      </svg>
-                    </button>
-                    <button type="button" id="project-delete-btn" class="header-icon-btn danger" title="Delete project" aria-label="Delete project">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
-                        <path d="M10 11v6"></path>
-                        <path d="M14 11v6"></path>
-                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
-                      </svg>
-                    </button>
+                    <button type="button" id="project-members-btn" class="header-icon-btn" title="View project members" aria-label="View project members" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></button>
+                    <div class="project-more-wrap">
+                      <button type="button" id="project-more-btn" class="header-icon-btn" title="More project actions" aria-label="More project actions" aria-haspopup="menu" aria-expanded="false" style="display:none">
+                        <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><circle cx="12" cy="5" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="12" cy="19" r="1.8"></circle></svg>
+                      </button>
+                      <div id="project-more-menu" class="project-more-menu" role="menu" hidden>
+                        <button type="button" id="project-rename-btn" class="project-more-item" role="menuitem">Edit project details</button>
+                        <button type="button" id="project-delete-btn" class="project-more-item danger" role="menuitem">Delete project</button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </header>
-
-            <div id="project-tabs" class="project-tabs" role="tablist" style="display:none">
-              <button type="button" role="tab" id="project-tab-tasks" class="project-tab active" aria-selected="true">Tasks</button>
-              <button type="button" role="tab" id="project-tab-chat" class="project-tab" aria-selected="false">TeamChat</button>
-            </div>
 
             <div id="home-summary" class="home-summary" style="display:none">
               <p id="home-greeting" class="home-greeting"></p>
@@ -661,6 +675,7 @@
               </div>
             </form>
 
+            <h2 id="project-tasks-label" class="project-section-label" style="display:none">Tasks</h2>
             <div class="task-add" id="task-add">
               <button type="button" id="task-add-toggle" class="task-add-toggle">
                 <span class="task-add-plus">+</span>
@@ -724,19 +739,6 @@
 
             <div id="todo-list" class="task-list"></div>
             <p id="empty-state" class="empty-state" style="display:none" data-i18n="task.empty">Nothing here yet.</p>
-            <section id="teamchat-panel" class="teamchat-panel" hidden aria-label="TeamChat">
-              <header class="teamchat-head">
-                <span class="teamchat-head-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></span>
-                <div class="teamchat-head-text"><div id="teamchat-title" class="teamchat-title">TeamChat</div><div id="teamchat-sub" class="teamchat-sub"></div></div>
-              </header>
-              <div id="teamchat-banner" class="teamchat-banner" role="status" hidden></div>
-              <div id="teamchat-list" class="teamchat-list" role="log" aria-live="polite" tabindex="0"></div>
-              <div id="teamchat-notice" class="teamchat-notice" hidden></div>
-              <form id="teamchat-form" class="teamchat-form" autocomplete="off" hidden>
-                <textarea id="teamchat-input" rows="1" maxlength="2000" placeholder="Message the team…" aria-label="Message"></textarea>
-                <button type="submit" id="teamchat-send" class="btn primary small" aria-label="Send" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
-              </form>
-            </section>
           </div>
 
           <aside id="project-collab-panel" class="project-collab-panel" style="display:none">
@@ -760,15 +762,6 @@
           </aside>
         </div>
 
-        <button type="button" id="collab-fab" class="collab-fab" aria-label="Collaborators" style="display:none">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-            <circle cx="9" cy="7" r="4"></circle>
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-          </svg>
-          <span id="collab-fab-count" class="collab-fab-count" style="display:none">1</span>
-        </button>
       </section>
 
       <section id="assistant-view" class="view-panel" style="display:none">
@@ -825,6 +818,22 @@
             <span data-i18n="assistant.foot.local">Local AI · Private to this device</span>
           </div>
         </div>
+      </section>
+
+      <section id="personal-view" class="view-panel hub-view" style="display:none">
+        <header class="hub-head">
+          <div><h1 class="hub-title">Personal</h1><p class="hub-sub" id="personal-hub-sub"></p></div>
+          <button type="button" id="add-personal-btn" class="btn ghost small hub-action">+ New project</button>
+        </header>
+        <div id="personal-hub-body" class="hub-body"></div>
+      </section>
+
+      <section id="projects-view" class="view-panel hub-view" style="display:none">
+        <header class="hub-head">
+          <div><h1 class="hub-title">Projects</h1><p class="hub-sub" id="projects-hub-sub"></p></div>
+          <button type="button" id="add-project-btn" class="btn ghost small hub-action">+ New project</button>
+        </header>
+        <div id="projects-hub-body" class="hub-body"></div>
       </section>
 
       <section id="pomodoro-view" class="view-panel" style="display:none">
@@ -1209,6 +1218,14 @@
         <label class="field-label"><span data-i18n="project.nameLabel">Project name</span>
           <input type="text" id="project-name-input" placeholder="e.g. Website redesign" autocomplete="off" maxlength="60" data-i18n-placeholder="project.namePlaceholder">
         </label>
+      </div>
+      <div class="project-modal-field">
+        <label class="modal-label" for="project-description-input">Description <span class="field-optional">(optional)</span></label>
+        <textarea id="project-description-input" rows="3" maxlength="240" placeholder="What is this project about?"></textarea>
+      </div>
+      <div class="project-modal-field" id="project-announcement-field" style="display:none">
+        <label class="modal-label" for="project-modal-announcement">Announcement <span class="field-optional">(optional)</span></label>
+        <textarea id="project-modal-announcement" rows="3" maxlength="500" placeholder="A current update for everyone on this project"></textarea>
       </div>
       <div id="project-modal-usage" class="field-hint" style="display:none"></div>
       <div id="project-modal-error" class="auth-message error" style="display:none"></div>
@@ -1625,7 +1642,7 @@
       <div id="store-signin-notice" class="auth-message" style="display:none">
         Sign in to see your usage and upgrade. Guest projects aren't tied to an account, so plans only apply once you're signed in.
       </div>
-      <div id="store-thanks" class="auth-message" style="display:none">Thank you for upgrading to Team. Collaborative projects, TeamChat, roles, assignment and server-delivered reminders are now available, with up to 10 projects and 20 people each.</div>
+      <div id="store-thanks" class="auth-message" style="display:none">Thank you for upgrading to Team. Collaborative projects, roles, assignment and server-delivered reminders are now available, with up to 10 projects and 20 people each.</div>
       <div class="store-tiers">
         <div class="store-tier-card" data-plan="free">
           <div class="store-tier-name">Free</div>
@@ -1641,7 +1658,7 @@
           <div class="store-tier-name">Team</div>
           <div class="store-tier-price">$5<span class="store-tier-period">/mo</span></div>
           <ul class="store-tier-features">
-            <li>Collaborative Projects &amp; TeamChat</li>
+            <li>Collaborative projects</li>
             <li>10 collaborative projects, up to 20 people each</li>
             <li>Roles, assignment &amp; server-delivered reminders</li>
           </ul>
