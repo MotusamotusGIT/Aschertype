@@ -16,6 +16,8 @@
   const resetErrorEl = document.getElementById('reset-error');
   const resetSubmitBtn = document.getElementById('reset-submit-btn');
 
+  const IS_NATIVE = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
+
   function showOk(title, text) {
     spinnerEl.style.display = 'none';
     iconOk.style.display = 'block';
@@ -89,11 +91,16 @@
     console.log('[Confirm] notifyConfirmedSession start', { mode, hasCode: !!code, hasHandoff: !!handoffToken });
     if (typeof window.supabase === 'undefined' || typeof SUPABASE_URL !== 'string' || SUPABASE_URL.indexOf('YOUR-PROJECT-REF') !== -1) {
       console.warn('[Confirm] Supabase SDK or config missing — bailing out');
-      return;
+      return false;
     }
     try {
+      // In the native app this page IS the app: persist the session with the
+      // same storage adapter db.js uses so index.html finds it on load.
+      // In a browser it stays non-persistent and hands off to the other tab/device.
       const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: { detectSessionInUrl: false, persistSession: false, flowType: mode === 'implicit' ? 'implicit' : 'pkce' },
+        auth: IS_NATIVE
+          ? { detectSessionInUrl: false, persistSession: true, autoRefreshToken: false, flowType: 'implicit', storage: window.electronSecureStorage }
+          : { detectSessionInUrl: false, persistSession: false, flowType: mode === 'implicit' ? 'implicit' : 'pkce' },
       });
 
       let session = null;
@@ -122,8 +129,14 @@
         }
       }
       console.log('[Confirm] session after wait:', session ? 'GOT IT' : 'NONE');
-      if (!session) return;
+      if (!session) return false;
       console.log('[Confirm] session.refresh_token present?', !!session.refresh_token, 'length:', session.refresh_token ? session.refresh_token.length : 'n/a', 'access_token exp:', session.expires_at);
+
+      if (IS_NATIVE) {
+        // Same-device native flow: this app adopted the session itself, so
+        // don't write tokens to the server-side handoff row.
+        return true;
+      }
 
       if (handoffToken && session.access_token) {
         const at = session.access_token;
@@ -155,8 +168,10 @@
         channel.postMessage({ type: 'email-confirmed' });
         channel.close();
       }
+      return true;
     } catch (err) {
       console.warn('[Confirm] Could not hand session to the app tab:', err && err.message);
+      return false;
     }
   }
 
@@ -272,12 +287,16 @@
   if (hashParams.access_token) {
     const handoffToken = params.get('handoff');
     console.log('[Confirm] success branch, handoffToken =', handoffToken);
-    notifyConfirmedSession('implicit', undefined, handoffToken).finally(() => {
+    notifyConfirmedSession('implicit', undefined, handoffToken).then((ok) => {
       history.replaceState(null, '', window.location.pathname);
+      if (IS_NATIVE) {
+        if (ok) location.replace('./index.html'); // index resolves the persisted session
+        else showErr('Could not finish signing in', 'Your email may already be confirmed. Try signing in.');
+      }
     });
     showOk(
       'Email confirmed',
-      'You\'re all set. Return to the MossTask tab and we will finish signing you in.'
+      IS_NATIVE ? 'You\'re all set. Signing you in…' : 'You\'re all set. Return to the MossTask tab and we will finish signing you in.'
     );
     return;
   }
@@ -286,12 +305,16 @@
     const code = params.get('code');
     const handoffToken = params.get('handoff');
     console.log('[Confirm] pkce branch, handoffToken =', handoffToken);
-    notifyConfirmedSession('pkce', code, handoffToken).finally(() => {
+    notifyConfirmedSession('pkce', code, handoffToken).then((ok) => {
       history.replaceState(null, '', window.location.pathname);
+      if (IS_NATIVE) {
+        if (ok) location.replace('./index.html'); // index resolves the persisted session
+        else showErr('Could not finish signing in', 'Your email may already be confirmed. Try signing in.');
+      }
     });
     showOk(
       'Email confirmed',
-      'You\'re all set. Return to the MossTask tab and we will finish signing you in.'
+      IS_NATIVE ? 'You\'re all set. Signing you in…' : 'You\'re all set. Return to the MossTask tab and we will finish signing you in.'
     );
     return;
   }

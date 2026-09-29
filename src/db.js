@@ -134,9 +134,41 @@ async function dbUpsertMyProfile(row) {
 }
 
 async function dbUpsert(table, row) {
-  if (!supabaseReady) return;
+  if (!supabaseReady) return { error: null };
   const { error } = await supabaseClient.from(table).upsert(row);
   if (error) reportSyncError(table, 'save', error.message);
+  return { error };
+}
+
+// Reads the caller's own plan + how much of it they've used, so the UI can
+// show "2/3 projects used" before someone hits the wall, not just after.
+async function dbFetchPlanUsage() {
+  if (!supabaseReady) return null;
+  const { data, error } = await supabaseClient.rpc('get_my_plan_usage');
+  if (error) { console.warn('[Plan] usage lookup failed:', error.message); return null; }
+  return (data && data[0]) || null;
+}
+
+async function dbTransferProjectOwnership(projectId, newOwnerEmail) {
+  if (!supabaseReady) return { error: { message: 'Not connected' } };
+  const { data, error } = await supabaseClient.rpc('transfer_project_ownership', {
+    p_project_id: String(projectId), p_new_owner_email: newOwnerEmail,
+  });
+  if (error) return { error };
+  if (data !== true) return { error: { message: 'Could not transfer ownership. Make sure they have accepted their invite.' } };
+  return { error: null };
+}
+
+async function dbFetchProjectActivity(projectId, limit) {
+  if (!supabaseReady) return null;
+  const { data, error } = await supabaseClient
+    .from('project_activity_log')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false })
+    .limit(limit || 30);
+  if (error) { console.warn('[Activity] load failed:', error.message); return null; }
+  return data;
 }
 
 async function dbUpdate(table, id, patch) {
@@ -163,10 +195,12 @@ async function dbDeleteWhere(table, userId, matchExtra) {
 
 // ===== Realtime channel =====
 let realtimeChannel = null;
+let realtimeGen = 0; // bumps whenever a channel is replaced, so stale status events are ignored
 
 function setupRealtime(handlers) {
   if (!supabaseReady || !supabaseClient) return null;
   teardownRealtime();
+  const gen = ++realtimeGen;
 
   const wrap = (name, fn) => (payload) => {
     try { if (typeof fn === 'function') fn(payload); }
@@ -194,9 +228,13 @@ function setupRealtime(handlers) {
         { event: '*', schema: 'public', table: 'events' },
         wrap('events', handlers.onEvent))
     .subscribe((status) => {
+      if (gen !== realtimeGen) return; // status from a replaced/removed channel
       if (status === 'SUBSCRIBED') console.log('[Realtime] connected');
-      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
         console.warn('[Realtime] subscription problem:', status);
+      }
+      if (typeof window !== 'undefined' && typeof window.onRealtimeStatus === 'function') {
+        window.onRealtimeStatus(status);
       }
     });
 
@@ -204,6 +242,7 @@ function setupRealtime(handlers) {
 }
 
 function teardownRealtime() {
+  realtimeGen++;
   if (realtimeChannel && supabaseClient) {
     try { supabaseClient.removeChannel(realtimeChannel); } catch (e) { /* ignore */ }
   }

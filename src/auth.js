@@ -20,6 +20,31 @@ function clearGuestSession() {
   try { sessionStorage.removeItem(GUEST_KEY); } catch (err) {}
 }
 
+// ---- Native (Capacitor) helpers -------------------------------------------
+// Email links must open the app on Android. localhost/https origin is not
+// reachable from a mail client, so native builds use a custom-scheme deep link
+// (must be in the Supabase Auth redirect allow-list and the Android manifest).
+const NATIVE_AUTH_SCHEME = 'com.aschertype.app';
+function isNativeApp() {
+  try { return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()); }
+  catch (err) { return false; }
+}
+function getAuthRedirectUrl() {
+  return isNativeApp() ? `${NATIVE_AUTH_SCHEME}://confirm` : `${window.location.origin}/confirm.html`;
+}
+function nativeApp() {
+  return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) || null;
+}
+// Only our own scheme + host is accepted; the page it opens (confirm.js)
+// still has Supabase validate every token server-side.
+function routeAuthDeepLink(rawUrl) {
+  let u;
+  try { u = new URL(rawUrl); } catch (err) { return false; }
+  if (u.protocol !== `${NATIVE_AUTH_SCHEME}:` || u.host !== 'confirm') return false;
+  location.replace(`./confirm.html${u.search}${u.hash}`);
+  return true;
+}
+
 // ---- Pending-confirmation stash ------------------------------------------
 const PENDING_EMAIL_KEY    = 'aschertypePendingEmail';
 const PENDING_PASSWORD_KEY = 'aschertypePendingPassword';
@@ -445,15 +470,15 @@ function showAuthScreen() {
 let authOpenedFromApp = false;
 let authReturnFocusEl = null;
 
-function openAuthFromGuest() {
+function openAuthFromGuest(tab) {
   if (!supabaseReady) return;
   authOpenedFromApp = true;
   authReturnFocusEl = document.activeElement;
   authScreen.classList.add('from-app');
-  setAuthTab('login');
+  setAuthTab(tab === 'register' ? 'register' : 'login');
   showAuthScreen();
   if (captchaArmed) renderVisibleCaptcha();
-  const emailInput = document.getElementById('login-email');
+  const emailInput = document.getElementById(tab === 'register' ? 'register-email' : 'login-email');
   if (emailInput) setTimeout(() => emailInput.focus(), 50);
 }
 
@@ -641,7 +666,7 @@ registerForm.addEventListener('submit', async (e) => {
     stashPendingConfirmation(pendingConfirmationEmail, pendingConfirmationPassword, pendingConfirmationToken);
 
     const handoffReady = await createConfirmationHandoff(email, pendingConfirmationToken);
-    const redirectUrl = new URL(`${window.location.origin}/confirm.html`);
+    const redirectUrl = new URL(getAuthRedirectUrl());
     if (handoffReady) redirectUrl.searchParams.set('handoff', pendingConfirmationToken);
     const payload = {
       email,
@@ -701,7 +726,7 @@ async function resendConfirmation(email, button, statusEl) {
       const { error } = await supabaseClient.auth.resend({
         type: 'signup',
         email,
-        options: { emailRedirectTo: `${window.location.origin}/confirm.html` },
+        options: { emailRedirectTo: getAuthRedirectUrl() },
       });
       if (error) {
         showAuthError('Could not resend the confirmation email. Please try again shortly.');
@@ -792,7 +817,7 @@ if (forgotPasswordBtn) {
     recordAttempt('forgot_password', 60000);
     try {
       const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/confirm.html`,
+        redirectTo: getAuthRedirectUrl(),
       });
       if (error) console.error('[Auth] Password reset request failed:', error.message);
     } catch (err) {
@@ -814,7 +839,12 @@ if (authGuestLink) {
   });
 }
 
+window.addEventListener('mosstask:resume', reconcileSessionOnResume);
+
 async function signOutAndReset() {
+  explicitSignOut = true;
+  if (window.TeamChat) { try { window.TeamChat.close(); } catch (err) {} }
+  if (window.MossNotify) { try { await window.MossNotify.unregisterPush(); } catch (err) {} } // stop pushes to this device for this account
   if (supabaseReady) {
     try { await supabaseClient.auth.signOut(); } catch (err) {}
   }
@@ -823,10 +853,17 @@ async function signOutAndReset() {
   location.reload();
 }
 
+// True only when the server has genuinely rejected the stored session.
+// Network failures (AuthRetryableFetchError, status 0/5xx) are NOT invalid:
+// the stored session must be kept and retried, never treated as logged out.
 function isAuthInvalidError(error) {
   if (!error) return false;
+  if (error.name === 'AuthRetryableFetchError') return false;
+  const code = (error.code || '').toString().toLowerCase();
+  if (code === 'refresh_token_not_found' || code === 'refresh_token_already_used' || code === 'session_not_found') return true;
   const msg = (error.message || '').toLowerCase();
-  return msg.includes('refresh_token') || msg.includes('invalid') || msg.includes('not found') || msg.includes('expired');
+  if (msg.includes('refresh token') || msg.includes('refresh_token')) return true;
+  return error.status === 400 || error.status === 401 || error.status === 403;
 }
 
 async function resolveInitialAuthState() {
@@ -863,7 +900,8 @@ async function resolveInitialAuthState() {
   }
 
   try {
-    const { data, error } = await supabaseClient.auth.getSession();
+    let { data, error } = await supabaseClient.auth.getSession();
+    if (error && !isAuthInvalidError(error)) throw error; // transient: use the retry path below
     if (error && isAuthInvalidError(error)) {
       if (resumedPending) {
         showAuthScreen();
@@ -911,10 +949,65 @@ async function resolveInitialAuthState() {
   }
 }
 
+// Single auth-state listener. Do not call other supabase methods from inside
+// the callback (deadlock risk); only update local state / schedule work.
+let explicitSignOut = false;
 if (supabaseReady) {
-  supabaseClient.auth.onAuthStateChange((event) => {
-    if (event === 'SIGNED_OUT') location.reload();
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    if (event === 'INITIAL_SESSION') return; // resolved by resolveInitialAuthState
+    if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+      if (session && session.user && !isGuest) currentUser = session.user;
+      return;
+    }
+    if (event === 'SIGNED_OUT') {
+      // Guest mode is independent of Supabase. Only bounce a signed-in user
+      // (explicit logout, or a session the server rejected and could not refresh).
+      if (isGuest || !currentUser) return;
+      currentUser = null;
+      if (!explicitSignOut) console.warn('[Auth] Session ended (refresh failed) — login required.');
+      location.reload();
+    }
   });
+}
+
+// Background -> foreground: reconcile, never force login on a transient error.
+let resumeInFlight = false;
+async function reconcileSessionOnResume() {
+  if (!supabaseReady || isGuest || !currentUser || resumeInFlight) return;
+  resumeInFlight = true;
+  try {
+    const { data, error } = await supabaseClient.auth.getSession(); // refreshes if expired
+    if (data && data.session) { currentUser = data.session.user; return; }
+    if (error && !isAuthInvalidError(error)) return;   // offline etc: keep session
+    currentUser = null; location.reload(); // no session left, or server rejected it
+  } catch (err) {
+    console.warn('[Auth] Resume check failed, keeping session:', err && err.message);
+  } finally {
+    resumeInFlight = false;
+  }
+}
+function setupLifecycle() {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      if (supabaseReady) { try { supabaseClient.auth.startAutoRefresh(); } catch (e) {} }
+      reconcileSessionOnResume();
+    } else if (supabaseReady) {
+      try { supabaseClient.auth.stopAutoRefresh(); } catch (e) {}
+    }
+  });
+  const app = nativeApp();
+  if (app && typeof app.addListener === 'function') {
+    app.addListener('appUrlOpen', (ev) => { if (ev && ev.url) routeAuthDeepLink(ev.url); });
+    app.addListener('resume', () => { window.dispatchEvent(new Event('mosstask:resume')); });
+  }
+}
+async function handleLaunchDeepLink() {
+  const app = nativeApp();
+  if (!app || typeof app.getLaunchUrl !== 'function') return false;
+  try {
+    const res = await app.getLaunchUrl();
+    return !!(res && res.url && routeAuthDeepLink(res.url));
+  } catch (err) { return false; }
 }
 
 function whenRendererReady(fn) {
@@ -927,6 +1020,8 @@ function whenRendererReady(fn) {
 
 window.signOutAndReset = signOutAndReset;
 
-whenRendererReady(() => {
+whenRendererReady(async () => {
+  setupLifecycle();
+  if (await handleLaunchDeepLink()) return; // page is navigating to confirm.html
   resolveInitialAuthState();
 });

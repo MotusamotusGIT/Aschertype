@@ -295,6 +295,7 @@
   <script defer src="./ai-bridge.js"></script>
   <script defer src="./i18n.js"></script>
   <script defer src="./db.js"></script>
+  <script defer src="./notifications.js"></script>
   <script defer src="./renderer.js"></script>
   <script defer src="./auth.js"></script>
 </head>
@@ -480,12 +481,21 @@
         </div>
       </nav>
 
-      <div class="sidebar-section">
+      <div class="sidebar-section" id="personal-section">
         <div class="sidebar-title-row">
-          <div class="sidebar-title" data-i18n="nav.projects">Projects</div>
+          <div class="sidebar-title">Personal</div>
+          <button type="button" id="add-personal-btn" class="icon-btn plus" title="New personal project">+</button>
+        </div>
+        <div id="personal-nav-list" class="project-scroll-list"></div>
+        <p id="personal-empty-hint" class="sidebar-empty-hint" style="display:none">No personal projects yet</p>
+      </div>
+
+      <div class="sidebar-section" id="team-section">
+        <div class="sidebar-title-row">
+          <div class="sidebar-title">Project</div>
           <button type="button" id="add-project-btn" class="icon-btn plus" title="New project">+</button>
         </div>
-        <div id="project-nav-list"></div>
+        <div id="project-nav-list" class="project-scroll-list"></div>
         <p id="project-empty-hint" class="sidebar-empty-hint" style="display:none">No projects yet</p>
       </div>
 
@@ -506,7 +516,6 @@
       </div>
 
       <div class="sidebar-footer">
-        <button id="shortcuts-btn" title="Keyboard shortcuts">Keyboard shortcuts</button>
         <button id="closeout-btn" title="Review today's unfinished tasks" data-i18n="nav.closeout">Daily closeout</button>
         <button id="clear-completed" data-i18n="nav.clearCompleted">Clear completed</button>
         <button class="nav-item" data-view="settings">
@@ -563,6 +572,11 @@
                 </div>
               </div>
             </header>
+
+            <div id="project-tabs" class="project-tabs" role="tablist" style="display:none">
+              <button type="button" role="tab" id="project-tab-tasks" class="project-tab active" aria-selected="true">Tasks</button>
+              <button type="button" role="tab" id="project-tab-chat" class="project-tab" aria-selected="false">TeamChat</button>
+            </div>
 
             <div id="home-summary" class="home-summary" style="display:none">
               <p id="home-greeting" class="home-greeting"></p>
@@ -710,6 +724,15 @@
 
             <div id="todo-list" class="task-list"></div>
             <p id="empty-state" class="empty-state" style="display:none" data-i18n="task.empty">Nothing here yet.</p>
+            <section id="teamchat-panel" class="teamchat-panel" hidden aria-label="TeamChat">
+              <div id="teamchat-banner" class="teamchat-banner" role="status" hidden></div>
+              <div id="teamchat-list" class="teamchat-list" role="log" aria-live="polite" tabindex="0"></div>
+              <div id="teamchat-notice" class="teamchat-notice" hidden></div>
+              <form id="teamchat-form" class="teamchat-form" autocomplete="off" hidden>
+                <textarea id="teamchat-input" rows="1" maxlength="2000" placeholder="Message the team…" aria-label="Message"></textarea>
+                <button type="submit" id="teamchat-send" class="btn primary small">Send</button>
+              </form>
+            </section>
           </div>
 
           <aside id="project-collab-panel" class="project-collab-panel" style="display:none">
@@ -718,6 +741,11 @@
               <div class="collab-head">
                 <span class="collab-title" data-i18n="collab.title">Collaborators</span>
                 <button type="button" id="collab-invite-btn" class="icon-btn plus" title="Invite collaborator" data-i18n-title="invite.title">+</button>
+              </div>
+              <div id="collab-roles" class="collab-roles" style="display:none">
+                <div class="collab-roles-head"><span>Roles</span><button type="button" id="collab-role-add" class="icon-btn plus" title="Add role" aria-label="Add role">+</button></div>
+                <div id="collab-role-list" class="collab-role-list"></div>
+                <label class="collab-role-toggle"><input type="checkbox" id="collab-role-self"> <span>Members can choose their own role</span></label>
               </div>
               <div id="collab-body" class="collab-body"></div>
               <div id="collab-empty" class="collab-empty" style="display:none" data-i18n="collab.empty">No collaborators yet.</div>
@@ -982,6 +1010,30 @@
           <div class="settings-block">
             <div class="settings-row">
               <div>
+                <div class="settings-label">Keyboard shortcuts</div>
+                <div class="settings-hint">See every keyboard shortcut available in MossTask.</div>
+              </div>
+            </div>
+            <div class="color-picker-row">
+              <button type="button" id="shortcuts-btn" class="btn small" title="Keyboard shortcuts">View shortcuts</button>
+            </div>
+          </div>
+
+          <div class="settings-block">
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Plan &amp; billing</div>
+                <div class="settings-hint" id="plan-status-hint">Checking your plan&hellip;</div>
+              </div>
+            </div>
+            <div class="color-picker-row">
+              <button type="button" id="open-store-btn" class="btn small primary">View plans</button>
+            </div>
+          </div>
+
+          <div class="settings-block">
+            <div class="settings-row">
+              <div>
                 <div class="settings-label" data-i18n="settings.language.label">Language</div>
                 <div class="settings-hint" data-i18n="settings.language.hint">Choose the app's display language.</div>
               </div>
@@ -1133,9 +1185,28 @@
           <input type="text" id="project-name-input" placeholder="e.g. Website redesign" autocomplete="off" maxlength="60" data-i18n-placeholder="project.namePlaceholder">
         </label>
       </div>
+      <div id="project-modal-usage" class="field-hint" style="display:none"></div>
+      <div id="project-modal-error" class="auth-message error" style="display:none"></div>
       <div class="modal-actions">
         <button type="button" id="project-modal-cancel-btn" class="btn" data-i18n="common.cancel">Cancel</button>
         <button type="button" id="project-modal-save-btn" class="btn primary" data-i18n="common.save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="guest-project-overlay" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-label="Sign in to create Projects">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Sign in to create Projects</div>
+          <div class="modal-sub">Projects are available to signed-in users. Signing in lets you sync your data across devices, collaborate with others, and unlock more account features.</div>
+        </div>
+        <button type="button" id="guest-project-close-btn" class="icon-btn" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="guest-project-cancel-btn" class="btn">Not now</button>
+        <button type="button" id="guest-project-signup-btn" class="btn">Sign Up</button>
+        <button type="button" id="guest-project-signin-btn" class="btn primary">Sign In</button>
       </div>
     </div>
   </div>
@@ -1514,6 +1585,44 @@
         <div class="shortcuts-row"><span class="shortcuts-keys"><kbd>?</kbd></span><span class="shortcuts-desc">Show this panel</span></div>
         <div class="shortcuts-row"><span class="shortcuts-keys"><kbd>Esc</kbd></span><span class="shortcuts-desc">Close whatever's open</span></div>
       </div>
+    </div>
+  </div>
+
+  <div id="store-overlay" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-label="Plans">
+    <div class="modal-card store-modal-card">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Plans</div>
+          <div class="modal-sub" id="store-current-plan-sub">You're on the Free plan.</div>
+        </div>
+        <button type="button" id="store-close-btn" class="icon-btn" aria-label="Close">&times;</button>
+      </div>
+      <div id="store-signin-notice" class="auth-message" style="display:none">
+        Sign in to see your usage and upgrade. Guest projects aren't tied to an account, so plans only apply once you're signed in.
+      </div>
+      <div class="store-tiers">
+        <div class="store-tier-card" data-plan="free">
+          <div class="store-tier-name">Free</div>
+          <div class="store-tier-price">$0</div>
+          <ul class="store-tier-features">
+            <li>3 projects</li>
+            <li>Up to 6 people per project</li>
+            <li>Unlimited personal tasks, notes &amp; calendar</li>
+          </ul>
+          <button type="button" class="btn small" disabled data-plan-btn="free">Current on sign-up</button>
+        </div>
+        <div class="store-tier-card featured" data-plan="team">
+          <div class="store-tier-name">Team</div>
+          <div class="store-tier-price">$5<span class="store-tier-period">/mo</span></div>
+          <ul class="store-tier-features">
+            <li>Collaborative Projects &amp; TeamChat</li>
+            <li>10 projects, up to 20 people each</li>
+            <li>Roles, assignment &amp; server-delivered reminders</li>
+          </ul>
+          <button type="button" class="btn small primary" data-plan-btn="team">Upgrade to Team</button>
+        </div>
+      </div>
+      <p id="store-usage-line" class="day-panel-empty" style="display:none"></p>
     </div>
   </div>
 

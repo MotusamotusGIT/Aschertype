@@ -151,14 +151,24 @@ if (typeof window !== 'undefined') {
 
 const pendingWrites = new Set();
 
+// Only Electron has an OS-keychain store. Everywhere else (web, Android
+// WebView) the Supabase session MUST go to real web storage; previously it
+// lived only in the in-memory secureCache and was lost whenever the page or
+// WebView was recreated.
+function hasElectronSecureStore() {
+  return typeof window !== 'undefined' && !!window.electronAPI && !!window.electronAPI.secureStore;
+}
+
 const electronSecureStorage = {
   getItem(key) {
+    if (!hasElectronSecureStore()) return rememberAwareStorage.getItem(key);
     if (!secureCacheHydrated) return null;
     if (!getRememberPreference()) return null;
     const value = secureCache.get(key);
     return value === undefined ? null : value;
   },
   setItem(key, value) {
+    if (!hasElectronSecureStore()) { rememberAwareStorage.setItem(key, value); return; }
     if (!getRememberPreference()) {
       secureCache.set(key, value);
       return;
@@ -172,6 +182,7 @@ const electronSecureStorage = {
     }
   },
   removeItem(key) {
+    if (!hasElectronSecureStore()) { rememberAwareStorage.removeItem(key); return; }
     secureCache.delete(key);
     if (typeof window !== 'undefined' && window.electronAPI && window.electronAPI.secureStore) {
       const p = window.electronAPI.secureStore.remove(key)

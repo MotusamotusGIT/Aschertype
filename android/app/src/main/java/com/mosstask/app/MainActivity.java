@@ -1,4 +1,4 @@
-package com.aschertype.app;
+package com.mosstask.app;
 
 import com.getcapacitor.BridgeActivity;
 

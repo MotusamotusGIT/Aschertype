@@ -667,7 +667,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .sub-nav.open { display: flex; }
 .nav-item.sub { font-size: 13.5px; padding: 8px 12px; }
 
-#project-nav-list {
+.project-scroll-list {
   display: flex; flex-direction: column; gap: 4px;
   max-height: 114px;
   overflow-y: auto;
@@ -678,25 +678,25 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   scrollbar-color: transparent transparent;
   transition: scrollbar-color .2s ease;
 }
-#project-nav-list:hover {
+.project-scroll-list:hover {
   scrollbar-color: var(--border-hover) transparent;
 }
-#project-nav-list::-webkit-scrollbar {
+.project-scroll-list::-webkit-scrollbar {
   width: 6px;
 }
-#project-nav-list::-webkit-scrollbar-track {
+.project-scroll-list::-webkit-scrollbar-track {
   background: transparent;
   margin: 2px 0;
 }
-#project-nav-list::-webkit-scrollbar-thumb {
+.project-scroll-list::-webkit-scrollbar-thumb {
   background: transparent;
   border-radius: 99px;
   transition: background-color .2s ease;
 }
-#project-nav-list:hover::-webkit-scrollbar-thumb {
+.project-scroll-list:hover::-webkit-scrollbar-thumb {
   background: var(--border-hover);
 }
-#project-nav-list:hover::-webkit-scrollbar-thumb:hover {
+.project-scroll-list:hover::-webkit-scrollbar-thumb:hover {
   background: var(--ink-light);
 }
 .project-nav-tile {
@@ -1807,7 +1807,7 @@ body.tutorial-scroll-lock {
 }
 body.tutorial-scroll-lock .main,
 body.tutorial-scroll-lock .sidebar,
-body.tutorial-scroll-lock #project-nav-list,
+body.tutorial-scroll-lock .project-scroll-list,
 body.tutorial-scroll-lock .assistant-messages,
 body.tutorial-scroll-lock .day-panel-list,
 body.tutorial-scroll-lock .calendar-main,
@@ -3460,3 +3460,61 @@ kbd {
 .home-streak-cell.level-2 { opacity: 0.55; }
 .home-streak-cell.level-3 { opacity: 0.78; }
 .home-streak-cell.level-4 { opacity: 1; }
+/* ---- Store / plans ------------------------------------------------------ */
+.store-modal-card { width: 100%; max-width: 720px; }
+.store-tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-top: 8px; }
+.store-tier-card {
+  border: 1px solid var(--border); border-radius: 16px; padding: 18px 16px;
+  display: flex; flex-direction: column; gap: 10px; background: var(--card);
+}
+.store-tier-card.featured { border-color: var(--accent-ink); box-shadow: var(--shadow-sm); }
+.store-tier-card.is-current { background: var(--accent-soft); border-color: var(--accent-ink); }
+.store-tier-name { font-weight: 700; font-size: 15px; color: var(--ink); }
+.store-tier-price { font-size: 22px; font-weight: 700; color: var(--ink); }
+.store-tier-period { font-size: 13px; font-weight: 500; color: var(--ink-light); }
+.store-tier-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.store-tier-features li { font-size: 13px; color: var(--ink-light); padding-left: 16px; position: relative; }
+.store-tier-features li::before { content: "✓"; position: absolute; left: 0; color: var(--accent-ink); }
+.guest-project-benefits { margin: 4px 0 8px; padding-left: 18px; color: var(--ink-light); font-size: 13.5px; line-height: 1.7; }
+
+/* ---- Project tabs + TeamChat ---- */
+.project-tabs { display: flex; gap: 6px; margin: 4px 0 12px; }
+.project-tab { border: 1px solid var(--border); background: transparent; color: var(--ink-light); border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 13.5px; cursor: pointer; }
+.project-tab.active { color: var(--ink); border-color: var(--border-hover); font-weight: 600; }
+.project-view-main.chat-mode > :not(.main-header):not(#project-tabs):not(#teamchat-panel) { display: none !important; }
+.teamchat-panel { display: flex; flex-direction: column; min-width: 0; height: calc(100dvh - 240px); min-height: 320px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.teamchat-panel[hidden], .teamchat-banner[hidden], .teamchat-notice[hidden], .teamchat-form[hidden] { display: none !important; }
+.teamchat-list { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 12px; display: flex; flex-direction: column; gap: 2px; }
+.teamchat-banner { padding: 6px 12px; font-size: 12.5px; color: var(--ink-light); border-bottom: 1px solid var(--border); }
+.teamchat-notice { padding: 16px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; font-size: 14px; }
+.teamchat-notice p { margin: 0; }
+.teamchat-empty { color: var(--ink-light); font-size: 13.5px; text-align: center; margin: auto; }
+.teamchat-form { display: flex; gap: 8px; align-items: flex-end; padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--border); }
+.teamchat-form textarea { flex: 1; min-width: 0; resize: none; max-height: 140px; font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: transparent; color: var(--ink); }
+.tc-msg { max-width: 100%; min-width: 0; padding-top: 1px; }
+.tc-msg.head { margin-top: 10px; }
+.tc-meta { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 12.5px; margin-bottom: 2px; }
+.tc-name { font-weight: 600; }
+.tc-role { color: var(--ink-light); font-size: 11.5px; }
+.tc-time { color: var(--ink-light); font-size: 11.5px; }
+.tc-bubble { font-size: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
+.tc-edited { color: var(--ink-light); font-size: 11.5px; }
+.tc-status { font-size: 11.5px; color: var(--ink-light); }
+.tc-status.failed { color: #c0392b; }
+.tc-actions { display: none; gap: 10px; }
+.tc-msg:hover .tc-actions, .tc-msg:focus-within .tc-actions { display: flex; }
+@media (hover: none) { .tc-actions { display: flex; } }
+.tc-link { background: none; border: 0; padding: 0; font: inherit; font-size: 11.5px; color: var(--ink-light); cursor: pointer; text-decoration: underline; }
+.tc-more { align-self: center; background: none; border: 0; color: var(--ink-light); font: inherit; font-size: 12.5px; cursor: pointer; padding: 4px 8px; }
+.tc-edit { width: 100%; box-sizing: border-box; font: inherit; font-size: 14px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: var(--ink); }
+.tc-edit-row { display: flex; gap: 6px; margin-top: 4px; }
+/* roles in the members panel */
+.collab-role-tag { font-size: 11.5px; color: var(--ink-light); overflow-wrap: anywhere; }
+.collab-role-select { max-width: 100%; margin-top: 4px; font: inherit; font-size: 12px; background: transparent; color: var(--ink); border: 1px solid var(--border); border-radius: 6px; padding: 2px 4px; }
+.collab-roles { padding: 8px 0 10px; border-bottom: 1px solid var(--border); margin-bottom: 8px; font-size: 12.5px; }
+.collab-roles-head { display: flex; justify-content: space-between; align-items: center; color: var(--ink-light); }
+.collab-role-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.collab-role-chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; max-width: 100%; }
+.collab-role-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.collab-role-chip button { background: none; border: 0; padding: 0 2px; color: var(--ink-light); cursor: pointer; font: inherit; }
+.collab-role-toggle { display: flex; gap: 6px; align-items: center; color: var(--ink-light); }

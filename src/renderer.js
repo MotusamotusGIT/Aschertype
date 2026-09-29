@@ -467,6 +467,13 @@ function setNotifEnabled(on) { safeSetItem(NOTIF_ENABLED_KEY, on ? 'true' : 'fal
 const notifPermissionHintEl = document.getElementById('notif-permission-hint');
 function updateNotifPermissionHint() {
   if (!notifPermissionHintEl) return;
+  if (window.MossNotify && MossNotify.isNative()) {
+    MossNotify.getPermission().then((p) => {
+      notifPermissionHintEl.textContent = p === 'granted' ? 'System alerts allowed'
+        : p === 'denied' ? 'Blocked in Android settings — using in-app alerts' : "We'll ask when needed";
+    });
+    return;
+  }
   if (!('Notification' in window)) { notifPermissionHintEl.textContent = 'Not supported here'; return; }
   if (Notification.permission === 'granted') notifPermissionHintEl.textContent = 'System alerts allowed';
   else if (Notification.permission === 'denied') notifPermissionHintEl.textContent = 'Blocked — using in-app alerts';
@@ -501,8 +508,32 @@ function playNotificationSound() {
   });
 }
 
-function requestNotifPermissionIfNeeded() {
+// Native: ask via Android's dialog only when the OS can still show it (never
+// re-prompt after a denial); automatic startup ask happens at most once.
+async function requestNativeNotifPermission(fromToggle) {
+  const cur = await MossNotify.getPermission();
+  if (cur === 'default' && (fromToggle || !MossNotify.alreadyAsked())) await MossNotify.requestPermission();
+  const now = await MossNotify.getPermission();
+  if (now === 'denied') {
+    setNotifEnabled(false);
+    const cb = document.getElementById('notifications-enabled-input');
+    if (cb) cb.checked = false;
+  }
+  await MossNotify.refreshDeliveryState();
+  if (now === 'granted' && isNotifEnabled() && currentUser) await MossNotify.registerPush();
+  else if (!isNotifEnabled() || now === 'denied') MossNotify.unregisterPush();
+  scheduleReminderSync();
+  updateNotifPermissionHint();
+}
+window.addEventListener('mosstask:resume', () => {
+  if (window.MossNotify && MossNotify.isNative() && currentUser && isNotifEnabled()) MossNotify.registerPush();
+});
+// Foreground push: Android doesn't show it, so surface it like other in-app alerts.
+window.addEventListener('mosstask:pushregistered', () => { if (window.MossNotify) MossNotify.refreshDeliveryState().then(scheduleReminderSync); }); // drops local copies once push owns delivery
+window.addEventListener('mosstask:push', (e) => sendNotification(e.detail.title, e.detail.body));
+function requestNotifPermissionIfNeeded(fromToggle) {
   if (!isNotifEnabled()) return;
+  if (window.MossNotify && MossNotify.isNative()) { requestNativeNotifPermission(!!fromToggle); return; }
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission().then(updateNotifPermissionHint);
   } else {
@@ -523,55 +554,84 @@ function sendNotification(title, body) {
 }
 document.getElementById('notifications-enabled-input').addEventListener('change', (e) => {
   setNotifEnabled(e.target.checked);
-  if (e.target.checked) requestNotifPermissionIfNeeded();
+  if (e.target.checked) requestNotifPermissionIfNeeded(true);
+  else scheduleReminderSync(); // cancels pending native notifications
   updateNotifPermissionHint();
 });
+
+// Native reminders: keep OS-scheduled notifications in step with tasks/events.
+let reminderSyncTimer = null;
+function scheduleReminderSync() {
+  if (!window.MossNotify || !MossNotify.isNative()) return;
+  clearTimeout(reminderSyncTimer);
+  reminderSyncTimer = setTimeout(() => MossNotify.sync(events, todos, isNotifEnabled()), 300);
+}
+
+// Catch-up reminders: fire anything whose time has passed (within a grace
+// window) and hasn't been shown, so sleep / throttled timers / a late app
+// launch don't silently drop it. Runs often; each pass is a cheap compare.
+const EVENT_GRACE_MS = 10 * 60000;
+const TASK_GRACE_MS = 15 * 60000;
+function hmToDate(dateStr, hm) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const [hh, mm] = hm.split(':').map(Number);
+  if ([y, m, d, hh, mm].some(Number.isNaN)) return null;
+  return new Date(y, m - 1, d, hh, mm, 0, 0);
+}
 
 let notifiedEventKeys = new Set();
 let notifiedEventDay = todayStr();
 function checkEventNotifications() {
   if (!isNotifEnabled()) return;
+  if (window.MossNotify && MossNotify.handlesReminders()) return; // OS delivers these on Android
   if (notifiedEventDay !== todayStr()) { notifiedEventKeys.clear(); notifiedEventDay = todayStr(); }
-  const now = new Date();
-  const nowHM = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
-  const soon = new Date(now.getTime() + 5 * 60000);
-  const soonHM = `${pad2(soon.getHours())}:${pad2(soon.getMinutes())}`;
+  const nowMs = Date.now();
   const today = todayStr();
   events.forEach(ev => {
     if (ev.date !== today || !ev.time) return;
+    const start = hmToDate(ev.date, ev.time);
+    if (!start) return;
+    const startMs = start.getTime();
     const soonKey = `soon:${ev.id}`;
     const startKey = `start:${ev.id}`;
-    if (ev.time === soonHM && !notifiedEventKeys.has(soonKey)) {
+    // 5-minute warning: only while the event is still upcoming.
+    if (nowMs >= startMs - 5 * 60000 && nowMs < startMs && !notifiedEventKeys.has(soonKey)) {
       notifiedEventKeys.add(soonKey);
       sendNotification('Coming up in 5 minutes', ev.title);
     }
-    if (ev.time === nowHM && !notifiedEventKeys.has(startKey)) {
+    // Start: fire once, up to the grace window after (covers sleep/throttling).
+    if (nowMs >= startMs && nowMs < startMs + EVENT_GRACE_MS && !notifiedEventKeys.has(startKey)) {
       notifiedEventKeys.add(startKey);
+      notifiedEventKeys.add(soonKey); // don't show "in 5 min" after the fact
       sendNotification('Starting now', ev.title);
     }
   });
 }
-setInterval(checkEventNotifications, 30 * 1000);
 
 const taskDetailReminder = document.getElementById('task-detail-reminder');
 let notifiedTaskKeys = new Set();
 let notifiedTaskDay = todayStr();
 function checkTaskReminders() {
   if (!isNotifEnabled()) return;
+  if (window.MossNotify && MossNotify.handlesReminders()) return; // OS delivers these on Android
   if (notifiedTaskDay !== todayStr()) { notifiedTaskKeys.clear(); notifiedTaskDay = todayStr(); }
-  const now = new Date();
-  const nowHM = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+  const nowMs = Date.now();
   const today = todayStr();
   todos.forEach(t => {
     if (t.done || t.due !== today || !t.reminderTime) return;
+    const at = hmToDate(t.due, t.reminderTime);
+    if (!at) return;
     const key = `task:${t.id}`;
-    if (t.reminderTime === nowHM && !notifiedTaskKeys.has(key)) {
+    if (nowMs >= at.getTime() && nowMs < at.getTime() + TASK_GRACE_MS && !notifiedTaskKeys.has(key)) {
       notifiedTaskKeys.add(key);
       sendNotification('Task due today', t.text);
     }
   });
 }
-setInterval(checkTaskReminders, 30 * 1000);
+function checkAllReminders() { checkEventNotifications(); checkTaskReminders(); }
+setInterval(checkAllReminders, 10 * 1000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkAllReminders(); });
+window.addEventListener('focus', checkAllReminders);
 
 function nextOccurrenceDate(dueStr, recurrence) {
   const d = new Date(dueStr + 'T00:00:00');
@@ -1080,12 +1140,16 @@ todoAddCategoryBtn.addEventListener('click', () => addTaskCategory(todoCategoryS
 
 let projects = safeParse('projects', []);
 let currentProjectId = null;
+let projectTab = 'tasks'; // 'tasks' | 'chat' (declared early: setView reads it)
 let projectMembers = [];
 let notifications = [];
 
 const projectNavListEl = document.getElementById('project-nav-list');
 const projectEmptyHintEl = document.getElementById('project-empty-hint');
 const addProjectBtn = document.getElementById('add-project-btn');
+const personalNavListEl = document.getElementById('personal-nav-list');
+const personalEmptyHintEl = document.getElementById('personal-empty-hint');
+const addPersonalBtn = document.getElementById('add-personal-btn');
 const projectSelectEl = document.getElementById('todo-project-select');
 const projectHeaderActions = document.getElementById('project-header-actions');
 const projectRenameBtn = document.getElementById('project-rename-btn');
@@ -1098,8 +1162,36 @@ const projectPreviewTile = document.getElementById('project-preview-tile');
 const projectModalSaveBtn = document.getElementById('project-modal-save-btn');
 const projectModalCancelBtn = document.getElementById('project-modal-cancel-btn');
 const projectModalCloseBtn = document.getElementById('project-modal-close-btn');
+const projectModalUsageEl = document.getElementById('project-modal-usage');
+const projectModalErrorEl = document.getElementById('project-modal-error');
 
 let editingProjectId = null;
+
+// Turns a raw Postgres trigger message (raise exception 'project_limit_reached: ...')
+// into something a non-technical user understands. Falls back to the original
+// message for anything unrecognized, so real errors aren't hidden.
+function friendlyPlanError(message) {
+  const m = String(message || '');
+  if (m.includes('project_limit_reached')) {
+    return "You've reached your plan's project limit. Upgrade to create more projects.";
+  }
+  if (m.includes('member_limit_reached')) {
+    return "This project is at its member limit for the owner's plan. Upgrade to add more people.";
+  }
+  return message || 'Something went wrong. Please try again.';
+}
+function showProjectModalError(msg) {
+  projectModalErrorEl.textContent = msg;
+  projectModalErrorEl.style.display = msg ? 'block' : 'none';
+}
+async function refreshProjectModalUsage() {
+  projectModalUsageEl.style.display = 'none';
+  if (!currentUser || typeof dbFetchPlanUsage !== 'function') return;
+  const usage = await dbFetchPlanUsage();
+  if (!usage || usage.max_projects == null) return; // unlimited plan: no need to show a counter
+  projectModalUsageEl.textContent = `${usage.owned_projects}/${usage.max_projects} projects used on your ${usage.plan} plan`;
+  projectModalUsageEl.style.display = 'block';
+}
 
 function saveProjects() { safeSetItem('projects', JSON.stringify(projects)); }
 function getProject(id) { return projects.find(p => String(p.id) === String(id)) || null; }
@@ -1122,6 +1214,8 @@ function isProjectOwner(projectId) {
   if (!currentUser) return !p.userId;
   return p.userId === currentUser.id;
 }
+function projectTypeOf(p) { return p && p.type === 'team' ? 'team' : 'personal'; }
+function isTeamProject(projectId) { return projectTypeOf(getProject(projectId)) === 'team'; }
 function canRenameProject(projectId) {
   if (isProjectOwner(projectId)) return true;
   const m = myMembership(projectId);
@@ -1154,7 +1248,7 @@ function canPinTask(t) {
   return isProjectOwner(t.projectId);
 }
 function canAssignTask(t) {
-  return !!t.projectId && isProjectOwner(t.projectId);
+  return !!t.projectId && isTeamProject(t.projectId) && isProjectOwner(t.projectId);
 }
 
 let projectAnnouncements = safeParse('projectAnnouncements', {});
@@ -1310,9 +1404,13 @@ function updateProjectPreviewLetter() {
 }
 projectNameInput.addEventListener('input', updateProjectPreviewLetter);
 
-function openProjectModal(existingProject = null) {
+let pendingProjectType = 'personal';
+function openProjectModal(existingProject = null, type = 'personal') {
+  showProjectModalError('');
+  pendingProjectType = type === 'team' ? 'team' : 'personal';
   editingProjectId = existingProject ? existingProject.id : null;
-  projectModalTitle.textContent = existingProject ? 'Rename project' : 'New project';
+  if (!existingProject && pendingProjectType === 'team') refreshProjectModalUsage(); else projectModalUsageEl.style.display = 'none';
+  projectModalTitle.textContent = existingProject ? 'Rename project' : (pendingProjectType === 'personal' ? 'New personal project' : 'New project');
   projectNameInput.value = existingProject ? existingProject.name : '';
   previewTileColor = projectTileColor(existingProject || { id: 'preview-' + Date.now(), name: '' });
   projectPreviewTile.style.background = previewTileColor;
@@ -1322,12 +1420,29 @@ function openProjectModal(existingProject = null) {
 }
 function closeProjectModal() { projectModalOverlay.style.display = 'none'; editingProjectId = null; }
 
-addProjectBtn.addEventListener('click', () => openProjectModal());
+addPersonalBtn.addEventListener('click', () => openProjectModal(null, 'personal'));
+const guestProjectOverlay = document.getElementById('guest-project-overlay');
+function closeGuestProjectNotice() { guestProjectOverlay.style.display = 'none'; }
+addProjectBtn.addEventListener('click', () => {
+  if (currentUser) { openProjectModal(null, 'team'); return; }
+  if (isGuest) guestProjectOverlay.style.display = 'flex'; // still loading session => do nothing, never treat as guest
+});
+document.getElementById('guest-project-close-btn').addEventListener('click', closeGuestProjectNotice);
+document.getElementById('guest-project-cancel-btn').addEventListener('click', closeGuestProjectNotice);
+guestProjectOverlay.addEventListener('click', (e) => { if (e.target === guestProjectOverlay) closeGuestProjectNotice(); });
+function guestProjectAuth(tab) {
+  closeGuestProjectNotice();
+  if (!supabaseReady || typeof window.openAuthFromGuest !== 'function') return;
+  try { sessionStorage.setItem('mosstaskResumeTeamProject', '1'); } catch (e) {}
+  window.openAuthFromGuest(tab);
+}
+document.getElementById('guest-project-signin-btn').addEventListener('click', () => guestProjectAuth('login'));
+document.getElementById('guest-project-signup-btn').addEventListener('click', () => guestProjectAuth('register'));
 projectModalCancelBtn.addEventListener('click', closeProjectModal);
 projectModalCloseBtn.addEventListener('click', closeProjectModal);
 projectModalOverlay.addEventListener('click', (e) => { if (e.target === projectModalOverlay) closeProjectModal(); });
 
-projectModalSaveBtn.addEventListener('click', () => {
+projectModalSaveBtn.addEventListener('click', async () => {
   const name = projectNameInput.value.trim();
   if (!name) { projectNameInput.focus(); return; }
   if (editingProjectId) {
@@ -1338,10 +1453,20 @@ projectModalSaveBtn.addEventListener('click', () => {
       if (currentUser) dbUpdate('projects', p.id, { name });
     }
   } else {
-    const p = { id: Date.now(), name, userId: currentUser ? currentUser.id : null };
+    // Guests have no account, so nothing on the server can count their projects —
+    // enforce the same limit as the Free tier locally. Signed-in users are
+    // checked by the database trigger below (source of truth; can't be bypassed).
+    const type = pendingProjectType;
+    if (type === 'team' && (!currentUser || !supabaseReady)) { closeProjectModal(); return; } // defensive: guests never reach here
+    const p = { id: Date.now(), name, userId: currentUser ? currentUser.id : null, type };
+    if (currentUser) {
+      setButtonBusy(projectModalSaveBtn, 'Saving…');
+      const { error } = await dbUpsert('projects', projectRemoteRow(p));
+      clearButtonBusy(projectModalSaveBtn);
+      if (error) { showProjectModalError(friendlyPlanError(error.message)); return; } // don't add locally on failure
+    }
     projects.push(p);
     saveProjects();
-    if (currentUser) dbUpsert('projects', projectRemoteRow(p));
   }
   closeProjectModal();
   renderProjectNav();
@@ -1407,9 +1532,16 @@ function projectTileColor(p) {
 }
 
 function renderProjectNav() {
+  personalNavListEl.innerHTML = '';
   projectNavListEl.innerHTML = '';
-  projectEmptyHintEl.style.display = projects.length ? 'none' : 'block';
-  projects.forEach(p => {
+  // Guests never see Team projects (and no Team section unless one is accessible).
+  const visible = currentUser ? projects : projects.filter(p => projectTypeOf(p) === 'personal');
+  const personal = visible.filter(p => projectTypeOf(p) === 'personal');
+  const team = visible.filter(p => projectTypeOf(p) === 'team');
+  personalEmptyHintEl.style.display = personal.length ? 'none' : 'block';
+  projectEmptyHintEl.style.display = (currentUser && !team.length) ? 'block' : 'none';
+
+  const fill = (listEl, list) => list.forEach(p => {
     const isOwned = isProjectOwner(p.id);
     const btn = document.createElement('button');
     btn.className = 'nav-item project-item' + (currentView === 'project' && String(currentProjectId) === String(p.id) ? ' active' : '') + (isOwned ? '' : ' shared');
@@ -1421,19 +1553,21 @@ function renderProjectNav() {
     tile.style.background = projectTileColor(p);
     tile.textContent = (p.name || '?').trim().charAt(0).toUpperCase() || '?';
 
-    const label = document.createElement('span');
-    label.className = 'nav-label';
-    label.textContent = p.name;
-    label.title = p.name;
+    const lbl = document.createElement('span');
+    lbl.className = 'nav-label';
+    lbl.textContent = p.name;
+    lbl.title = p.name;
 
     const count = document.createElement('span');
     count.className = 'nav-count';
     count.textContent = todos.filter(t => String(t.projectId) === String(p.id)).length;
 
-    btn.append(tile, label, count);
+    btn.append(tile, lbl, count);
     btn.addEventListener('click', () => { currentProjectId = p.id; setView('project'); });
-    projectNavListEl.appendChild(btn);
+    listEl.appendChild(btn);
   });
+  fill(personalNavListEl, personal);
+  fill(projectNavListEl, team);
 }
 
 function renderProjectSelect() {
@@ -1469,7 +1603,7 @@ function tomorrowStr() {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
-function saveTodos() { safeSetItem('todos', JSON.stringify(todos)); }
+function saveTodos() { safeSetItem('todos', JSON.stringify(todos)); scheduleReminderSync(); }
 function escapeHtml(str) {
   const d = document.createElement('div');
   d.textContent = str;
@@ -1502,6 +1636,7 @@ function projectRemoteRow(p) {
     name: p.name,
     announcement: p.announcement || null,
     announcement_updated_at: p.announcementUpdatedAt || null,
+    project_type: projectTypeOf(p),
   };
 }
 
@@ -1519,6 +1654,7 @@ function showView(view) {
 }
 
 function setView(view) {
+  if (projectTab === 'chat') setProjectTab('tasks');
   const collabPanel = document.getElementById('project-collab-panel');
   const collabFab = document.getElementById('collab-fab');
   if (view !== 'project') {
@@ -1535,7 +1671,7 @@ function setView(view) {
   showView(view);
   if (view === 'settings') renderSettingsUI();
   if (view === 'pomodoro') renderPomodoro();
-  if (view === 'calendar') { renderCalendar(); renderDayPanel(); }
+  if (view === 'calendar') { refreshNowState(); renderCalendar(); renderDayPanel(); }
   if (view === 'notes') { renderCategoryTabs(); renderNoteCategorySelect(); renderNotes(); }
   if (['all', 'today', 'active', 'completed', 'project'].includes(view)) {
     renderProjectSelect();
@@ -2055,12 +2191,13 @@ let activeDetailTaskId = null;
 
 function fillTaskDetailAssigneeOptions(t) {
   taskDetailAssignee.innerHTML = '<option value="">Unassigned</option>';
-  if (!t.projectId) return;
+  if (!t.projectId || !isTeamProject(t.projectId)) return;
   const members = membersForProject(t.projectId).filter(m => m.status === 'accepted');
   members.forEach(m => {
     const opt = document.createElement('option');
     opt.value = m.member_email;
-    opt.textContent = m.member_email;
+    const rn = roleNameForMember(m);
+    opt.textContent = rn ? `${m.member_email} · ${rn}` : m.member_email;
     taskDetailAssignee.appendChild(opt);
   });
   taskDetailAssignee.value = members.some(m => m.member_email === t.assigneeEmail) ? t.assigneeEmail : '';
@@ -2314,7 +2451,7 @@ taskDetailSaveBtn.addEventListener('click', () => {
   t.projectId = taskDetailProject.value || null;
   t.category = taskDetailCategory.value || null;
   t.reminderTime = taskDetailReminder.value || null;
-  if (!t.projectId) {
+  if (!t.projectId || !isTeamProject(t.projectId)) {
     t.assigneeEmail = null;
   } else if (canAssignTask(t)) {
     const chosen = taskDetailAssignee.value || null;
@@ -2322,7 +2459,7 @@ taskDetailSaveBtn.addEventListener('click', () => {
     t.assigneeEmail = stillMember ? chosen : null;
   }
   saveTodos(); renderTodos(); renderCounts(); renderProjectNav();
-  if (currentUser) dbUpdate('todos', t.id, { text: t.text, desc: t.desc, due: t.due, priority: t.priority, projectId: t.projectId, reminderTime: t.reminderTime, assigneeEmail: t.assigneeEmail });
+  if (currentUser) dbUpdate('todos', t.id, { text: t.text, desc: t.desc, due: t.due, priority: t.priority, project_id: t.projectId, category: t.category || null, reminder_time: t.reminderTime, assignee_email: t.assigneeEmail });
   closeTaskDetail();
 });
 
@@ -2921,7 +3058,7 @@ function isNarrowLayout() {
 
 function updateCollabFabVisibility() {
   if (!collabFab) return;
-  if (currentView !== 'project' || !currentProjectId || !currentUser || !isNarrowLayout()) {
+  if (currentView !== 'project' || !currentProjectId || !currentUser || !isTeamProject(currentProjectId) || !isNarrowLayout()) {
     collabFab.style.display = 'none';
     return;
   }
@@ -2944,9 +3081,139 @@ collabBackdrop.addEventListener('click', () => {
   closePermPopover();
 });
 
+
+// ===== Project tabs, lazy TeamChat, and roles =====
+let teamChatLoading = null;
+function loadTeamChat() {
+  if (window.TeamChat) return Promise.resolve();
+  if (!teamChatLoading) {
+    teamChatLoading = new Promise((resolve, reject) => {
+      const el = document.createElement('script');
+      el.src = 'teamchat.js';
+      el.onload = resolve;
+      el.onerror = () => { teamChatLoading = null; reject(new Error('teamchat load failed')); };
+      document.head.appendChild(el);
+    });
+  }
+  return teamChatLoading;
+}
+function setProjectTab(tab) {
+  projectTab = tab === 'chat' ? 'chat' : 'tasks';
+  const chat = projectTab === 'chat';
+  const main = document.querySelector('.project-view-main');
+  const panel = document.getElementById('teamchat-panel');
+  if (main) main.classList.toggle('chat-mode', chat);
+  if (panel) panel.hidden = !chat;
+  [['project-tab-tasks', !chat], ['project-tab-chat', chat]].forEach(([id, on]) => {
+    const b = document.getElementById(id);
+    if (b) { b.classList.toggle('active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); }
+  });
+  if (chat) {
+    loadTeamChat()
+      .then(() => { if (projectTab === 'chat' && currentView === 'project' && currentProjectId) window.TeamChat.open(currentProjectId); })
+      .catch(() => { showSimpleToast({ emoji: '⚠️', text: "Couldn't load TeamChat. Check your connection." }); setProjectTab('tasks'); });
+  } else if (window.TeamChat) {
+    window.TeamChat.close();
+  }
+}
+function updateProjectTabs() {
+  const tabs = document.getElementById('project-tabs');
+  if (!tabs) return;
+  const show = !!(currentView === 'project' && currentProjectId && currentUser && isTeamProject(currentProjectId));
+  tabs.style.display = show ? '' : 'none';
+  if (!show && projectTab === 'chat') setProjectTab('tasks');
+}
+document.getElementById('project-tab-tasks').addEventListener('click', () => setProjectTab('tasks'));
+document.getElementById('project-tab-chat').addEventListener('click', () => setProjectTab('chat'));
+
+const projectRolesCache = new Map();   // projectId -> [{id, name}]
+const projectRolesRequested = new Set();
+async function ensureProjectRoles(projectId, force) {
+  const key = String(projectId);
+  if (!supabaseReady || !currentUser) return;
+  if (!force && projectRolesRequested.has(key)) return;
+  projectRolesRequested.add(key);
+  const { data, error } = await supabaseClient.from('project_roles').select('id,name').eq('project_id', projectId).order('name');
+  projectRolesCache.set(key, error ? [] : data);
+}
+function rolesFor(projectId) { return projectRolesCache.get(String(projectId)) || []; }
+function roleNameForMember(m) {
+  if (!m || !m.role_id) return '';
+  const r = rolesFor(m.project_id).find(x => String(x.id) === String(m.role_id));
+  return r ? r.name : '';
+}
+function roleErrorMessage(err) {
+  const m = String((err && (err.message || err.code)) || '');
+  if (m.includes('team_plan_required') || (err && err.code === '42501')) return 'Roles are part of the Team plan.';
+  if (m.includes('role_limit_reached')) return 'This project has reached its role limit.';
+  if (err && err.code === '23505') return 'A role with that name already exists in this project.';
+  if (m.includes('forbidden')) return "You don't have permission to change that role.";
+  return 'Could not save the role. Please try again.';
+}
+async function assignMemberRole(member, roleId) {
+  const { error } = await supabaseClient.rpc('set_member_role', { p_member_id: String(member.id), p_role_id: roleId || null });
+  if (error) { alert(roleErrorMessage(error)); return false; }
+  member.role_id = roleId || null;
+  return true;
+}
+async function createProjectRole(projectId, name) {
+  const clean = String(name || '').trim().slice(0, 40);
+  if (!clean) return null;
+  const { data, error } = await supabaseClient.from('project_roles').insert({ project_id: projectId, name: clean }).select('id,name').single();
+  if (error) { alert(roleErrorMessage(error)); return null; }
+  const list = rolesFor(projectId).concat([data]).sort((a, b) => a.name.localeCompare(b.name));
+  projectRolesCache.set(String(projectId), list);
+  return data;
+}
+function renderRoleManager(projectId, ownerIsMe) {
+  const box = document.getElementById('collab-roles');
+  if (!box) return;
+  if (!ownerIsMe || !currentUser) { box.style.display = 'none'; return; }
+  box.style.display = '';
+  const listEl = document.getElementById('collab-role-list');
+  listEl.textContent = '';
+  rolesFor(projectId).forEach(r => {
+    const chip = document.createElement('span'); chip.className = 'collab-role-chip';
+    const label = document.createElement('span'); label.textContent = r.name; chip.appendChild(label);
+    const edit = document.createElement('button'); edit.type = 'button'; edit.title = 'Rename role'; edit.setAttribute('aria-label', 'Rename role ' + r.name); edit.textContent = '✎';
+    edit.addEventListener('click', async () => {
+      const n = (prompt('Rename role', r.name) || '').trim().slice(0, 40);
+      if (!n || n === r.name) return;
+      const { error } = await supabaseClient.from('project_roles').update({ name: n }).eq('id', r.id);
+      if (error) { alert(roleErrorMessage(error)); return; }
+      await ensureProjectRoles(projectId, true); renderCollabPanel();
+    });
+    const del = document.createElement('button'); del.type = 'button'; del.title = 'Delete role'; del.setAttribute('aria-label', 'Delete role ' + r.name); del.textContent = '×';
+    del.addEventListener('click', async () => {
+      if (!confirm(`Delete the role "${r.name}"? Members with this role stay in the project and become unassigned.`)) return;
+      const { error } = await supabaseClient.from('project_roles').delete().eq('id', r.id);
+      if (error) { alert(roleErrorMessage(error)); return; }
+      projectMembers.forEach(m => { if (String(m.role_id) === String(r.id)) m.role_id = null; });
+      await ensureProjectRoles(projectId, true); renderCollabPanel();
+    });
+    chip.append(edit, del); listEl.appendChild(chip);
+  });
+  const p = getProject(projectId);
+  document.getElementById('collab-role-self').checked = !!(p && p.membersCanSetRole);
+}
+document.getElementById('collab-role-add').addEventListener('click', async () => {
+  if (!currentProjectId || !isProjectOwner(currentProjectId) || !isTeamProject(currentProjectId)) return;
+  const name = prompt('New role name (e.g. Backend, Documentation)');
+  if (name && await createProjectRole(currentProjectId, name)) renderCollabPanel();
+});
+document.getElementById('collab-role-self').addEventListener('change', async (e) => {
+  const p = getProject(currentProjectId);
+  if (!p || !isProjectOwner(p.id) || !isTeamProject(p.id)) { e.target.checked = !!(p && p.membersCanSetRole); return; }
+  p.membersCanSetRole = e.target.checked;
+  saveProjects();
+  await dbUpdate('projects', p.id, { members_can_set_role: p.membersCanSetRole });
+  renderCollabPanel();
+});
+
 function renderCollabPanel() {
   if (!collabPanel) return;
-  if (currentView !== 'project' || !currentProjectId || !currentUser) {
+  updateProjectTabs();
+  if (currentView !== 'project' || !currentProjectId || !currentUser || !isTeamProject(currentProjectId)) {
     collabPanel.style.display = 'none';
     projectViewLayout.classList.remove('with-collab');
     updateCollabFabVisibility();
@@ -2967,6 +3234,11 @@ function renderCollabPanel() {
   collabPanel.style.display = '';
   projectViewLayout.classList.add('with-collab');
   collabInviteBtn.style.display = ownerIsMe ? 'flex' : 'none';
+  if (!projectRolesRequested.has(String(currentProjectId))) {
+    const pidAtCall = currentProjectId;
+    ensureProjectRoles(pidAtCall).then(() => { if (String(currentProjectId) === String(pidAtCall)) renderCollabPanel(); });
+  }
+  renderRoleManager(currentProjectId, ownerIsMe);
 
   collabBody.innerHTML = '';
 
@@ -3030,6 +3302,30 @@ function buildMemberRow(m, ownerIsMe) {
   }
   info.appendChild(roleEl);
 
+  const roleName = roleNameForMember(m);
+  if (roleName) { const tag = document.createElement('div'); tag.className = 'collab-role-tag'; tag.textContent = roleName; info.appendChild(tag); }
+  const proj = getProject(m.project_id);
+  const isSelf = !!(currentUser && m.status === 'accepted' &&
+    (m.member_id === currentUser.id || (m.member_email || '').toLowerCase() === (currentUser.email || '').toLowerCase()));
+  const canPickRole = m.status === 'accepted' && proj && isTeamProject(proj.id) && (ownerIsMe || (isSelf && proj.membersCanSetRole));
+  if (canPickRole) {
+    const sel = document.createElement('select'); sel.className = 'collab-role-select'; sel.setAttribute('aria-label', 'Role for ' + m.member_email);
+    sel.add(new Option('No role', ''));
+    rolesFor(m.project_id).forEach(r => sel.add(new Option(r.name, r.id)));
+    if (ownerIsMe) sel.add(new Option('+ New role…', '__new'));
+    sel.value = m.role_id || '';
+    sel.addEventListener('change', async () => {
+      let target = sel.value;
+      if (target === '__new') {
+        const created = await createProjectRole(m.project_id, prompt('New role name'));
+        if (!created) { sel.value = m.role_id || ''; return; }
+        target = created.id;
+      }
+      if (await assignMemberRole(m, target)) renderCollabPanel(); else sel.value = m.role_id || '';
+    });
+    info.appendChild(sel);
+  }
+
   row.append(avatar, info);
 
   if (ownerIsMe) {
@@ -3088,7 +3384,7 @@ function openInviteModal() {
     alert('Sign in with an account to invite collaborators.');
     return;
   }
-  if (!isProjectOwner(currentProjectId)) return;
+  if (!isProjectOwner(currentProjectId) || !isTeamProject(currentProjectId)) return;
 
   inviteEmailInput.value = '';
   inviteEmailInput.readOnly = false;
@@ -3119,6 +3415,7 @@ inviteSendBtn.addEventListener('click', async () => {
     can_rename_project: document.getElementById('invite-can-rename-project').checked,
   };
   showInviteError('');
+  if (!currentUser || !isProjectOwner(currentProjectId) || !isTeamProject(currentProjectId)) { showInviteError('Only Team Projects can have members.'); return; }
   if (!isPlausibleEmail(email)) { showInviteError('Enter a valid email address.'); return; }
   if (email === (currentUser.email || '').toLowerCase()) { showInviteError("That's your own email address."); return; }
 
@@ -3132,7 +3429,7 @@ inviteSendBtn.addEventListener('click', async () => {
   };
   const { error } = await dbUpsertProjectMember(row);
   clearButtonBusy(inviteSendBtn);
-  if (error) { showInviteError(error.message || 'Could not send invite.'); return; }
+  if (error) { showInviteError(friendlyPlanError(error.message) || 'Could not send invite.'); return; }
   showToast('invite');
 
   closeInviteModal();
@@ -3341,7 +3638,7 @@ async function refreshSharedData() {
     dbFetchProjectMembers(),
   ]);
   if (remoteProjects) {
-    projects = remoteProjects.map(p => ({ id: p.id, name: p.name, userId: p.user_id, announcement: p.announcement || '', announcementUpdatedAt: p.announcement_updated_at || null }));
+    projects = remoteProjects.map(p => ({ id: p.id, name: p.name, userId: p.user_id, type: p.project_type === 'team' ? 'team' : 'personal', membersCanSetRole: !!p.members_can_set_role, announcement: p.announcement || '', announcementUpdatedAt: p.announcement_updated_at || null }));
     saveProjects();
   }
   if (remoteTodos) {
@@ -3394,6 +3691,45 @@ calViewDate.setDate(1);
 let selectedDateKey = todayStr();
 let editingEventId = null;
 
+// "Now" is always read from the system clock; this only detects a changed
+// day / timezone and re-renders what depends on it. Stored event data is never touched.
+let lastNowKey = todayStr();
+function tzSignature() {
+  try { return `${Intl.DateTimeFormat().resolvedOptions().timeZone}|${new Date().getTimezoneOffset()}`; }
+  catch (e) { return String(new Date().getTimezoneOffset()); }
+}
+let lastTzSig = tzSignature();
+function refreshNowState() {
+  const key = todayStr();
+  const tz = tzSignature();
+  if (key === lastNowKey && tz === lastTzSig) return false;
+  const prev = lastNowKey;
+  lastNowKey = key; lastTzSig = tz;
+  if (selectedDateKey === prev) selectedDateKey = key;
+  const viewing = `${calViewDate.getFullYear()}-${String(calViewDate.getMonth() + 1).padStart(2, '0')}`;
+  if (prev.slice(0, 7) === viewing) { const [y, m] = key.split('-').map(Number); calViewDate = new Date(y, m - 1, 1); }
+  try {
+    renderCounts();
+    if (currentView === 'calendar') { renderCalendar(); renderDayPanel(); }
+    else if (currentView === 'all') renderHomeSummary();
+  } catch (err) { console.warn('[Clock] re-render failed:', err && err.message); }
+  scheduleReminderSync(); // absolute reminder times depend on the timezone
+  return true;
+}
+let midnightTimer = null;
+function armMidnightTimer() {
+  clearTimeout(midnightTimer);
+  const n = new Date();
+  const next = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1, 0, 0, 1);
+  midnightTimer = setTimeout(() => { refreshNowState(); armMidnightTimer(); }, Math.max(1000, next - n));
+}
+function onClockMayHaveChanged() { refreshNowState(); armMidnightTimer(); }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') onClockMayHaveChanged(); });
+window.addEventListener('mosstask:resume', onClockMayHaveChanged);
+window.addEventListener('focus', onClockMayHaveChanged);
+setInterval(refreshNowState, 60 * 1000); // cheap compare; catches manual clock/timezone changes
+armMidnightTimer();
+
 const calGrid = document.getElementById('calendar-grid');
 const calMonthLabel = document.getElementById('cal-month-label');
 const calPrevBtn = document.getElementById('cal-prev');
@@ -3413,7 +3749,7 @@ const eventSaveBtn = document.getElementById('event-save-btn');
 const eventBackBtn = document.getElementById('event-back-btn');
 const eventDeleteBtn = document.getElementById('event-delete-btn');
 
-function saveEvents() { safeSetItem('events', JSON.stringify(events)); }
+function saveEvents() { safeSetItem('events', JSON.stringify(events)); scheduleReminderSync(); }
 function pad2(n) { return n.toString().padStart(2, '0'); }
 function dateKey(y, m, d) { return `${y}-${pad2(m + 1)}-${pad2(d)}`; }
 function eventsForDate(dateStr) {
@@ -3548,8 +3884,8 @@ function openEventForm(existingEvent = null) {
   eventTitleInput.focus();
 }
 
-calPrevBtn.addEventListener('click', () => { calViewDate.setMonth(calViewDate.getMonth() - 1); renderCalendar(); });
-calNextBtn.addEventListener('click', () => { calViewDate.setMonth(calViewDate.getMonth() + 1); renderCalendar(); });
+calPrevBtn.addEventListener('click', () => { refreshNowState(); calViewDate.setMonth(calViewDate.getMonth() - 1); renderCalendar(); });
+calNextBtn.addEventListener('click', () => { refreshNowState(); calViewDate.setMonth(calViewDate.getMonth() + 1); renderCalendar(); });
 calTodayBtn.addEventListener('click', () => {
   calViewDate = new Date(); calViewDate.setDate(1);
   selectedDateKey = todayStr();
@@ -3821,7 +4157,11 @@ function debouncedSharedRender() {
     renderViewHeader();
     renderProjectNav();
     renderProjectSelect();
+    refreshHomeIfVisible();
   }, 120);
+}
+function refreshHomeIfVisible() {
+  try { if (currentView === 'all') renderHomeSummary(); } catch (err) { /* widgets are non-critical */ }
 }
 
 function handleRealtimeTodo(payload) {
@@ -3895,8 +4235,11 @@ function handleRealtimeProject(payload) {
     return;
   }
 
-  const mapped = { id: row.id, name: row.name, userId: row.user_id };
-  const idx = projects.findIndex(p => String(p.id) === String(mapped.id));
+  const idx = projects.findIndex(p => String(p.id) === String(row.id));
+  const prevP = idx >= 0 ? projects[idx] : {};
+  const mapped = { ...prevP, id: row.id, name: row.name, userId: row.user_id,
+    type: row.project_type ? (row.project_type === 'team' ? 'team' : 'personal') : projectTypeOf(prevP),
+    membersCanSetRole: row.members_can_set_role != null ? !!row.members_can_set_role : !!prevP.membersCanSetRole };
   if (idx >= 0) projects[idx] = mapped;
   else projects.push(mapped);
   saveProjects();
@@ -3960,7 +4303,7 @@ function handleRealtimeMember(payload) {
     if (!haveProject) {
       dbFetchProjects().then((data) => {
         if (!data) return;
-        projects = data.map(p => ({ id: p.id, name: p.name, userId: p.user_id, announcement: p.announcement || '', announcementUpdatedAt: p.announcement_updated_at || null }));
+        projects = data.map(p => ({ id: p.id, name: p.name, userId: p.user_id, type: p.project_type === 'team' ? 'team' : 'personal', membersCanSetRole: !!p.members_can_set_role, announcement: p.announcement || '', announcementUpdatedAt: p.announcement_updated_at || null }));
         saveProjects();
         renderProjectNav();
         renderProjectSelect();
@@ -4045,6 +4388,7 @@ function handleRealtimeEvent(payload) {
       saveEvents();
       renderCalendar();
       renderDayPanel();
+      refreshHomeIfVisible();
     }
     return;
   }
@@ -4062,6 +4406,7 @@ function handleRealtimeEvent(payload) {
   saveEvents();
   renderCalendar();
   renderDayPanel();
+  refreshHomeIfVisible();
 }
 
 function attachRealtimeSubscriptions() {
@@ -4075,6 +4420,66 @@ function attachRealtimeSubscriptions() {
     onEvent: handleRealtimeEvent,
   });
 }
+
+// ---- Keep everything fresh -------------------------------------------------
+// Realtime pushes changes instantly, but the socket can silently drop (sleep,
+// background, network change). So: reconnect on failure, and do a full refetch
+// whenever the app returns, comes back online, or the channel reconnects.
+let resyncing = false;
+let lastResyncAt = 0;
+async function resyncFromServer(force) {
+  if (!supabaseReady || !currentUser || resyncing) return;
+  if (!force && Date.now() - lastResyncAt < 5000) return; // throttle bursts of triggers
+  resyncing = true;
+  lastResyncAt = Date.now();
+  try {
+    const [remoteEvents, remoteNotes] = await Promise.all([
+      dbFetchAll('events', currentUser.id),
+      dbFetchAll('notes', currentUser.id),
+    ]);
+    await refreshSharedData(); // projects, todos, members (+ their renders)
+    if (remoteEvents) {
+      events = remoteEvents.map(ev => ({ id: ev.id, date: ev.date, time: ev.time, title: ev.title, notes: ev.notes }));
+      saveEvents();
+      if (currentView === 'calendar') { renderCalendar(); renderDayPanel(); }
+    }
+    if (remoteNotes) {
+      notes = remoteNotes.map(n => ({ id: n.id, title: n.title, category: n.category, desc: n.desc, content: n.content, createdAt: n.created_at }));
+      saveNotes();
+      if (currentView === 'notes') renderNotes();
+    }
+    await loadNotifications();
+    refreshHomeIfVisible();
+  } catch (err) {
+    console.warn('[Sync] resync failed:', err && err.message);
+  } finally {
+    resyncing = false;
+  }
+}
+
+let realtimeRetryTimer = null;
+let realtimeRetryMs = 3000;
+let realtimeWasDown = false;
+window.onRealtimeStatus = (status) => {
+  if (status === 'SUBSCRIBED') {
+    realtimeRetryMs = 3000;
+    if (realtimeWasDown) { realtimeWasDown = false; resyncFromServer(true); } // catch up on what was missed
+    return;
+  }
+  if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+    realtimeWasDown = true;
+    if (realtimeRetryTimer || !currentUser) return;
+    realtimeRetryTimer = setTimeout(() => {
+      realtimeRetryTimer = null;
+      attachRealtimeSubscriptions();
+    }, realtimeRetryMs);
+    realtimeRetryMs = Math.min(realtimeRetryMs * 2, 60000); // back off
+  }
+};
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') resyncFromServer(false); });
+window.addEventListener('mosstask:resume', () => resyncFromServer(false));
+window.addEventListener('online', () => { attachRealtimeSubscriptions(); resyncFromServer(true); });
+setInterval(() => { if (document.visibilityState === 'visible') resyncFromServer(false); }, 120 * 1000); // safety net
 
 function detachRealtimeSubscriptions() {
   if (typeof teardownRealtime === 'function') teardownRealtime();
@@ -4685,6 +5090,83 @@ document.getElementById('shortcuts-close-btn')?.addEventListener('click', closeS
 if (shortcutsOverlay) shortcutsOverlay.addEventListener('click', (e) => { if (e.target === shortcutsOverlay) closeShortcuts(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && shortcutsOverlay && shortcutsOverlay.style.display === 'flex') closeShortcuts(); });
 
+// ---- Store / plans -----------------------------------------------------
+// Fill in real Stripe Payment Link URLs once created in the Stripe dashboard
+// (Product catalog > Payment links). client_reference_id lets the webhook
+// know which MossTask account to upgrade; keep it on both links.
+const STRIPE_PAYMENT_LINKS = {
+  team: 'https://buy.stripe.com/REPLACE_WITH_TEAM_LINK',
+};
+
+const storeOverlay = document.getElementById('store-overlay');
+const storeCurrentPlanSub = document.getElementById('store-current-plan-sub');
+const storeSigninNotice = document.getElementById('store-signin-notice');
+const storeUsageLine = document.getElementById('store-usage-line');
+const planStatusHint = document.getElementById('plan-status-hint');
+
+function openStore() {
+  if (!storeOverlay) return;
+  storeOverlay.style.display = 'flex';
+  refreshStoreUI();
+}
+function closeStore() { if (storeOverlay) storeOverlay.style.display = 'none'; }
+
+async function refreshStoreUI() {
+  document.querySelectorAll('.store-tier-card').forEach((el) => el.classList.remove('is-current'));
+
+  if (!currentUser || isGuest) {
+    if (storeSigninNotice) storeSigninNotice.style.display = 'block';
+    if (storeUsageLine) storeUsageLine.style.display = 'none';
+    if (storeCurrentPlanSub) storeCurrentPlanSub.textContent = "You're using Guest mode.";
+    if (planStatusHint) planStatusHint.textContent = 'Sign in to see your plan and usage.';
+    return;
+  }
+  if (storeSigninNotice) storeSigninNotice.style.display = 'none';
+
+  const usage = (typeof dbFetchPlanUsage === 'function') ? await dbFetchPlanUsage() : null;
+  if (!usage) {
+    if (storeCurrentPlanSub) storeCurrentPlanSub.textContent = "You're on the Free plan.";
+    if (planStatusHint) planStatusHint.textContent = 'Free plan';
+    return;
+  }
+
+  const planLabel = usage.plan.charAt(0).toUpperCase() + usage.plan.slice(1);
+  if (storeCurrentPlanSub) storeCurrentPlanSub.textContent = `You're on the ${planLabel} plan.`;
+  if (planStatusHint) {
+    planStatusHint.textContent = usage.max_projects != null
+      ? `${planLabel} plan — ${usage.owned_projects}/${usage.max_projects} projects used`
+      : `${planLabel} plan — unlimited projects`;
+  }
+  const card = document.querySelector(`.store-tier-card[data-plan="${usage.plan}"]`);
+  if (card) card.classList.add('is-current');
+
+  if (storeUsageLine) {
+    storeUsageLine.style.display = 'block';
+    storeUsageLine.textContent = usage.max_projects != null
+      ? `You've created ${usage.owned_projects} of ${usage.max_projects} projects allowed on your plan.`
+      : `You've created ${usage.owned_projects} projects. Your plan has no project limit.`;
+  }
+}
+
+document.getElementById('open-store-btn')?.addEventListener('click', openStore);
+document.getElementById('store-close-btn')?.addEventListener('click', closeStore);
+if (storeOverlay) storeOverlay.addEventListener('click', (e) => { if (e.target === storeOverlay) closeStore(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && storeOverlay && storeOverlay.style.display === 'flex') closeStore(); });
+
+document.querySelectorAll('[data-plan-btn]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const plan = btn.getAttribute('data-plan-btn');
+    if (plan === 'free') return; // disabled: nothing to do
+    if (!currentUser || isGuest) { alert('Sign in first, then come back to upgrade.'); return; }
+    const link = STRIPE_PAYMENT_LINKS[plan];
+    if (!link || link.includes('REPLACE_WITH')) { alert('This plan link is not set up yet.'); return; }
+    const url = new URL(link);
+    url.searchParams.set('client_reference_id', currentUser.id);
+    if (currentUser.email) url.searchParams.set('prefilled_email', currentUser.email);
+    window.open(url.toString(), '_blank');
+  });
+});
+
 function buildExportPayload() {
   return {
     app: 'MossTask',
@@ -4991,8 +5473,142 @@ function renderHomeStreak() {
   el.appendChild(caption);
 }
 
+
+// ===== Guest -> account data continuity =====
+// Guest data lives in localStorage under LOCAL_DATA_KEYS (the same keys the signed-in cache uses).
+// 'mosstaskLocalOwner' records whose data those keys currently hold: 'guest' or a user id.
+// Rules: never delete guest data; upload is add-only (never overwrites remote rows); a ledger per
+// user makes retries idempotent; a permanent guest backup is kept; local data is only replaced by
+// remote data AFTER the migration is verified.
+const LOCAL_DATA_KEYS = ['todos', 'projects', 'notes', 'events', 'taskCategories', 'noteCategories', 'projectAnnouncements'];
+const LOCAL_OWNER_KEY = 'mosstaskLocalOwner';
+const GUEST_BACKUP_KEY = 'mosstaskGuestBackup';
+
+function readLocalWorld() {
+  const w = {};
+  LOCAL_DATA_KEYS.forEach(k => { const v = safeGetItem(k); if (v !== null && v !== undefined) w[k] = v; });
+  return w;
+}
+function writeLocalWorld(w) {
+  LOCAL_DATA_KEYS.forEach(k => {
+    if (w && typeof w[k] === 'string') safeSetItem(k, w[k]);
+    else { try { localStorage.removeItem(k); } catch (e) {} }
+  });
+}
+function reloadInMemoryFromLocal() {
+  todos = safeParse('todos', []);
+  projects = safeParse('projects', []);
+  notes = safeParse('notes', []);
+  events = safeParse('events', []);
+  taskCategories = safeParse('taskCategories', []);
+  noteCategories = safeParse('noteCategories', null) || ['General'];
+  projectAnnouncements = safeParse('projectAnnouncements', {});
+}
+function localWorldHasData() {
+  return todos.length > 0 || projects.length > 0 || notes.length > 0 || events.length > 0;
+}
+function getMigrationLedger(uid) {
+  const l = safeParse('mosstaskMigrated:' + uid, null) || {};
+  ['projects', 'todos', 'notes', 'events', 'declined'].forEach(k => { if (!Array.isArray(l[k])) l[k] = []; });
+  return l;
+}
+function saveMigrationLedger(uid, l) { safeSetItem('mosstaskMigrated:' + uid, JSON.stringify(l)); }
+
+// Runs at the very start of initApp, before any render or remote load.
+function prepareLocalStoreForSession(user) {
+  let owner = safeGetItem(LOCAL_OWNER_KEY);
+  if (!user) {
+    // Guest session.
+    if (owner && owner !== 'guest') {
+      // Keys currently hold a signed-out account's cache. Keep a copy, then restore the guest world.
+      safeSetItem('mosstaskAccountCache:' + owner, JSON.stringify(readLocalWorld()));
+      const backup = safeParse(GUEST_BACKUP_KEY, null);
+      writeLocalWorld(backup);
+      reloadInMemoryFromLocal();
+    }
+    safeSetItem(LOCAL_OWNER_KEY, 'guest');
+  }
+  // Signed-in: nothing to swap here; migrateGuestDataIfNeeded handles owner === null/'guest'.
+}
+
+// Returns { ok, skipped }. ok=false => caller must NOT overwrite local data with remote data.
+async function migrateGuestDataIfNeeded(user) {
+  const owner = safeGetItem(LOCAL_OWNER_KEY);
+  if (owner === user.id) return { ok: true };
+  if (owner && owner !== 'guest') return { ok: true }; // local keys are another account's cache; existing behaviour (remote replaces it)
+  if (!supabaseReady) return { ok: false };
+  if (!localWorldHasData()) { safeSetItem(LOCAL_OWNER_KEY, user.id); return { ok: true }; }
+
+  // Permanent safety copy of the guest world (kept even after a successful migration).
+  safeSetItem(GUEST_BACKUP_KEY, JSON.stringify(readLocalWorld()));
+
+  const ledger = getMigrationLedger(user.id);
+  const [rp, rt, rn, re] = await Promise.all([
+    dbFetchProjects(), dbFetchTodos(), dbFetchAll('notes', user.id), dbFetchAll('events', user.id),
+  ]);
+  if (!rp || !rt || !rn || !re) return { ok: false }; // offline/failed: keep local, retry next start
+
+  const ids = (rows) => new Set(rows.map(r => String(r.id)));
+  const remote = { projects: ids(rp), todos: ids(rt), notes: ids(rn), events: ids(re) };
+  const mine = (rows) => rows.filter(r => r.user_id === user.id).length;
+  const remoteHasData = mine(rp) + mine(rt) + rn.length + re.length > 0;
+
+  const pending = (kind, list) => list.filter(x => {
+    const id = String(x.id);
+    return !remote[kind].has(id) && !ledger[kind].includes(id) && !ledger.declined.includes(kind + ':' + id);
+  });
+  const todo = {
+    projects: pending('projects', projects),
+    todos: pending('todos', todos),
+    notes: pending('notes', notes),
+    events: pending('events', events),
+  };
+  const total = todo.projects.length + todo.todos.length + todo.notes.length + todo.events.length;
+  if (total === 0) { safeSetItem(LOCAL_OWNER_KEY, user.id); return { ok: true }; }
+
+  // Existing account that already has data: never merge silently.
+  if (remoteHasData && !ledger.started) {
+    const add = confirm('This account already has data. Add your Guest Mode data to it?\n\nNothing in the account will be overwritten or deleted. Either way, your guest data stays saved on this device.');
+    if (!add) {
+      Object.keys(todo).forEach(k => todo[k].forEach(x => ledger.declined.push(k + ':' + String(x.id))));
+      ledger.started = true; saveMigrationLedger(user.id, ledger);
+      safeSetItem(LOCAL_OWNER_KEY, user.id);
+      return { ok: true };
+    }
+  }
+  ledger.started = true; saveMigrationLedger(user.id, ledger);
+
+  // Guest projects become the account's Personal projects (no members, no assignees).
+  const projRows = todo.projects.map(p => ({ ...projectRemoteRow({ ...p, userId: user.id, type: 'personal' }) }));
+  const todoRows = todo.todos.map(t => todoRemoteRow({ ...t, assigneeEmail: null }));
+  const noteRows = todo.notes.map(noteRemoteRow);
+  const eventRows = todo.events.map(eventRemoteRow);
+
+  const steps = [['projects', projRows], ['todos', todoRows], ['notes', noteRows], ['events', eventRows]];
+  for (const [table, rows] of steps) {
+    if (!rows.length) continue;
+    const { error } = await dbUpsert(table, rows); // add-only: ids missing remotely (and not in ledger)
+    if (error) { console.warn('[Migrate] upload failed:', table, error.message); return { ok: false, error }; }
+  }
+
+  // Verify every uploaded id is now visible before trusting the migration.
+  const [vp, vt, vn, ve] = await Promise.all([
+    dbFetchProjects(), dbFetchTodos(), dbFetchAll('notes', user.id), dbFetchAll('events', user.id),
+  ]);
+  if (!vp || !vt || !vn || !ve) return { ok: false };
+  const seen = { projects: ids(vp), todos: ids(vt), notes: ids(vn), events: ids(ve) };
+  for (const k of Object.keys(todo)) {
+    if (todo[k].some(x => !seen[k].has(String(x.id)))) return { ok: false };
+    todo[k].forEach(x => ledger[k].push(String(x.id)));
+  }
+  saveMigrationLedger(user.id, ledger);
+  safeSetItem(LOCAL_OWNER_KEY, user.id);
+  return { ok: true, migrated: total };
+}
+
 window.initApp = async function initApp(user) {
   currentUser = user || null;
+  prepareLocalStoreForSession(currentUser);
 
   applyTheme(getTheme());
   renderSettingsUI();
@@ -5032,8 +5648,16 @@ window.initApp = async function initApp(user) {
 
   setLoadingStage(supabaseReady ? 'Syncing…' : 'Starting locally…');
 
+  let migration = { ok: true };
   if (currentUser) {
-    const [remoteTodos, remoteNotes, remoteEvents, remoteProjects, remoteMembers, remoteNotifs] = await Promise.all([
+    setLoadingStage('Bringing your data into your account…');
+    try { migration = await migrateGuestDataIfNeeded(currentUser); }
+    catch (e) { console.warn('[Migrate] threw:', e && e.message); migration = { ok: false }; }
+    if (!migration.ok) showSimpleToast({ emoji: '⚠️', text: "Couldn't sync your guest data yet. It's safe on this device and will retry next time." });
+  }
+
+  if (currentUser) {
+    let [remoteTodos, remoteNotes, remoteEvents, remoteProjects, remoteMembers, remoteNotifs] = await Promise.all([
       dbFetchTodos(),
       dbFetchAll('notes', currentUser.id),
       dbFetchAll('events', currentUser.id),
@@ -5042,8 +5666,10 @@ window.initApp = async function initApp(user) {
       dbFetchNotifications(),
     ]);
 
+    // Failed migration: keep local guest data untouched instead of replacing it with (empty) remote data.
+    if (!migration.ok) { remoteProjects = remoteTodos = remoteNotes = remoteEvents = null; }
     if (remoteProjects) {
-      projects = remoteProjects.map(p => ({ id: p.id, name: p.name, userId: p.user_id, announcement: p.announcement || '', announcementUpdatedAt: p.announcement_updated_at || null }));
+      projects = remoteProjects.map(p => ({ id: p.id, name: p.name, userId: p.user_id, type: p.project_type === 'team' ? 'team' : 'personal', membersCanSetRole: !!p.members_can_set_role, announcement: p.announcement || '', announcementUpdatedAt: p.announcement_updated_at || null }));
       saveProjects();
     }
     if (remoteTodos) {
@@ -5095,8 +5721,15 @@ window.initApp = async function initApp(user) {
 
   setTimeout(maybeAutoOpenCloseout, 4000);
   requestNotifPermissionIfNeeded();
+  if (window.MossNotify) MossNotify.refreshDeliveryState().then(scheduleReminderSync);
   checkEventNotifications();
   attachRealtimeSubscriptions();
 
   runWelcomeGuideFlow({ forced: false });
+  try {
+    if (currentUser && sessionStorage.getItem('mosstaskResumeTeamProject') === '1') {
+      sessionStorage.removeItem('mosstaskResumeTeamProject');
+      setTimeout(() => openProjectModal(null, 'team'), 400);
+    }
+  } catch (e) {}
 };

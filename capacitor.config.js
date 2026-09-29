@@ -1,8 +1,9 @@
 const config = {
-  appId: 'com.aschertype.app',
-  appName: 'Aschertype',
+  appId: 'com.mosstask.app',
+  appName: 'MossTask',
   webDir: 'src',
   bundledWebRuntime: false,
+
   server: {
     androidScheme: 'https',
   },

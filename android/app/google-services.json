@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "40822590106",
+    "project_id": "mosstask-b76e6",
+    "storage_bucket": "mosstask-b76e6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:40822590106:android:1901a0ada23439507aad23",
+        "android_client_info": {
+          "package_name": "com.mosstask.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDWi3PlYkuwZ_c577GesGZnoAd9eueJJvc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
