@@ -725,12 +725,16 @@
             <div id="todo-list" class="task-list"></div>
             <p id="empty-state" class="empty-state" style="display:none" data-i18n="task.empty">Nothing here yet.</p>
             <section id="teamchat-panel" class="teamchat-panel" hidden aria-label="TeamChat">
+              <header class="teamchat-head">
+                <span class="teamchat-head-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></span>
+                <div class="teamchat-head-text"><div id="teamchat-title" class="teamchat-title">TeamChat</div><div id="teamchat-sub" class="teamchat-sub"></div></div>
+              </header>
               <div id="teamchat-banner" class="teamchat-banner" role="status" hidden></div>
               <div id="teamchat-list" class="teamchat-list" role="log" aria-live="polite" tabindex="0"></div>
               <div id="teamchat-notice" class="teamchat-notice" hidden></div>
               <form id="teamchat-form" class="teamchat-form" autocomplete="off" hidden>
                 <textarea id="teamchat-input" rows="1" maxlength="2000" placeholder="Message the team…" aria-label="Message"></textarea>
-                <button type="submit" id="teamchat-send" class="btn primary small">Send</button>
+                <button type="submit" id="teamchat-send" class="btn primary small" aria-label="Send" title="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
               </form>
             </section>
           </div>
@@ -740,7 +744,10 @@
             <div class="collab-sheet">
               <div class="collab-head">
                 <span class="collab-title" data-i18n="collab.title">Collaborators</span>
-                <button type="button" id="collab-invite-btn" class="icon-btn plus" title="Invite collaborator" data-i18n-title="invite.title">+</button>
+                <div class="collab-head-actions">
+                  <button type="button" id="collab-invite-btn" class="icon-btn plus" title="Invite collaborator" data-i18n-title="invite.title">+</button>
+                  <button type="button" id="collab-close-btn" class="collab-close" aria-label="Close" title="Close">&times;</button>
+                </div>
               </div>
               <div id="collab-roles" class="collab-roles" style="display:none">
                 <div class="collab-roles-head"><span>Roles</span><button type="button" id="collab-role-add" class="icon-btn plus" title="Add role" aria-label="Add role">+</button></div>
@@ -980,7 +987,9 @@
           </div>
         </header>
 
+        <h3 class="settings-group-title">Account</h3>
         <div class="settings-card">
+
           <div class="settings-block">
             <div class="settings-row">
               <div>
@@ -997,31 +1006,6 @@
           <div class="settings-block">
             <div class="settings-row">
               <div>
-                <div class="settings-label" data-i18n="settings.welcome.label">Welcome guide</div>
-                <div class="settings-hint" data-i18n="settings.welcome.hint">Review the quick guide to tasks, calendar, notes, and focus.</div>
-              </div>
-            </div>
-            <div class="color-picker-row">
-              <button type="button" id="show-welcome-btn" class="btn small" data-i18n="settings.welcome.show">Show welcome guide</button>
-              <button type="button" id="show-tutorial-btn" class="btn small">Replay interactive tutorial</button>
-            </div>
-          </div>
-
-          <div class="settings-block">
-            <div class="settings-row">
-              <div>
-                <div class="settings-label">Keyboard shortcuts</div>
-                <div class="settings-hint">See every keyboard shortcut available in MossTask.</div>
-              </div>
-            </div>
-            <div class="color-picker-row">
-              <button type="button" id="shortcuts-btn" class="btn small" title="Keyboard shortcuts">View shortcuts</button>
-            </div>
-          </div>
-
-          <div class="settings-block">
-            <div class="settings-row">
-              <div>
                 <div class="settings-label">Plan &amp; billing</div>
                 <div class="settings-hint" id="plan-status-hint">Checking your plan&hellip;</div>
               </div>
@@ -1030,6 +1014,9 @@
               <button type="button" id="open-store-btn" class="btn small primary">View plans</button>
             </div>
           </div>
+        </div>
+        <h3 class="settings-group-title">Appearance &amp; language</h3>
+        <div class="settings-card">
 
           <div class="settings-block">
             <div class="settings-row">
@@ -1060,22 +1047,9 @@
               </button>
             </div>
           </div>
-
-          <div class="settings-block">
-            <div class="settings-row">
-              <div>
-                <div class="settings-label" data-i18n="settings.closeout.label">Daily closeout time</div>
-                <div class="settings-hint" data-i18n="settings.closeout.hint">When your workday ends, we'll offer a quick 2-minute review of anything left unfinished.</div>
-              </div>
-            </div>
-            <div class="color-picker-row">
-              <input type="time" id="closeout-time-input" class="hex-input">
-              <label class="closeout-toggle-label">
-                <input type="checkbox" id="closeout-enabled-input">
-                <span data-i18n="settings.closeout.enable">Enable daily closeout</span>
-              </label>
-            </div>
-          </div>
+        </div>
+        <h3 class="settings-group-title">Notifications &amp; focus</h3>
+        <div class="settings-card">
 
           <div class="settings-block">
             <div class="settings-row">
@@ -1090,6 +1064,22 @@
                 <span data-i18n="settings.notifications.enable">Enable notifications</span>
               </label>
               <span class="notif-permission-hint" id="notif-permission-hint"></span>
+            </div>
+          </div>
+
+          <div class="settings-block">
+            <div class="settings-row">
+              <div>
+                <div class="settings-label" data-i18n="settings.closeout.label">Daily closeout time</div>
+                <div class="settings-hint" data-i18n="settings.closeout.hint">When your workday ends, we'll offer a quick 2-minute review of anything left unfinished.</div>
+              </div>
+            </div>
+            <div class="color-picker-row">
+              <input type="time" id="closeout-time-input" class="hex-input">
+              <label class="closeout-toggle-label">
+                <input type="checkbox" id="closeout-enabled-input">
+                <span data-i18n="settings.closeout.enable">Enable daily closeout</span>
+              </label>
             </div>
           </div>
 
@@ -1111,15 +1101,9 @@
               </label>
             </div>
           </div>
-          <div class="settings-block">
-            <div class="settings-row">
-              <div>
-                <div class="settings-label" data-i18n="settings.aiModel.label">AI Assistant model</div>
-                <div class="settings-hint" data-i18n="settings.aiModel.hint">AI'scher runs fully on your device via Ollama, using the built-in default model (qwen2.5:3b). This isn't configurable — it's tuned to work reliably out of the box.</div>
-              </div>
-            </div>
-          </div>
-
+        </div>
+        <h3 class="settings-group-title">Data</h3>
+        <div class="settings-card">
 
           <div class="settings-block">
             <div class="settings-row">
@@ -1134,8 +1118,39 @@
               <input type="file" id="import-data-input" accept="application/json" style="display:none">
             </div>
           </div>
+        </div>
+        <h3 class="settings-group-title">Help</h3>
+        <div class="settings-card">
 
           <div class="settings-block">
+            <div class="settings-row">
+              <div>
+                <div class="settings-label" data-i18n="settings.welcome.label">Welcome guide</div>
+                <div class="settings-hint" data-i18n="settings.welcome.hint">Review the quick guide to tasks, calendar, notes, and focus.</div>
+              </div>
+            </div>
+            <div class="color-picker-row">
+              <button type="button" id="show-welcome-btn" class="btn small" data-i18n="settings.welcome.show">Show welcome guide</button>
+              <button type="button" id="show-tutorial-btn" class="btn small">Replay interactive tutorial</button>
+            </div>
+          </div>
+
+          <div class="settings-block">
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Keyboard shortcuts</div>
+                <div class="settings-hint">See every keyboard shortcut available in MossTask.</div>
+              </div>
+            </div>
+            <div class="color-picker-row">
+              <button type="button" id="shortcuts-btn" class="btn small" title="Keyboard shortcuts">View shortcuts</button>
+            </div>
+          </div>
+        </div>
+        <h3 class="settings-group-title">About</h3>
+        <div class="settings-card">
+
+          <div class="settings-block secondary">
             <div class="settings-row">
               <div>
                 <div class="settings-label" data-i18n="settings.legal.label">Legal</div>
@@ -1145,6 +1160,16 @@
             <div class="color-picker-row">
               <a href="./terms.html" class="btn small" data-i18n="settings.legal.terms">Terms of Service</a>
               <a href="./privacy.html" class="btn small" data-i18n="settings.legal.privacy">Privacy Policy</a>
+            </div>
+          </div>
+        
+
+          <div class="settings-block secondary">
+            <div class="settings-row">
+              <div>
+                <div class="settings-label" data-i18n="settings.aiModel.label">AI Assistant model</div>
+                <div class="settings-hint" data-i18n="settings.aiModel.hint">AI'scher runs fully on your device via Ollama, using the built-in default model (qwen2.5:3b). This isn't configurable — it's tuned to work reliably out of the box.</div>
+              </div>
             </div>
           </div>
         </div>
@@ -1600,14 +1625,15 @@
       <div id="store-signin-notice" class="auth-message" style="display:none">
         Sign in to see your usage and upgrade. Guest projects aren't tied to an account, so plans only apply once you're signed in.
       </div>
+      <div id="store-thanks" class="auth-message" style="display:none">Thank you for upgrading to Team. Collaborative projects, TeamChat, roles, assignment and server-delivered reminders are now available, with up to 10 projects and 20 people each.</div>
       <div class="store-tiers">
         <div class="store-tier-card" data-plan="free">
           <div class="store-tier-name">Free</div>
           <div class="store-tier-price">$0</div>
           <ul class="store-tier-features">
-            <li>3 projects</li>
+            <li>3 collaborative projects</li>
             <li>Up to 6 people per project</li>
-            <li>Unlimited personal tasks, notes &amp; calendar</li>
+            <li>Unlimited personal projects, tasks, notes &amp; calendar</li>
           </ul>
           <button type="button" class="btn small" disabled data-plan-btn="free">Current on sign-up</button>
         </div>
@@ -1616,7 +1642,7 @@
           <div class="store-tier-price">$5<span class="store-tier-period">/mo</span></div>
           <ul class="store-tier-features">
             <li>Collaborative Projects &amp; TeamChat</li>
-            <li>10 projects, up to 20 people each</li>
+            <li>10 collaborative projects, up to 20 people each</li>
             <li>Roles, assignment &amp; server-delivered reminders</li>
           </ul>
           <button type="button" class="btn small primary" data-plan-btn="team">Upgrade to Team</button>

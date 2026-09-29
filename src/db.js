@@ -227,11 +227,11 @@ function setupRealtime(handlers) {
     .on('postgres_changes',
         { event: '*', schema: 'public', table: 'events' },
         wrap('events', handlers.onEvent))
-    .subscribe((status) => {
+    .subscribe((status, err) => {
       if (gen !== realtimeGen) return; // status from a replaced/removed channel
       if (status === 'SUBSCRIBED') console.log('[Realtime] connected');
       else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-        console.warn('[Realtime] subscription problem:', status);
+        console.warn('[Realtime] subscription problem:', status, err && err.message);
       }
       if (typeof window !== 'undefined' && typeof window.onRealtimeStatus === 'function') {
         window.onRealtimeStatus(status);

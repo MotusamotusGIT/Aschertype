@@ -162,15 +162,19 @@ function hasElectronSecureStore() {
 const electronSecureStorage = {
   getItem(key) {
     if (!hasElectronSecureStore()) return rememberAwareStorage.getItem(key);
-    if (!secureCacheHydrated) return null;
-    if (!getRememberPreference()) return null;
-    const value = secureCache.get(key);
-    return value === undefined ? null : value;
+    // Async storage (supported by supabase-js): wait for keychain hydration so a
+    // fast getSession() never sees an empty store and bounces the user to login.
+    return secureStorageReady.then(() => {
+      if (!getRememberPreference()) { try { return sessionStorage.getItem(key); } catch (e) { return null; } }
+      const value = secureCache.get(key);
+      return value === undefined ? null : value;
+    });
   },
   setItem(key, value) {
     if (!hasElectronSecureStore()) { rememberAwareStorage.setItem(key, value); return; }
     if (!getRememberPreference()) {
-      secureCache.set(key, value);
+      // Session-only: survives a refresh (same as web), gone when the window closes.
+      try { sessionStorage.setItem(key, value); } catch (e) {}
       return;
     }
     secureCache.set(key, value);
@@ -213,10 +217,10 @@ if (typeof window !== 'undefined') {
   window.secureStorageReady = secureStorageReady;
   window.flushSecureWrites = flushSecureWrites;
 
-  if (window.electronAPI && window.electronAPI.onFlushRequest) {
-    window.electronAPI.onFlushRequest(async () => {
+  if (window.electronAPI && window.electronAPI.onFlushSecureWrites) {
+    window.electronAPI.onFlushSecureWrites(async () => {
       await flushSecureWrites();
-      window.electronAPI.flushComplete();
+      window.electronAPI.sendFlushComplete();
     });
   }
 }

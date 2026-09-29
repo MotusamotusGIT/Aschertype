@@ -1173,7 +1173,7 @@ let editingProjectId = null;
 function friendlyPlanError(message) {
   const m = String(message || '');
   if (m.includes('project_limit_reached')) {
-    return "You've reached your plan's project limit. Upgrade to create more projects.";
+    return "You've reached your plan's limit for collaborative projects. Personal projects are unlimited. Upgrade for more.";
   }
   if (m.includes('member_limit_reached')) {
     return "This project is at its member limit for the owner's plan. Upgrade to add more people.";
@@ -1189,7 +1189,7 @@ async function refreshProjectModalUsage() {
   if (!currentUser || typeof dbFetchPlanUsage !== 'function') return;
   const usage = await dbFetchPlanUsage();
   if (!usage || usage.max_projects == null) return; // unlimited plan: no need to show a counter
-  projectModalUsageEl.textContent = `${usage.owned_projects}/${usage.max_projects} projects used on your ${usage.plan} plan`;
+  projectModalUsageEl.textContent = `${usage.owned_projects}/${usage.max_projects} collaborative projects used on your ${usage.plan} plan`;
   projectModalUsageEl.style.display = 'block';
 }
 
@@ -3058,7 +3058,7 @@ function isNarrowLayout() {
 
 function updateCollabFabVisibility() {
   if (!collabFab) return;
-  if (currentView !== 'project' || !currentProjectId || !currentUser || !isTeamProject(currentProjectId) || !isNarrowLayout()) {
+  if (currentView !== 'project' || !currentProjectId || !currentUser || !isTeamProject(currentProjectId)) {
     collabFab.style.display = 'none';
     return;
   }
@@ -3075,6 +3075,14 @@ function updateCollabFabVisibility() {
 
 collabFab.addEventListener('click', () => {
   collabPanel.classList.add('open');
+});
+function closeCollabPanel() {
+  collabPanel.classList.remove('open');
+  closePermPopover();
+}
+document.getElementById('collab-close-btn')?.addEventListener('click', closeCollabPanel);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && collabPanel.classList.contains('open') && !document.querySelector('.modal-overlay[style*="flex"]')) closeCollabPanel();
 });
 collabBackdrop.addEventListener('click', () => {
   collabPanel.classList.remove('open');
@@ -5123,32 +5131,51 @@ async function refreshStoreUI() {
   }
   if (storeSigninNotice) storeSigninNotice.style.display = 'none';
 
-  const usage = (typeof dbFetchPlanUsage === 'function') ? await dbFetchPlanUsage() : null;
+  let usage = (typeof dbFetchPlanUsage === 'function') ? await dbFetchPlanUsage() : null;
   if (!usage) {
-    if (storeCurrentPlanSub) storeCurrentPlanSub.textContent = "You're on the Free plan.";
-    if (planStatusHint) planStatusHint.textContent = 'Free plan';
-    return;
+    // Fall back to the server-side profile; never assume Free.
+    const prof = (typeof dbFetchMyProfile === 'function') ? await dbFetchMyProfile() : null;
+    if (!prof) {
+      if (storeCurrentPlanSub) storeCurrentPlanSub.textContent = "Couldn't load your plan.";
+      if (planStatusHint) planStatusHint.textContent = "Couldn't load your plan.";
+      return;
+    }
+    usage = { plan: prof.plan || 'free', max_projects: null, owned_projects: 0 };
   }
 
   const planLabel = usage.plan.charAt(0).toUpperCase() + usage.plan.slice(1);
   if (storeCurrentPlanSub) storeCurrentPlanSub.textContent = `You're on the ${planLabel} plan.`;
   if (planStatusHint) {
     planStatusHint.textContent = usage.max_projects != null
-      ? `${planLabel} plan — ${usage.owned_projects}/${usage.max_projects} projects used`
-      : `${planLabel} plan — unlimited projects`;
+      ? `${planLabel} plan — ${usage.owned_projects}/${usage.max_projects} collaborative projects used`
+      : `${planLabel} plan — unlimited collaborative projects`;
   }
   const card = document.querySelector(`.store-tier-card[data-plan="${usage.plan}"]`);
   if (card) card.classList.add('is-current');
+  document.querySelectorAll('[data-plan-btn]').forEach((b) => {
+    const p = b.getAttribute('data-plan-btn');
+    if (p === usage.plan) { b.textContent = 'Current plan'; b.disabled = true; b.classList.remove('primary'); }
+    else if (p === 'team') { b.textContent = 'Upgrade to Team'; b.disabled = false; b.classList.add('primary'); }
+  });
+  checkUpgradeConfirmed(usage.plan);
 
   if (storeUsageLine) {
     storeUsageLine.style.display = 'block';
     storeUsageLine.textContent = usage.max_projects != null
-      ? `You've created ${usage.owned_projects} of ${usage.max_projects} projects allowed on your plan.`
-      : `You've created ${usage.owned_projects} projects. Your plan has no project limit.`;
+      ? `You've created ${usage.owned_projects} of ${usage.max_projects} collaborative projects allowed on your plan. Personal projects are unlimited.`
+      : `You've created ${usage.owned_projects} collaborative projects. Your plan has no limit. Personal projects are unlimited.`;
   }
 }
 
-document.getElementById('open-store-btn')?.addEventListener('click', openStore);
+document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('#open-store-btn')) openStore(); });
+// Shown once, only after the SERVER reports the Team plan (never on checkout click).
+function checkUpgradeConfirmed(plan) {
+  if (!currentUser || plan !== 'team') return;
+  const k = 'mosstask:teamThanks:' + currentUser.id;
+  try { if (localStorage.getItem(k)) return; localStorage.setItem(k, '1'); } catch (e) { return; }
+  const el = document.getElementById('store-thanks');
+  if (el) { el.style.display = 'block'; openStore(); }
+}
 document.getElementById('store-close-btn')?.addEventListener('click', closeStore);
 if (storeOverlay) storeOverlay.addEventListener('click', (e) => { if (e.target === storeOverlay) closeStore(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && storeOverlay && storeOverlay.style.display === 'flex') closeStore(); });
@@ -5164,6 +5191,12 @@ document.querySelectorAll('[data-plan-btn]').forEach((btn) => {
     url.searchParams.set('client_reference_id', currentUser.id);
     if (currentUser.email) url.searchParams.set('prefilled_email', currentUser.email);
     window.open(url.toString(), '_blank');
+    // Wait for the webhook to actually flip profiles.plan before confirming anything.
+    const poll = setInterval(async () => {
+      const u = await dbFetchPlanUsage();
+      if (u && u.plan === plan) { clearInterval(poll); refreshStoreUI(); }
+    }, 5000);
+    setTimeout(() => clearInterval(poll), 300000);
   });
 });
 

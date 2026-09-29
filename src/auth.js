@@ -79,6 +79,7 @@ function clearPendingConfirmation() {
 // fetched or rendered until the user focuses a field inside a form. Widgets
 // are rendered one at a time (login first, register when its tab opens).
 const HCAPTCHA_SITEKEY = '1b028ed2-db84-4806-8394-324c67987b3a';
+const HCAPTCHA_HOST = 'aschertype.vercel.app'; // a hostname allowed on the sitekey (Electron/file:// only)
 const CAPTCHA_SLOT_IDS = { login: 'login-captcha', register: 'register-captcha' };
 const captchaWidgetIds = { login: null, register: null };
 
@@ -101,7 +102,11 @@ function loadHcaptchaScript() {
     if (typeof window.hcaptcha !== 'undefined') { resolve(); return; }
     window.__aschertypeHcaptchaReady = resolve;
     const s = document.createElement('script');
-    s.src = 'https://hcaptcha.com/1/api.js?render=explicit&onload=__aschertypeHcaptchaReady';
+    // Electron loads the UI from file://, which has no hostname, so hCaptcha's
+    // getcaptcha call is rejected (403) for any sitekey. Declare an allowed host
+    // explicitly; it must be listed under this sitekey's hostnames in the hCaptcha dashboard.
+    const hostParam = location.protocol === 'file:' ? '&host=' + encodeURIComponent(HCAPTCHA_HOST) : '';
+    s.src = 'https://hcaptcha.com/1/api.js?render=explicit&onload=__aschertypeHcaptchaReady' + hostParam;
     s.async = true;
     s.defer = true;
     s.onerror = () => {

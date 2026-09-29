@@ -45,6 +45,14 @@
     const p = document.createElement('p'); p.className = 'teamchat-empty'; p.textContent = text; l.appendChild(p);
   }
 
+  function setHeader() {
+    const t = $('teamchat-title'), s = $('teamchat-sub'); if (!t || !st) return;
+    const p = typeof getProject === 'function' ? getProject(st.projectId) : null;
+    t.textContent = (p && p.name) ? p.name : 'TeamChat';
+    const n = st.people.size;
+    if (s) s.textContent = n ? n + (n === 1 ? ' member' : ' members') : '';
+  }
+
   function nameOf(id) {
     if (currentUser && id === currentUser.id) return 'You';
     const p = st && st.people.get(id);
@@ -69,6 +77,7 @@
     const node = document.createElement('div');
     node.className = 'tc-msg' + (own ? ' own' : '') + (head ? ' head' : '');
     node.dataset.id = m.id;
+    if (head && !own) node.dataset.initial = (nameOf(m.sender_id) || '?').trim().charAt(0).toUpperCase();
 
     if (head) {
       const meta = document.createElement('div'); meta.className = 'tc-meta';
@@ -158,6 +167,7 @@
     const { data } = await supabaseClient.rpc('teamchat_bootstrap', { p_project: s.projectId, p_limit: 1 });
     if (st !== s || !data || data.status !== 'ok') return;
     loadPeople(data.people);
+    setHeader();
     renderAll();
   }
   function loadPeople(arr) {
@@ -303,7 +313,7 @@
     const my = ++gen;
     st = { projectId: pid, channel: null, messages: [], byId: new Map(), people: new Map(), hasMore: false, oldestAt: null, newestAt: null, isOwner: false, wasDown: false, loadingOlder: false, blocked: true, peopleAt: Date.now() };
     const s = st;
-    setNotice(''); setBanner(''); setComposerEnabled(false); showListMessage('Loading…');
+    setNotice(''); setBanner(''); setComposerEnabled(false); showListMessage('Loading…'); setHeader();
     window.addEventListener('offline', onOffline); window.addEventListener('online', onOnline);
     let res;
     try { res = await supabaseClient.rpc('teamchat_bootstrap', { p_project: pid, p_limit: PAGE }); }
@@ -322,6 +332,7 @@
     }
     if (d.status !== 'ok') { showListMessage(''); setNotice("You don't have access to this project's TeamChat."); return; }
     loadPeople(d.people);
+    setHeader();
     const rows = (d.messages || []).slice().reverse(); // newest-first -> chronological
     rows.forEach((r) => { const m = normalize(r); s.byId.set(m.id, m); s.messages.push(m); });
     s.hasMore = rows.length === PAGE;

@@ -3482,32 +3482,6 @@ kbd {
 .project-tab { border: 1px solid var(--border); background: transparent; color: var(--ink-light); border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 13.5px; cursor: pointer; }
 .project-tab.active { color: var(--ink); border-color: var(--border-hover); font-weight: 600; }
 .project-view-main.chat-mode > :not(.main-header):not(#project-tabs):not(#teamchat-panel) { display: none !important; }
-.teamchat-panel { display: flex; flex-direction: column; min-width: 0; height: calc(100dvh - 240px); min-height: 320px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-.teamchat-panel[hidden], .teamchat-banner[hidden], .teamchat-notice[hidden], .teamchat-form[hidden] { display: none !important; }
-.teamchat-list { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 12px; display: flex; flex-direction: column; gap: 2px; }
-.teamchat-banner { padding: 6px 12px; font-size: 12.5px; color: var(--ink-light); border-bottom: 1px solid var(--border); }
-.teamchat-notice { padding: 16px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; font-size: 14px; }
-.teamchat-notice p { margin: 0; }
-.teamchat-empty { color: var(--ink-light); font-size: 13.5px; text-align: center; margin: auto; }
-.teamchat-form { display: flex; gap: 8px; align-items: flex-end; padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--border); }
-.teamchat-form textarea { flex: 1; min-width: 0; resize: none; max-height: 140px; font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: transparent; color: var(--ink); }
-.tc-msg { max-width: 100%; min-width: 0; padding-top: 1px; }
-.tc-msg.head { margin-top: 10px; }
-.tc-meta { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-size: 12.5px; margin-bottom: 2px; }
-.tc-name { font-weight: 600; }
-.tc-role { color: var(--ink-light); font-size: 11.5px; }
-.tc-time { color: var(--ink-light); font-size: 11.5px; }
-.tc-bubble { font-size: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
-.tc-edited { color: var(--ink-light); font-size: 11.5px; }
-.tc-status { font-size: 11.5px; color: var(--ink-light); }
-.tc-status.failed { color: #c0392b; }
-.tc-actions { display: none; gap: 10px; }
-.tc-msg:hover .tc-actions, .tc-msg:focus-within .tc-actions { display: flex; }
-@media (hover: none) { .tc-actions { display: flex; } }
-.tc-link { background: none; border: 0; padding: 0; font: inherit; font-size: 11.5px; color: var(--ink-light); cursor: pointer; text-decoration: underline; }
-.tc-more { align-self: center; background: none; border: 0; color: var(--ink-light); font: inherit; font-size: 12.5px; cursor: pointer; padding: 4px 8px; }
-.tc-edit { width: 100%; box-sizing: border-box; font: inherit; font-size: 14px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: var(--ink); }
-.tc-edit-row { display: flex; gap: 6px; margin-top: 4px; }
 /* roles in the members panel */
 .collab-role-tag { font-size: 11.5px; color: var(--ink-light); overflow-wrap: anywhere; }
 .collab-role-select { max-width: 100%; margin-top: 4px; font: inherit; font-size: 12px; background: transparent; color: var(--ink); border: 1px solid var(--border); border-radius: 6px; padding: 2px 4px; }
@@ -3518,3 +3492,165 @@ kbd {
 .collab-role-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .collab-role-chip button { background: none; border: 0; padding: 0 2px; color: var(--ink-light); cursor: pointer; font: inherit; }
 .collab-role-toggle { display: flex; gap: 6px; align-items: center; color: var(--ink-light); }
+/* ---- Settings grouping ---- */
+.settings-group-title { margin: 26px 4px 8px; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-light); }
+.settings-group-title:first-of-type { margin-top: 8px; }
+.settings-block.secondary { padding-top: 14px; padding-bottom: 14px; }
+.settings-block.secondary .settings-label { font-size: 14px; font-weight: 500; }
+.settings-block.secondary .settings-hint { font-size: 12px; }
+
+/* Collaborators: dedicated panel on every size. <=1200px = bottom sheet (above);
+   desktop = right-side drawer that slides in like the task panel. */
+.collab-close { display: none; }
+@media (min-width: 1201px) {
+  .project-view-layout.with-collab { display: block; }
+  .view-panel:has(.project-view-layout.with-collab) { max-width: 1120px; }
+  .collab-fab { bottom: 24px; }
+
+  .project-collab-panel {
+    position: fixed; inset: 0; top: 0; z-index: 62;
+    background: transparent; border: none; border-radius: 0; overflow: visible; padding: 0;
+    visibility: hidden; pointer-events: none;
+    transition: visibility 0s linear .22s;
+  }
+  .project-collab-panel.open { visibility: visible; pointer-events: auto; transition-delay: 0s; }
+  .project-collab-panel .collab-backdrop {
+    display: block; position: absolute; inset: 0;
+    background: rgba(0,0,0,0.32); opacity: 0; transition: opacity .18s ease;
+  }
+  .project-collab-panel.open .collab-backdrop { opacity: 1; }
+
+  .project-collab-panel .collab-sheet {
+    position: absolute; top: 0; right: 0; bottom: 0;
+    width: 400px; max-width: 92vw; box-sizing: border-box;
+    padding: 24px 28px 28px; overflow-y: auto;
+    background: var(--card); border-left: 1px solid var(--border);
+    box-shadow: -12px 0 36px rgba(0,0,0,0.14);
+    transform: translateX(100%); transition: transform .22s ease;
+  }
+  .project-collab-panel.open .collab-sheet { transform: translateX(0); }
+
+  .collab-close {
+    display: flex; align-items: center; justify-content: center; margin-left: 4px;
+    width: 34px; height: 34px; border: none; border-radius: 10px; background: transparent;
+    color: var(--ink-light); cursor: pointer; font-size: 20px; transition: background-color .15s ease, color .15s ease;
+  }
+  .collab-close:hover { background: var(--bg); color: var(--ink); }
+  .collab-head { padding: 0 0 16px; margin-bottom: 12px; }
+  .collab-head-actions { display: flex; align-items: center; gap: 2px; }
+  .collab-title { font-size: 12px; }
+  .project-collab-panel .collab-member { padding: 10px 8px; gap: 12px; }
+  .project-collab-panel .collab-avatar { width: 32px; height: 32px; font-size: 12.5px; }
+  .project-collab-panel .collab-email { font-size: 13.5px; }
+  .project-collab-panel .collab-role { font-size: 11.5px; }
+  .project-collab-panel .collab-action-btn { width: 26px; height: 26px; }
+  .project-collab-panel .collab-action-btn svg { width: 14px; height: 14px; }
+}
+@media (max-width: 1200px) {
+  .collab-head-actions { display: flex; align-items: center; gap: 2px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .project-collab-panel, .project-collab-panel .collab-sheet, .project-collab-panel .collab-backdrop { transition: none !important; }
+}
+
+/* ================= TeamChat ================= */
+.teamchat-panel, .teamchat-banner, .teamchat-notice, .teamchat-form { box-sizing: border-box; }
+.teamchat-panel[hidden], .teamchat-banner[hidden], .teamchat-notice[hidden], .teamchat-form[hidden] { display: none !important; }
+.teamchat-panel {
+  --tc-other: var(--bg-elev);
+  --tc-field: var(--bg-elev);
+  display: flex; flex-direction: column; min-width: 0; min-height: 320px;
+  height: calc(100dvh - 240px);
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
+}
+@supports (background: color-mix(in srgb, red 50%, blue)) {
+  .teamchat-panel {
+    --tc-other: color-mix(in srgb, var(--ink) 7%, var(--card));
+    --tc-field: color-mix(in srgb, var(--ink) 5%, var(--card));
+  }
+}
+
+/* header */
+.teamchat-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); flex: none; }
+.teamchat-head-icon { width: 34px; height: 34px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-ink); display: grid; place-items: center; flex: none; }
+.teamchat-head-icon svg { width: 17px; height: 17px; }
+.teamchat-head-text { min-width: 0; }
+.teamchat-title { font-size: 15px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.teamchat-sub { font-size: 12px; color: var(--ink-light); }
+.teamchat-sub:empty { display: none; }
+
+/* status strips */
+.teamchat-banner { flex: none; padding: 6px 16px; font-size: 12.5px; color: var(--ink-light); background: var(--accent-soft); text-align: center; }
+.teamchat-notice { flex: none; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; align-items: center; text-align: center; font-size: 13.5px; color: var(--ink-2); border-top: 1px solid var(--border); }
+.teamchat-notice p { margin: 0; }
+.teamchat-empty { color: var(--ink-light); font-size: 13.5px; text-align: center; margin: auto; max-width: 260px; line-height: 1.5; }
+
+/* message list: scrolls on its own */
+.teamchat-list { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 14px 16px; display: flex; flex-direction: column; gap: 3px; scrollbar-width: thin; }
+.tc-more { align-self: center; background: none; border: 0; color: var(--ink-light); font: inherit; font-size: 12.5px; cursor: pointer; padding: 4px 10px; margin-bottom: 6px; border-radius: 999px; }
+.tc-more:hover { background: var(--accent-soft); color: var(--accent-ink); }
+
+/* message */
+.tc-msg { position: relative; display: flex; flex-direction: column; align-items: flex-start; min-width: 0; max-width: min(80%, 640px); margin-left: 38px; }
+.tc-msg.own { align-self: flex-end; align-items: flex-end; margin-left: 0; }
+.tc-msg.head { margin-top: 12px; }
+.tc-msg.head:first-child { margin-top: 0; }
+.tc-msg.head:not(.own)[data-initial]::before {
+  content: attr(data-initial);
+  position: absolute; left: -38px; top: 0; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent-ink); font-size: 12.5px; font-weight: 700;
+  display: grid; place-items: center;
+}
+.tc-msg.head:not(.own):has(.tc-meta)::before { top: 0; }
+
+.tc-meta { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; font-size: 12.5px; margin: 0 4px 3px; }
+.tc-name { font-weight: 600; color: var(--ink-2); }
+.tc-role { color: var(--ink-light); font-size: 11px; }
+.tc-time { color: var(--ink-light); font-size: 11px; }
+.tc-msg.own .tc-name, .tc-msg.own .tc-role { display: none; }
+
+.tc-bubble {
+  width: fit-content; max-width: 100%; box-sizing: border-box; padding: 8px 12px;
+  border-radius: 16px; background: var(--tc-other); color: var(--ink);
+  font-size: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
+}
+.tc-msg.head:not(.own) .tc-bubble { border-top-left-radius: 5px; }
+.tc-msg.own .tc-bubble { background: var(--accent); color: var(--accent-contrast); }
+.tc-msg.own.head .tc-bubble { border-top-right-radius: 5px; }
+.tc-edited { opacity: .7; font-size: 11px; }
+.tc-status { font-size: 11px; color: var(--ink-light); margin: 2px 4px 0; }
+.tc-status.failed { color: var(--high); }
+
+/* per-message actions: floating chip, no layout shift */
+.tc-actions { display: none; gap: 10px; position: absolute; top: -12px; right: 6px; padding: 2px 9px; background: var(--card); border: 1px solid var(--border); border-radius: 999px; box-shadow: var(--shadow-sm); z-index: 1; }
+.tc-msg:not(.own) .tc-actions { right: auto; left: 6px; }
+.tc-msg:hover .tc-actions, .tc-msg:focus-within .tc-actions { display: flex; }
+@media (hover: none) {
+  .tc-actions { display: flex; position: static; background: none; border: 0; box-shadow: none; padding: 0; margin: 2px 4px 0; }
+}
+.tc-link { background: none; border: 0; padding: 0; font: inherit; font-size: 11.5px; color: var(--ink-light); cursor: pointer; }
+.tc-link:hover { color: var(--accent-ink); text-decoration: underline; }
+.tc-msg:has(.tc-edit) { width: min(100%, 520px); max-width: 100%; }
+.tc-edit { width: 100%; box-sizing: border-box; font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--tc-field); color: var(--ink); resize: vertical; }
+.tc-edit-row { display: flex; gap: 6px; margin-top: 6px; }
+
+/* composer */
+.teamchat-form { flex: none; display: flex; gap: 8px; align-items: flex-end; padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--border); background: var(--card); }
+.teamchat-form textarea { flex: 1; min-width: 0; resize: none; max-height: 140px; font: inherit; font-size: 14px; line-height: 1.4; padding: 9px 14px; border: 1px solid transparent; border-radius: 20px; background: var(--tc-field); color: var(--ink); outline: none; }
+.teamchat-form textarea:focus { border-color: var(--accent); }
+.teamchat-form textarea::placeholder { color: var(--ink-light); }
+.teamchat-form #teamchat-send { flex: none; width: 38px; height: 38px; padding: 0; border-radius: 50%; display: grid; place-items: center; }
+.teamchat-form #teamchat-send svg { width: 17px; height: 17px; }
+.teamchat-form:has(textarea:placeholder-shown) #teamchat-send { opacity: .45; }
+
+/* mobile: compact, messaging-app feel */
+@media (max-width: 640px) {
+  .teamchat-panel { border-radius: 12px; height: calc(100dvh - 250px); }
+  .teamchat-head { padding: 10px 12px; }
+  .teamchat-list { padding: 10px 10px; }
+  .tc-msg { max-width: 88%; margin-left: 34px; }
+  .tc-msg.own { margin-left: 0; }
+  .tc-msg.head:not(.own)[data-initial]::before { left: -34px; width: 26px; height: 26px; font-size: 12px; }
+  .tc-bubble { padding: 7px 11px; }
+  .teamchat-form { padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px)); }
+}
