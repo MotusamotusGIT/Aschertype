@@ -1,212 +1,119 @@
 ---
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import Layout from '../layouts/Layout.astro';
 
-const APP_URL = 'https://aschertype.vercel.app';
+const APP_URL = 'https://mosstask.vercel.app';
 
-const features = [
+// Optional screenshots: drop home.webp, tasks.webp or tools.webp into /public
+// and they are picked up automatically. Until then the page uses the
+// screenshots that already exist (project, collab, calendar).
+const has = (f: string) => existsSync(join(process.cwd(), 'public', f));
+
+const shots = {
+  hero: { src: '/project.webp', w: 1600, h: 900, alt: 'MossTask showing a project with tasks, due dates, and a completion progress bar.' },
+  home: has('home.webp')
+    ? { src: '/home.webp', w: 1600, h: 900, alt: 'MossTask Home with today\'s tasks, active tasks, the week ahead, and a completion streak.' }
+    : null,
+  tasks: has('tasks.webp')
+    ? { src: '/tasks.webp', w: 1600, h: 900, alt: 'A MossTask task with priority, due date, subtasks, and progress.' }
+    : null,
+  projects: { src: '/collab.webp', w: 1200, h: 700, alt: 'A shared MossTask project with its tasks and members.' },
+  rhythm: has('tools.webp')
+    ? { src: '/tools.webp', w: 238, h: 900, alt: 'MossTask calendar, notes, and Pomodoro timer.' }
+    : { src: '/calendar.webp', w: 1400, h: 1000, alt: 'MossTask calendar month view with events on different days.' },
+};
+
+const overview = [
+  { title: 'Tasks', desc: 'Priorities, due dates, subtasks.', icon: 'check-square' },
+  { title: 'Projects', desc: 'Tasks, announcements, progress.', icon: 'folder' },
+  { title: 'Calendar', desc: 'Events and due dates together.', icon: 'calendar' },
+  { title: 'Notes', desc: 'Context next to the work.', icon: 'file-text' },
+  { title: 'Focus', desc: 'Pomodoro from any task.', icon: 'timer' },
+  { title: 'Overview', desc: 'Today, this week, your streak.', icon: 'trending-up' },
+];
+
+const workflow = [
+  { n: '01', title: 'Plan', desc: 'Know what needs doing.' },
+  { n: '02', title: 'Organize', desc: 'Keep work in the right place.' },
+  { n: '03', title: 'Focus', desc: 'Stay with the task.' },
+  { n: '04', title: 'Finish', desc: 'Close things out and move on.' },
+];
+
+const categories = [
   {
-    title: 'Tasks',
-    desc: 'Add a task in seconds. Need more? Add a due date, priority, category, checklist, or repeat — only when you want to.',
-    icon: 'check-square',
+    id: 'tasks',
+    label: 'Get things done',
+    title: 'Keep the next thing obvious.',
+    desc: 'Tasks stay focused on what matters: what needs doing, when it matters, and how far along it is.',
+    points: [
+      'Priorities and due dates',
+      'Subtasks with a progress bar',
+      'Pin the tasks that matter most',
+      'Repeating tasks: daily, weekly, or monthly',
+    ],
+    shot: shots.tasks,
   },
   {
-    title: 'Calendar & reminders',
-    desc: 'Events and task due dates live on one calendar, with a notification when they matter.',
-    icon: 'calendar',
+    id: 'projects',
+    label: 'Keep work together',
+    title: 'Keep the whole project in view.',
+    desc: 'Personal is your own space for everyday work and stays yours. Projects keep shared work, tasks, announcements, and progress together.',
+    defs: [
+      { term: 'Description', text: 'What the project is.' },
+      { term: 'Announcement', text: 'What needs attention now.' },
+    ],
+    points: [
+      'Members work from the same project',
+      'Project owners can assign tasks',
+      'Roles for members on the Team plan',
+    ],
+    shot: shots.projects,
   },
   {
-    title: 'Notes',
-    desc: 'Capture quick thoughts and keep useful details close to the work they belong to.',
-    icon: 'file-text',
-  },
-  {
-    title: 'Pomodoro focus',
-    desc: 'Start a focus session from any task, queue what is next, and see the time you spent on each one.',
-    icon: 'timer',
-  },
-  {
-    title: 'Simple projects',
-    desc: 'Group related tasks when you need to, share them with others, and keep the view clear when you do not.',
-    icon: 'folder',
-  },
-  {
-    title: 'Daily closeout',
-    desc: 'At the end of your day, take two minutes to move what is unfinished to tomorrow — or leave it as it is.',
-    icon: 'moon',
-  },
-  {
-    title: 'Progress at a glance',
-    desc: 'A calm Home screen with what needs attention today, how your week is going, and a streak to keep you steady.',
-    icon: 'trending-up',
-  },
-  {
-    title: 'Search & shortcuts',
-    desc: 'Press Ctrl+K to find any task, note, or event. Add a task with N. Select many tasks and act on them at once.',
-    icon: 'search',
-  },
-  {
-    title: 'Offline by default',
-    desc: 'Start without an account. Your work stays on your device until you choose to sync.',
-    icon: 'hard-drive',
+    id: 'rhythm',
+    label: 'Stay in rhythm',
+    title: 'Work the way your day actually moves.',
+    desc: 'See what is coming, keep useful context nearby, and start a focused session without leaving your workspace.',
+    points: [
+      'Calendar with events and task due dates',
+      'Notes with your own categories',
+      'Pomodoro from any task, with time tracked per task',
+      'Reminders and a daily closeout for what is unfinished',
+    ],
+    shot: shots.rhythm,
   },
 ];
 
-const principles = [
+const plans = [
   {
-    title: 'Less, but better',
-    desc: 'Every screen has one job. No badges, upsells, or notifications you did not ask for.',
-    icon: 'feather',
+    name: 'Free',
+    price: '$0',
+    period: 'No card needed',
+    cta: 'Get started',
+    primary: true,
+    features: [
+      'Unlimited personal projects, tasks, notes, and calendar',
+      'Use it without an account; your data stays on your device',
+      'Sync across devices with an account',
+      '3 collaborative projects',
+      'Up to 6 people per project',
+    ],
   },
   {
-    title: 'Local-first',
-    desc: 'Your data lives on your device until you tell it to sync. No hidden tracking or ad profiles.',
-    icon: 'hard-drive',
-  },
-  {
-    title: 'No lock-in',
-    desc: 'Export a full backup anytime. Nothing about MossTask is designed to keep you trapped.',
-    icon: 'unlock',
-  },
-];
-
-const forYou = [
-  'You want to start working in seconds, not minutes',
-  'Notion, Todoist, or TickTick felt like too much',
-  'You want tasks, dates, notes, and focus in one calm workspace',
-  'You care about where your data lives',
-];
-
-const notForYou = [
-  'You need Gantt charts, dependencies, or capacity planning',
-  'You need enterprise project management',
-  'You need enterprise SSO and audit logs',
-  'You enjoy configuring your tools more than using them',
-];
-
-const steps = [
-  {
-    n: '01',
-    title: 'Open it',
-    desc: 'No account. No email. No signup wall. Open the app and you are already in.',
-    icon: 'zap',
-  },
-  {
-    n: '02',
-    title: 'Add what matters',
-    desc: 'Add a task, check your day, write a note, or start a focus session.',
-    icon: 'plus-circle',
-  },
-  {
-    n: '03',
-    title: 'Sync when you want',
-    desc: 'Create a free account only when you want your work to follow you across devices.',
-    icon: 'cloud',
-  },
-];
-
-const calendarPoints = [
-  'Add events to any day — time is optional',
-  'Get notified 5 minutes before an event, and again when it starts',
-  'Task due dates appear on the same calendar automatically',
-  'A month view designed to stay readable, not crowded',
-];
-
-const collabPoints = [
-  'Invite by email in one click',
-  'Everyone sees the same list, live',
-  'Assign tasks and post an announcement for the whole project',
-  'Permission to add, rename, or remove — your call',
-  'Free. No team plan, no seat pricing',
-];
-
-const compareRows = [
-  { feature: 'Free to start, no account', aschertype: true, others: 'Mostly false' },
-  { feature: 'Works fully offline', aschertype: true, others: 'Rarely' },
-  { feature: 'Your data stays on your device by default', aschertype: true, others: 'No' },
-  { feature: 'Tasks + calendar + notes + focus in one app', aschertype: true, others: 'Rarely' },
-  { feature: 'Event reminders without an account', aschertype: true, others: 'Rarely' },
-  { feature: 'Real-time collaboration without a team plan', aschertype: true, others: 'Paid only' },
-  { feature: 'Open, portable, no lock-in', aschertype: true, others: 'Proprietary' },
-];
-
-const platforms = [
-  { name: 'Web', icon: 'globe' },
-  { name: 'Windows', icon: 'monitor' },
-  { name: 'macOS', icon: 'apple' },
-  { name: 'Linux', icon: 'terminal' },
-];
-
-const privacyPoints = [
-  'Works fully offline, no account needed to start',
-  'Local data never leaves your device unless you choose to sync',
-  'No trackers, no ad profiles, no data resale',
-];
-
-const privacyDonts = [
-  'Sell your data',
-  'Run ads',
-  'Track you across the web',
-  'Require an account to use the app',
-  'Sync anything until you ask us to',
-  'Train AI models on your tasks',
-];
-
-const faqs = [
-  {
-    q: 'Do I need an account to use MossTask?',
-    a: 'No. Tap "Continue without an account" and everything is stored on your device. Create an account later only if you want sync across devices or want to collaborate on a project.',
-  },
-  {
-    q: 'What happens to my data if I stay signed out?',
-    a: 'It stays in local storage on that device only. Nothing is sent anywhere. If you switch devices or clear your browser data, that local copy is what changes — so sync is there if you want the safety net.',
-  },
-  {
-    q: 'Can other people see my tasks?',
-    a: 'Only if you invite them to a specific project by email. Everything outside a shared project stays private to your account.',
-  },
-  {
-    q: 'Will I get reminded about calendar events?',
-    a: 'Yes. Add a time to any event and MossTask notifies you 5 minutes before and again when it starts. Tasks can have a reminder time too, on their due date. Events without a time still appear on the calendar, but they do not trigger a reminder.',
-  },
-  {
-    q: 'Do task due dates show on the calendar?',
-    a: 'Yes. Any task with a due date appears on the calendar automatically — no separate entry needed. That way your tasks and your schedule always agree.',
-  },
-  {
-    q: 'What is the daily closeout?',
-    a: 'At a time you choose (5 PM by default), MossTask offers a quick review of anything still unfinished. Move it all to tomorrow, pick task by task, or leave it as it is. You can turn it off in Settings.',
-  },
-  {
-    q: 'Is MossTask good for teams?',
-    a: 'It works for small groups working on shared projects: you can assign tasks, post an announcement, and choose what each person is allowed to change. It is not a replacement for enterprise project management with Gantt charts, dependencies, and capacity planning.',
-  },
-  {
-    q: 'Will MossTask stay simple?',
-    a: 'That is the whole point. Every feature has to make the app more useful without making it more complicated. If it fails that test, we do not ship it.',
-  },
-  {
-    q: 'Is MossTask really free?',
-    a: 'Yes. Use it offline, signed out, forever, for free. An account and sync are also free — they exist for people who want their work to follow them across devices or collaborate with someone.',
-  },
-  {
-    q: 'Which platforms does it run on?',
-    a: 'MossTask runs as a web app in any modern browser, and as a native desktop app on Windows, macOS, and Linux.',
-  },
-  {
-    q: 'Does it work on my phone?',
-    a: 'Yes. Open it in your phone browser and add it to your home screen like an app. Sync across devices when you want your tasks to follow you.',
-  },
-  {
-    q: 'Does it have dark mode? Other languages?',
-    a: 'Yes to both. Switch between light and dark, or follow your device, and choose English or Indonesian, all in Settings.',
-  },
-  {
-    q: 'What happens if I lose my device?',
-    a: 'If you were using it fully signed out, that local copy is gone. If you had an account, sign in on a new device and your tasks, notes, and calendar sync back. You can also keep your own backup file — see the next question.',
-  },
-  {
-    q: 'Can I export or move my data?',
-    a: 'Yes. In Settings, "Export data" saves your tasks, notes, events, and projects as a plain .json file, and "Import data" restores from one. Nothing is locked in, and you can take it with you any time.',
+    name: 'Team',
+    price: '$5',
+    period: 'per month',
+    cta: 'Get started',
+    primary: false,
+    note: 'Sign in, then upgrade from Settings.',
+    features: [
+      'Everything in Free',
+      '10 collaborative projects',
+      'Up to 20 people per project',
+      'Roles and task assignment',
+      'Server-delivered reminders',
+    ],
   },
 ];
 
@@ -246,7 +153,8 @@ function icon(name: string) {
 }
 ---
 
-<Layout heroImage="/project.webp">
+<Layout heroImage={shots.hero.src}>
+  <a href="#main" class="skip-link">Skip to content</a>
   <header class="nav">
     <div class="container nav-inner">
       <a href="/" class="brand">
@@ -256,10 +164,7 @@ function icon(name: string) {
 
       <nav class="nav-links" aria-label="Primary">
         <a href="#features">Features</a>
-        <a href="#calendar">Calendar</a>
-        <a href="#how">How it works</a>
-        <a href="#who">Who it's for</a>
-        <a href="#faq">FAQ</a>
+        <a href="#pricing">Pricing</a>
       </nav>
 
       <div class="nav-actions">
@@ -271,402 +176,193 @@ function icon(name: string) {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
           </button>
         </div>
+        <a href={APP_URL} class="btn ghost desktop-only">Sign in</a>
         <a href={APP_URL} class="btn primary desktop-only">Get started</a>
-        <button type="button" class="menu-toggle" id="menu-toggle" aria-label="Open menu" aria-expanded="false">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        <button type="button" class="menu-toggle" id="menu-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
         </button>
       </div>
     </div>
 
     <div class="mobile-menu" id="mobile-menu">
       <a href="#features">Features</a>
-      <a href="#calendar">Calendar</a>
-      <a href="#how">How it works</a>
-      <a href="#who">Who it's for</a>
-      <a href="#faq">FAQ</a>
+      <a href="#pricing">Pricing</a>
       <div class="mobile-menu-actions">
+        <a href={APP_URL} class="btn ghost">Sign in</a>
         <a href={APP_URL} class="btn primary">Get started</a>
       </div>
     </div>
   </header>
 
-  <main>
+  <main id="main">
     <section class="hero">
       <div class="container hero-inner">
         <div class="hero-copy">
-          <span class="eyebrow">Calm by design</span>
-          <h1 class="display">Plan your day without the complexity.</h1>
+          <span class="eyebrow">MossTask</span>
+          <h1 class="display">Calm workflow. Work fast.</h1>
           <p class="hero-sub">
-            A calm workspace for everyday life. Keep your tasks, calendar, notes,
-            and focus time together without the setup or clutter.
-          </p>
-          <p class="hero-emphasis">
-            Most productivity apps get in your way. MossTask gets out of it.
+            Tasks, projects, notes, calendar, and focus tools, organized without
+            turning your workflow into another thing to manage.
           </p>
           <div class="hero-actions">
             <a href={APP_URL} class="btn primary">
-              Start for free
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+              Get started
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
             </a>
-            <a href="#features" class="btn ghost">See what's inside</a>
+            <a href="#overview" class="btn ghost">Explore MossTask</a>
           </div>
           <ul class="hero-points">
-            <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-              No signup wall
-            </li>
-            <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-              Works offline
-            </li>
-            <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-              Free forever
-            </li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>No signup wall</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Your data stays on your device</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Free to start</li>
           </ul>
         </div>
 
         <div class="hero-visual">
           <img
-            src="/project.webp"
-            alt="MossTask showing a project with tasks, due dates, and a completion progress bar."
-            width="1600"
-            height="900"
+            src={shots.hero.src}
+            alt={shots.hero.alt}
+            width={shots.hero.w}
+            height={shots.hero.h}
             loading="eager"
             fetchpriority="high"
             decoding="async"
-            class="hero-shot"
+            class="shot"
           />
         </div>
       </div>
-
-      <div class="trust-bar">
-        <div class="container trust-inner">
-          <span class="trust-label">Built for the way you actually work</span>
-          <div class="trust-items">
-            <span class="trust-item">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-              Runs in your browser
-            </span>
-            <span class="trust-item">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-              Native on desktop
-            </span>
-            <span class="trust-item">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              Private by default
-            </span>
-            <span class="trust-item">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-              Event reminders
-            </span>
-          </div>
-        </div>
-      </div>
     </section>
 
-    <section id="features" class="features">
+    <section id="overview" class="overview" aria-labelledby="overview-title">
       <div class="container">
-        <div class="section-head">
-          <span class="eyebrow">Features</span>
-          <h2 class="display">The essentials, without the setup.</h2>
+        <div class="section-head centered">
+          <h2 id="overview-title" class="display">Everything stays close to the work.</h2>
           <p class="section-sub">
-            Everything you need to organize your day. Nothing you'll need to configure.
+            Tasks, projects, notes, calendar, and focus tools share the same
+            workspace, so you can move from planning to doing without jumping
+            between systems.
           </p>
         </div>
-        <div class="feature-grid">
-          {features.map((f) => (
-            <div class="feature-card">
-              <div class="feature-icon" set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${icon(f.icon)}</svg>`} />
-              <h3>{f.title}</h3>
-              <p>{f.desc}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-
-    <section id="calendar" class="calendar">
-      <div class="container calendar-inner">
-        <div class="calendar-copy">
-          <span class="eyebrow">Calendar</span>
-          <h2 class="display">A calendar you will actually use.</h2>
-          <p>
-            Add events to any day. Set a time and MossTask will notify you before
-            it starts — no more missed meetings, deadlines, or calls. Leave
-            the time blank and it lives as an all-day event, exactly where it
-            belongs.
-          </p>
-          <ul class="calendar-points">
-            {calendarPoints.map((point) => (
-              <li>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-                <span>{point}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div class="calendar-visual">
+        {shots.home && (
           <img
-            src="/calendar.webp"
-            alt="MossTask calendar month view with events on different days."
-            width="1400"
-            height="1000"
+            src={shots.home.src}
+            alt={shots.home.alt}
+            width={shots.home.w}
+            height={shots.home.h}
             loading="lazy"
             decoding="async"
-            class="calendar-shot"
+            class="shot overview-shot"
           />
-        </div>
-      </div>
-
-      <div class="container reminder-strip">
-        <div class="reminder-card">
-          <div class="reminder-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          </div>
-          <div class="reminder-copy">
-            <h3>Reminders that actually arrive</h3>
-            <p>When an event has a time, MossTask notifies you 5 minutes before and again when it starts. Tasks can have a reminder time too. Works on desktop and in the browser.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="principles" class="principles">
-      <div class="container">
-        <div class="section-head centered">
-          <span class="eyebrow">Principles</span>
-          <h2 class="display">Simple by default.</h2>
-        </div>
-        <div class="principle-grid">
-          {principles.map((p) => (
-            <div class="principle-card">
-              <div class="principle-icon" set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${icon(p.icon)}</svg>`} />
-              <h3>{p.title}</h3>
-              <p>{p.desc}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-
-    <section id="how" class="how">
-      <div class="container">
-        <div class="section-head">
-          <span class="eyebrow">How it works</span>
-          <h2 class="display">Start in seconds.</h2>
-        </div>
-        <div class="steps">
-          {steps.map((s) => (
-            <div class="step">
-              <div class="step-num display">{s.n}</div>
-              <div class="step-icon" set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${icon(s.icon)}</svg>`} />
-              <h3>{s.title}</h3>
-              <p>{s.desc}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-
-    <section id="collab" class="collab">
-      <div class="container collab-inner">
-        <div class="collab-copy">
-          <span class="eyebrow">Group projects</span>
-          <h2 class="display">Collaboration, without the chaos.</h2>
-          <p>
-            Invite someone by email. They see the project, they can check things off,
-            everyone stays in sync. No Slack. No @-mentions. No notifications you
-            didn't ask for. Just the list, and the people working on it.
-          </p>
-          <ul class="collab-points">
-            {collabPoints.map((point) => (
-              <li>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-                {point}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div class="collab-visual">
-          <img
-            src="/collab.webp"
-            alt="A shared MossTask project viewed by multiple people."
-            width="1200"
-            height="700"
-            loading="lazy"
-            decoding="async"
-            class="collab-shot"
-          />
-        </div>
-      </div>
-    </section>
-
-    <section id="who" class="who">
-      <div class="container">
-        <div class="section-head centered">
-          <span class="eyebrow">Fit</span>
-          <h2 class="display">Who it's for. And who it isn't.</h2>
-          <p class="section-sub">
-            Being honest about this saves us both time.
-          </p>
-        </div>
-
-        <div class="who-grid">
-          <div class="who-card for">
-            <div class="who-head">
-              <span class="who-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-              </span>
-              <h3>MossTask is for you if</h3>
-            </div>
-            <ul>
-              {forYou.map((item) => (
-                <li>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div class="who-card against">
-            <div class="who-head">
-              <span class="who-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-              </span>
-              <h3>MossTask isn't for you if</h3>
-            </div>
-            <ul>
-              {notForYou.map((item) => (
-                <li>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="compare" class="compare">
-      <div class="container">
-        <div class="section-head">
-          <span class="eyebrow">Compare</span>
-          <h2 class="display">A lighter way to stay organized.</h2>
-          <p class="section-sub">
-            Start locally, keep things clear, and sync only when you need to.
-          </p>
-        </div>
-
-        <div class="compare-table" role="table" aria-label="Feature comparison">
-          <div class="compare-head" role="row">
-            <div class="compare-cell label" role="columnheader">Feature</div>
-            <div class="compare-cell ours" role="columnheader">
-              <img src="/favicon.png" alt="" width="20" height="20" />
-              MossTask
-            </div>
-            <div class="compare-cell theirs" role="columnheader">Typical apps</div>
-          </div>
-
-          {compareRows.map((row) => (
-            <div class="compare-row" role="row">
-              <div class="compare-cell label" role="cell">{row.feature}</div>
-              <div class="compare-cell ours" role="cell">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-                <span>Yes</span>
-              </div>
-              <div class="compare-cell theirs" role="cell">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                <span>{row.others}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-
-    <section id="platforms" class="platforms">
-      <div class="container">
-        <div class="section-head centered">
-          <span class="eyebrow">Available everywhere</span>
-          <h2 class="display">One app. Every device you use.</h2>
-        </div>
-        <div class="platform-grid">
-          {platforms.map((p) => (
-            <div class="platform-card">
-              <div class="platform-icon" set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${icon(p.icon)}</svg>`} />
-              <span>{p.name}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-
-    <section id="privacy" class="privacy">
-      <div class="container privacy-inner">
-        <div class="privacy-copy">
-          <span class="eyebrow">Privacy</span>
-          <h2 class="display">Your data, your device — by default.</h2>
-          <p>
-            MossTask works fully offline and signed out. Create a free
-            account only when you want your tasks, notes, and calendar to
-            sync across devices, or to collaborate with someone on a project.
-          </p>
-        </div>
-        <ul class="privacy-list">
-          {privacyPoints.map((point) => (
-            <li>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-              <span>{point}</span>
+        )}
+        <ul class="overview-grid">
+          {overview.map((o) => (
+            <li class="overview-item">
+              <span class="overview-icon" aria-hidden="true" set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${icon(o.icon)}</svg>`} />
+              <h3>{o.title}</h3>
+              <p>{o.desc}</p>
             </li>
           ))}
         </ul>
       </div>
+    </section>
 
-      <div class="container privacy-donts-wrap">
-        <div class="privacy-donts">
-          <h3 class="display">What we don't do.</h3>
-          <ul class="donts-list">
-            {privacyDonts.map((item) => (
-              <li>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
+    <section id="how" class="how" aria-labelledby="how-title">
+      <div class="container">
+        <div class="section-head">
+          <h2 id="how-title" class="display">Open it. See what's next. Get to work.</h2>
         </div>
+        <ol class="steps">
+          {workflow.map((s) => (
+            <li class="step">
+              <span class="step-num display" aria-hidden="true">{s.n}</span>
+              <h3>{s.title}</h3>
+              <p>{s.desc}</p>
+            </li>
+          ))}
+        </ol>
       </div>
     </section>
 
-    <section id="faq" class="faq">
-      <div class="container faq-inner">
+    <section id="features" class="features" aria-labelledby="features-title">
+      <div class="container">
+        <h2 id="features-title" class="visually-hidden">Features</h2>
+        {categories.map((c, i) => (
+          <article class={`feature-row${i % 2 === 1 ? ' reverse' : ''}${c.shot ? '' : ' solo'}`} id={c.id}>
+            <div class="feature-copy">
+              <span class="eyebrow">{c.label}</span>
+              <h3 class="display">{c.title}</h3>
+              <p>{c.desc}</p>
+              {c.defs && (
+                <dl class="defs">
+                  {c.defs.map((d) => (
+                    <div>
+                      <dt>{d.term}</dt>
+                      <dd>{d.text}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+              <ul class="feature-points">
+                {c.points.map((p) => (
+                  <li>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                    <span>{p}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {c.shot && (
+              <div class={`feature-visual${c.id === 'rhythm' ? ' tools-visual' : ''}`}>
+                <img
+                  src={c.shot.src}
+                  alt={c.shot.alt}
+                  width={c.shot.w}
+                  height={c.shot.h}
+                  loading="lazy"
+                  decoding="async"
+                  class="shot"
+                />
+              </div>
+            )}
+          </article>
+        ))}
+      </div>
+    </section>
+
+    <section id="pricing" class="pricing" aria-labelledby="pricing-title">
+      <div class="container">
         <div class="section-head centered">
-          <span class="eyebrow">FAQ</span>
-          <h2 class="display">Questions, answered</h2>
+          <h2 id="pricing-title" class="display">Start free. Upgrade when you need more.</h2>
+          <p class="section-sub">Personal work is always unlimited. Plans only change collaborative projects.</p>
         </div>
-        <div class="faq-list">
-          {faqs.map((item) => (
-            <details class="faq-item">
-              <summary>
-                {item.q}
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-              </summary>
-              <p>{item.a}</p>
-            </details>
+        <div class="plan-grid">
+          {plans.map((p) => (
+            <div class="plan">
+              <h3>{p.name}</h3>
+              <p class="plan-price"><span class="display">{p.price}</span> <span class="plan-period">{p.period}</span></p>
+              <ul class="plan-list">
+                {p.features.map((f) => (
+                  <li>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              {p.note && <p class="plan-note">{p.note}</p>}
+              <a href={APP_URL} class={`btn ${p.primary ? 'primary' : 'ghost'}`}>{p.cta}</a>
+            </div>
           ))}
         </div>
       </div>
     </section>
 
-    <section class="cta">
+    <section class="cta" aria-labelledby="cta-title">
       <div class="container cta-inner">
-        <h2 class="display">Ready for a simpler day?</h2>
-        <p class="cta-sub">Open MossTask and start in seconds. No signup. No card. No catch.</p>
+        <h2 id="cta-title" class="display">Your workflow doesn't need more noise.</h2>
+        <p class="cta-sub">Open MossTask. See what's next. Get to work.</p>
         <a href={APP_URL} class="btn primary">
-          Open MossTask
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          Get started
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </a>
       </div>
     </section>
@@ -675,14 +371,12 @@ function icon(name: string) {
   <footer class="site-footer">
     <div class="container footer-inner">
       <span>&copy; {new Date().getFullYear()} MossTask</span>
-      <div class="footer-links">
+      <nav class="footer-links" aria-label="Footer">
         <a href="#features">Features</a>
-        <a href="#calendar">Calendar</a>
-        <a href="#how">How it works</a>
-        <a href="#who">Who it's for</a>
-        <a href="#privacy">Privacy</a>
-        <a href="#faq">FAQ</a>
-      </div>
+        <a href="#pricing">Pricing</a>
+        <a href={APP_URL}>Sign in</a>
+        <a href={APP_URL}>Get started</a>
+      </nav>
     </div>
   </footer>
 </Layout>
@@ -695,651 +389,177 @@ function icon(name: string) {
     btn.addEventListener('click', function () {
       var open = menu.classList.toggle('open');
       btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      btn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
     });
     menu.querySelectorAll('a').forEach(function (a) {
       a.addEventListener('click', function () {
         menu.classList.remove('open');
         btn.setAttribute('aria-expanded', 'false');
+        btn.setAttribute('aria-label', 'Open menu');
       });
     });
   })();
 </script>
 
 <style>
+  .skip-link {
+    position: absolute; left: 12px; top: -48px; z-index: 50;
+    background: var(--accent); color: var(--accent-contrast);
+    padding: 10px 16px; border-radius: 8px; font-weight: 600; text-decoration: none;
+  }
+  .skip-link:focus { top: 12px; }
+
   .nav {
     border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    position: sticky; top: 0;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
     backdrop-filter: blur(10px);
     z-index: 20;
   }
-  .nav-inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding-block: 14px;
-    gap: 24px;
-  }
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 600;
-    font-size: 1.15rem;
-    text-decoration: none;
-    color: var(--ink);
-    flex-shrink: 0;
-  }
-  .nav-links {
-    display: flex;
-    align-items: center;
-    gap: 22px;
-    flex: 1;
-    justify-content: center;
-  }
-  .nav-links a {
-    text-decoration: none;
-    color: var(--ink-light);
-    font-size: 0.92rem;
-    font-weight: 500;
-  }
+  .nav-inner { display: flex; align-items: center; justify-content: space-between; padding-block: 14px; gap: 24px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 1.15rem; text-decoration: none; color: var(--ink); flex-shrink: 0; }
+  .nav-links { display: flex; align-items: center; gap: 22px; flex: 1; justify-content: center; }
+  .nav-links a { text-decoration: none; color: var(--ink-2); font-size: 0.92rem; font-weight: 500; }
   .nav-links a:hover { color: var(--ink); }
-
-  .nav-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-shrink: 0;
-  }
+  .nav-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .nav-actions .btn { padding: 9px 16px; font-size: 0.9rem; }
 
   .menu-toggle {
-    display: none;
-    width: 38px; height: 38px;
-    border-radius: 9px;
-    border: 1px solid var(--border);
-    background: var(--card);
-    color: var(--ink);
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
+    display: none; width: 44px; height: 44px; border-radius: 9px;
+    border: 1px solid var(--border); background: var(--card); color: var(--ink);
+    align-items: center; justify-content: center; cursor: pointer;
   }
   .menu-toggle svg { width: 18px; height: 18px; }
-
-  .mobile-menu {
-    display: none;
-    flex-direction: column;
-    gap: 2px;
-    border-top: 1px solid var(--border);
-    padding: 8px 24px 20px;
-    background: var(--bg);
-  }
+  .mobile-menu { display: none; flex-direction: column; gap: 2px; border-top: 1px solid var(--border); padding: 8px 24px 20px; background: var(--bg); }
   .mobile-menu.open { display: flex; }
-  .mobile-menu a {
-    padding: 12px 4px;
-    text-decoration: none;
-    color: var(--ink);
-    font-size: 0.98rem;
-    font-weight: 500;
-    border-bottom: 1px solid var(--border);
-  }
-  .mobile-menu-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 14px;
-  }
+  .mobile-menu > a:not(.btn) { padding: 14px 4px; text-decoration: none; color: var(--ink); font-size: 1rem; font-weight: 500; border-bottom: 1px solid var(--border); }
+  .mobile-menu-actions { display: flex; gap: 10px; margin-top: 14px; }
   .mobile-menu-actions .btn { flex: 1; }
 
-  /* ===== Shared section head ===== */
   .section-head { margin-bottom: 48px; }
   .section-head.centered { text-align: center; max-width: 640px; margin-inline: auto; }
-  .eyebrow {
-    display: inline-block;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--accent-ink);
-    margin-bottom: 12px;
-  }
-  .section-sub {
-    color: var(--ink-light);
-    font-size: 1rem;
-    line-height: 1.6;
-    margin: 12px 0 0;
+  .section-head h2 { font-size: clamp(1.6rem, 3vw, 2rem); font-weight: 500; margin: 0; letter-spacing: -0.01em; }
+  .eyebrow { display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-ink); margin-bottom: 12px; }
+  .section-sub { color: var(--ink-2); font-size: 1rem; line-height: 1.6; margin: 12px 0 0; }
+
+  .shot {
+    width: 100%; height: auto; border-radius: 14px;
+    border: 1px solid var(--border); box-shadow: var(--shadow-lg);
+    display: block; background: var(--card);
   }
 
-  .hero {
-    padding: 80px 0 0;
-    background: radial-gradient(720px 360px at 82% -12%, var(--accent-soft), transparent);
-  }
-  .hero-inner {
-    display: grid;
-    grid-template-columns: 1fr 1.1fr;
-    gap: 56px;
-    align-items: center;
-    padding-bottom: 72px;
-  }
-  .hero h1 {
-    font-size: clamp(2.4rem, 4.6vw, 3.4rem);
-    line-height: 1.08;
-    font-weight: 500;
-    margin: 8px 0 20px;
-    letter-spacing: -0.01em;
-  }
-  .hero-sub {
-    font-size: 1.08rem;
-    color: var(--ink-light);
-    margin: 0 0 16px;
-    max-width: 46ch;
-  }
-  .hero-emphasis {
-    font-size: 1rem;
-    color: var(--ink-2);
-    font-weight: 500;
-    margin: 0 0 30px;
-    padding-left: 14px;
-    border-left: 3px solid var(--accent);
-    max-width: 46ch;
-  }
-  .hero-actions {
-    display: flex;
-    gap: 14px;
-    flex-wrap: wrap;
-    margin-bottom: 28px;
-  }
-  .hero-points {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 22px;
-    color: var(--ink-light);
-    font-size: 0.92rem;
-  }
+  /* Hero */
+  .hero { padding: 72px 0 24px; background: radial-gradient(720px 360px at 82% -12%, var(--accent-soft), transparent); }
+  .hero-inner { display: grid; grid-template-columns: 1fr 1.25fr; gap: 56px; align-items: center; padding-bottom: 56px; }
+  .hero h1, .section-head h2, .feature-copy h3, .cta h2 { text-wrap: balance; }
+  .hero h1 { font-size: clamp(2.4rem, 4.6vw, 3.4rem); line-height: 1.08; font-weight: 500; margin: 8px 0 20px; letter-spacing: -0.01em; }
+  .hero-sub { font-size: 1.08rem; color: var(--ink-2); margin: 0 0 28px; max-width: 42ch; }
+  .hero-actions { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 26px; }
+  .hero-points { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px 22px; color: var(--ink-2); font-size: 0.92rem; }
   .hero-points li { display: inline-flex; align-items: center; gap: 7px; }
   .hero-points svg { width: 15px; height: 15px; color: var(--accent-ink); }
+  .hero-visual { min-width: 0; animation: rise .6s ease-out both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
-  .hero-visual { display: flex; justify-content: center; }
-  .hero-shot {
-    width: 100%;
-    height: auto;
-    border-radius: 14px;
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow-lg);
-    display: block;
-    background: var(--card);
-  }
+  /* Overview */
+  .overview { padding: 72px 0; }
+  .overview-shot { margin: 0 auto 40px; max-width: 1000px; }
+  .overview-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, 1fr); gap: 24px; }
+  .overview-icon { width: 34px; height: 34px; border-radius: 9px; background: var(--accent-soft); color: var(--accent-ink); display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+  .overview-icon svg { width: 18px; height: 18px; }
+  .overview-item h3 { margin: 0 0 4px; font-size: 1rem; font-weight: 600; }
+  .overview-item p { margin: 0; color: var(--ink-2); font-size: 0.9rem; line-height: 1.5; }
 
-  /* ===== Trust bar ===== */
-  .trust-bar {
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-elev);
-    padding: 20px 0;
-  }
-  .trust-inner {
+  /* Workflow: a quiet progression, not cards */
+  .how { padding: 72px 0; background: var(--bg-elev); border-block: 1px solid var(--border); }
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; }
+  .step { border-top: 2px solid var(--border); padding-top: 18px; }
+  .step:nth-child(1) { border-top-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+  .step:nth-child(2) { border-top-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+  .step:nth-child(3) { border-top-color: color-mix(in srgb, var(--accent) 78%, var(--border)); }
+  .step:nth-child(4) { border-top-color: var(--accent); }
+  .step-num { display: block; font-size: 0.85rem; font-weight: 600; color: var(--accent-ink); letter-spacing: 0.08em; margin-bottom: 10px; }
+  .step h3 { margin: 0 0 6px; font-size: 1.25rem; font-weight: 500; font-family: "Fraunces", Georgia, serif; }
+  .step p { margin: 0; color: var(--ink-2); font-size: 0.95rem; line-height: 1.5; }
+
+  /* Feature categories */
+  .features { padding: 72px 0 40px; }
+  .feature-row { display: grid; grid-template-columns: 1fr 1.2fr; gap: 56px; align-items: center; padding-block: 40px; }
+  .feature-row.reverse .feature-visual { order: -1; }
+  .feature-row.solo { grid-template-columns: 1fr; max-width: 720px; }
+  .feature-copy h3 { font-size: 1.7rem; font-weight: 500; margin: 0 0 12px; line-height: 1.2; }
+  .feature-copy > p { color: var(--ink-2); line-height: 1.65; margin: 0 0 20px; }
+  .defs { margin: 0 0 20px; display: grid; gap: 10px; }
+  .defs > div { display: flex; gap: 14px; align-items: baseline; padding-left: 14px; border-left: 2px solid var(--accent); }
+  .defs dt { font-weight: 600; min-width: 108px; }
+  .defs dd { margin: 0; color: var(--ink-2); }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .feature-points { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+  .feature-points li { display: flex; align-items: flex-start; gap: 12px; font-size: 0.97rem; color: var(--ink-2); line-height: 1.5; }
+  .feature-points svg { width: 18px; height: 18px; color: var(--accent-ink); flex-shrink: 0; margin-top: 3px; }
+  .feature-visual { min-width: 0; }
+
+  .tools-visual {
     display: flex;
-    align-items: center;
     justify-content: center;
-    gap: 40px;
-    flex-wrap: wrap;
-  }
-  .trust-label {
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--ink-light);
-  }
-  .trust-items {
-    display: flex;
-    gap: 32px;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-  .trust-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: var(--ink-2);
-  }
-  .trust-item svg { width: 17px; height: 17px; color: var(--accent-ink); }
-
-  .features { padding: 88px 0; }
-  .features h2 {
-    font-size: 2rem;
-    font-weight: 500;
-    margin: 0 0 12px;
-    max-width: 22ch;
-  }
-  /* 9 cards: minmax(300px) gives a clean 3x3 on desktop. */
-  .feature-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
-  }
-  .feature-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 26px;
-    box-shadow: var(--shadow-sm);
-    transition: border-color 0.15s ease, transform 0.15s ease;
-  }
-  .feature-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
-  .feature-icon {
-    width: 42px; height: 42px;
-    border-radius: 11px;
-    background: var(--accent-soft);
-    color: var(--accent-ink);
-    display: flex; align-items: center; justify-content: center;
-    margin-bottom: 16px;
-  }
-  .feature-icon svg { width: 20px; height: 20px; }
-  .feature-card h3 { margin: 0 0 8px; font-size: 1.05rem; color: var(--ink); font-weight: 600; }
-  .feature-card p { margin: 0; color: var(--ink-light); font-size: 0.93rem; line-height: 1.55; }
-
-  /* ===== Calendar ===== */
-  .calendar { padding: 88px 0; background: var(--bg-elev); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-  .calendar-inner {
-    display: grid;
-    grid-template-columns: 1fr 1.1fr;
-    gap: 56px;
-    align-items: center;
-  }
-  .calendar-copy h2 { font-size: 1.9rem; font-weight: 500; margin: 8px 0 16px; max-width: 22ch; }
-  .calendar-copy p { color: var(--ink-light); line-height: 1.65; margin: 0 0 22px; }
-  .calendar-points { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
-  .calendar-points li { display: flex; align-items: flex-start; gap: 12px; font-size: 0.97rem; color: var(--ink-2); line-height: 1.5; }
-  .calendar-points svg { width: 18px; height: 18px; color: var(--accent-ink); flex-shrink: 0; margin-top: 3px; }
-  .calendar-visual { display: flex; justify-content: center; }
-  .calendar-shot {
-    width: 100%;
-    height: auto;
-    border-radius: 14px;
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow-lg);
-    display: block;
-    background: var(--card);
   }
 
-  .reminder-strip { margin-top: 64px; }
-  .reminder-card {
-    display: flex;
-    align-items: center;
-    gap: 24px;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 28px 32px;
-    box-shadow: var(--shadow-sm);
-  }
-  .reminder-icon {
-    width: 56px; height: 56px;
-    border-radius: 14px;
-    background: var(--accent-soft);
-    color: var(--accent-ink);
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-  }
-  .reminder-icon svg { width: 26px; height: 26px; }
-  .reminder-copy h3 { margin: 0 0 6px; font-size: 1.1rem; font-weight: 600; }
-  .reminder-copy p { margin: 0; color: var(--ink-light); font-size: 0.95rem; line-height: 1.55; }
-
-  /* ===== Principles ===== */
-  .principles { padding: 88px 0; }
-  .principle-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 24px;
-  }
-  .principle-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 30px 26px;
-    box-shadow: var(--shadow-sm);
-    text-align: center;
-  }
-  .principle-icon {
-    width: 48px; height: 48px;
-    border-radius: 13px;
-    background: var(--accent-soft);
-    color: var(--accent-ink);
-    display: flex; align-items: center; justify-content: center;
-    margin: 0 auto 18px;
-  }
-  .principle-icon svg { width: 22px; height: 22px; }
-  .principle-card h3 { margin: 0 0 10px; font-size: 1.1rem; font-weight: 600; }
-  .principle-card p { margin: 0; color: var(--ink-light); font-size: 0.93rem; line-height: 1.6; }
-
-  /* ===== How it works ===== */
-  .how { padding: 88px 0; background: var(--bg-elev); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-  .steps {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 24px;
-  }
-  .step {
-    position: relative;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 30px 26px 26px;
-    box-shadow: var(--shadow-sm);
-  }
-  .step-num {
-    position: absolute;
-    top: 18px;
-    right: 22px;
-    font-size: 1.6rem;
-    font-weight: 500;
-    color: var(--border-hover);
-    line-height: 1;
-    letter-spacing: -0.02em;
-  }
-  .step-icon {
-    width: 42px; height: 42px;
-    border-radius: 11px;
-    background: var(--accent-soft);
-    color: var(--accent-ink);
-    display: flex; align-items: center; justify-content: center;
-    margin-bottom: 18px;
-  }
-  .step-icon svg { width: 20px; height: 20px; }
-  .step h3 { margin: 0 0 8px; font-size: 1.05rem; font-weight: 600; }
-  .step p { margin: 0; color: var(--ink-light); font-size: 0.93rem; line-height: 1.55; }
-
-  /* ===== Collaboration ===== */
-  .collab { padding: 88px 0; }
-  .collab-inner {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 56px;
-    align-items: center;
-  }
-  .collab-copy h2 { font-size: 1.9rem; font-weight: 500; margin: 8px 0 16px; }
-  .collab-copy p { color: var(--ink-light); line-height: 1.65; margin: 0 0 22px; }
-  .collab-points { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
-  .collab-points li { display: flex; align-items: flex-start; gap: 12px; font-size: 0.97rem; }
-  .collab-points svg { width: 18px; height: 18px; color: var(--accent-ink); flex-shrink: 0; margin-top: 3px; }
-  .collab-visual { display: flex; justify-content: center; }
-  .collab-shot {
-    width: 100%;
-    height: auto;
-    border-radius: 14px;
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow-lg);
-    display: block;
-    background: var(--card);
+  .tools-visual .shot {
+    width: auto;
+    height: 520px;
+    max-width: 238px;
+    object-fit: contain;
   }
 
-  /* ===== Who it's for ===== */
-  .who { padding: 88px 0; background: var(--bg-elev); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-  .who-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-  }
-  .who-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 32px 30px;
-    box-shadow: var(--shadow-sm);
-  }
-  .who-card.for { border-top: 3px solid var(--accent); }
-  .who-card.against { border-top: 3px solid var(--border-hover); }
-  .who-head {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 22px;
-  }
-  .who-badge {
-    width: 34px; height: 34px;
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-  }
-  .who-card.for .who-badge { background: var(--accent-soft); color: var(--accent-ink); }
-  .who-card.against .who-badge { background: var(--bg-elev); color: var(--ink-light); }
-  .who-badge svg { width: 18px; height: 18px; }
-  .who-card h3 { margin: 0; font-size: 1.05rem; font-weight: 600; }
-  .who-card ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
-  .who-card li { display: flex; align-items: flex-start; gap: 12px; font-size: 0.95rem; color: var(--ink-2); line-height: 1.5; }
-  .who-card.for li svg { color: var(--accent-ink); }
-  .who-card.against li svg { color: var(--ink-light); }
-  .who-card li svg { width: 17px; height: 17px; flex-shrink: 0; margin-top: 3px; }
+  /* Pricing */
+  .pricing { padding: 72px 0; background: var(--bg-elev); border-top: 1px solid var(--border); }
+  .plan-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 800px; margin-inline: auto; }
+  .plan { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 30px; display: flex; flex-direction: column; }
+  .plan h3 { margin: 0 0 8px; font-size: 1.1rem; font-weight: 600; }
+  .plan-price { margin: 0 0 20px; color: var(--ink-2); font-size: 0.95rem; }
+  .plan-price .display { font-size: 2.4rem; font-weight: 500; color: var(--ink); line-height: 1; margin-right: 4px; }
+  .plan-list { list-style: none; padding: 0; margin: 0 0 26px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+  .plan-list li { display: flex; align-items: flex-start; gap: 12px; font-size: 0.95rem; color: var(--ink-2); line-height: 1.5; }
+  .plan-list svg { width: 17px; height: 17px; color: var(--accent-ink); flex-shrink: 0; margin-top: 3px; }
+  .plan-note { margin: -10px 0 14px; font-size: 0.85rem; color: var(--ink-2); }
 
-  /* ===== Compare table ===== */
-  .compare { padding: 88px 0; }
-  .compare-table {
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    background: var(--card);
-    overflow: hidden;
-    box-shadow: var(--shadow-sm);
-  }
-  .compare-head,
-  .compare-row {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr;
-    align-items: center;
-  }
-  .compare-head {
-    background: var(--bg-elev);
-    border-bottom: 1px solid var(--border);
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--ink-2);
-  }
-  .compare-row { border-bottom: 1px solid var(--border); }
-  .compare-row:last-child { border-bottom: none; }
-  .compare-cell {
-    padding: 18px 22px;
-    font-size: 0.94rem;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .compare-cell.label { color: var(--ink); font-weight: 500; }
-  .compare-cell.ours {
-    color: var(--accent-ink);
-    font-weight: 600;
-    background: var(--accent-soft);
-  }
-  .compare-cell.theirs { color: var(--ink-light); }
-  .compare-cell svg { width: 16px; height: 16px; flex-shrink: 0; }
-  .compare-cell.ours svg { color: var(--accent-ink); }
-  .compare-cell.theirs svg { color: var(--ink-light); opacity: 0.7; }
-  .compare-head .compare-cell.ours { justify-content: flex-start; }
-  .compare-head img { border-radius: 5px; }
-
-  /* ===== Platforms ===== */
-  .platforms { padding: 88px 0; background: var(--bg-elev); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-  .platform-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 16px;
-  }
-  .platform-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 26px 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    text-align: center;
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: var(--ink-2);
-    box-shadow: var(--shadow-sm);
-    transition: border-color 0.15s ease, transform 0.15s ease;
-  }
-  .platform-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
-  .platform-icon {
-    width: 44px; height: 44px;
-    border-radius: 12px;
-    background: var(--accent-soft);
-    color: var(--accent-ink);
-    display: flex; align-items: center; justify-content: center;
-  }
-  .platform-icon svg { width: 22px; height: 22px; }
-
-  /* ===== Privacy ===== */
-  .privacy { padding: 88px 0; }
-  .privacy-inner {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 48px;
-    align-items: center;
-  }
-  .privacy-copy h2 { font-size: 1.9rem; font-weight: 500; margin: 8px 0 16px; }
-  .privacy-copy p { color: var(--ink-light); line-height: 1.65; margin: 0; }
-  .privacy-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
-  .privacy-list li { display: flex; align-items: flex-start; gap: 12px; font-size: 0.98rem; }
-  .privacy-list svg { width: 19px; height: 19px; color: var(--accent-ink); flex-shrink: 0; margin-top: 2px; }
-
-  .privacy-donts-wrap { margin-top: 64px; }
-  .privacy-donts {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 32px 36px;
-    box-shadow: var(--shadow-sm);
-  }
-  .privacy-donts h3 {
-    font-size: 1.25rem;
-    font-weight: 500;
-    margin: 0 0 20px;
-  }
-  .donts-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 14px 32px;
-  }
-  .donts-list li {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    font-size: 0.95rem;
-    color: var(--ink-2);
-  }
-  .donts-list svg {
-    width: 17px; height: 17px;
-    color: var(--ink-light);
-    flex-shrink: 0;
-    margin-top: 3px;
-  }
-
-  /* ===== FAQ ===== */
-  .faq { padding: 88px 0; background: var(--bg-elev); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-  .faq-inner { max-width: 720px; margin: 0 auto; }
-  .faq-list { display: flex; flex-direction: column; gap: 10px; }
-  .faq-item {
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    background: var(--card);
-    padding: 4px 20px;
-  }
-  .faq-item summary {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 16px 0;
-    cursor: pointer;
-    font-weight: 500;
-    font-size: 0.98rem;
-    list-style: none;
-  }
-  .faq-item summary::-webkit-details-marker { display: none; }
-  .faq-item summary svg {
-    width: 16px; height: 16px; flex-shrink: 0;
-    color: var(--ink-light);
-    transition: transform 0.18s ease;
-  }
-  .faq-item[open] summary svg { transform: rotate(180deg); }
-  .faq-item p {
-    margin: 0 0 18px;
-    color: var(--ink-light);
-    font-size: 0.93rem;
-    line-height: 1.6;
-  }
-
-  .cta { padding: 96px 0; text-align: center; }
-  .cta h2 { font-size: 1.9rem; font-weight: 500; margin: 0 0 12px; }
-  .cta-sub { color: var(--ink-light); margin: 0 0 28px; font-size: 1rem; }
-
+  /* Final CTA + footer */
+  .cta { padding: 88px 0; text-align: center; }
+  .cta h2 { font-size: clamp(1.6rem, 3vw, 2rem); font-weight: 500; margin: 0 0 12px; }
+  .cta-sub { color: var(--ink-2); margin: 0 0 28px; font-size: 1rem; }
   .site-footer { border-top: 1px solid var(--border); padding-block: 26px; }
-  .footer-inner {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: var(--ink-light);
-    font-size: 0.88rem;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
+  .footer-inner { display: flex; justify-content: space-between; align-items: center; color: var(--ink-2); font-size: 0.88rem; flex-wrap: wrap; gap: 12px; }
   .footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
-  .footer-links a { color: var(--ink-light); text-decoration: none; }
+  .footer-links a { color: var(--ink-2); text-decoration: none; }
   .footer-links a:hover { color: var(--ink); }
 
   @media (max-width: 960px) {
-    .hero-inner { grid-template-columns: 1fr; gap: 40px; text-align: center; padding-bottom: 56px; }
-    .hero-sub, .hero-emphasis { margin-inline: auto; }
-    .hero-actions { justify-content: center; }
-    .hero-points { justify-content: center; }
-    .hero-emphasis { text-align: left; }
-    .calendar-inner { grid-template-columns: 1fr; gap: 40px; }
-    .collab-inner { grid-template-columns: 1fr; gap: 40px; }
-    .privacy-inner { grid-template-columns: 1fr; gap: 32px; }
-    .who-grid { grid-template-columns: 1fr; }
+    .hero-inner { grid-template-columns: 1fr; gap: 36px; }
+    .feature-row { grid-template-columns: 1fr; gap: 28px; padding-block: 32px; }
+    .feature-row.reverse .feature-visual { order: 0; }
+    .steps { grid-template-columns: repeat(2, 1fr); }
+    .overview-grid { grid-template-columns: repeat(3, 1fr); }
   }
 
   @media (max-width: 860px) {
     .nav-links { display: none; }
     .desktop-only { display: none; }
     .menu-toggle { display: flex; }
-
-    .hero { padding: 56px 0 0; }
-    .features, .faq, .cta, .privacy, .how, .compare, .platforms, .principles, .collab, .who, .calendar { padding-block: 64px; }
-
-    .trust-inner { gap: 16px; }
-    .trust-items { gap: 20px; }
-
-    .compare-head, .compare-row { grid-template-columns: 1fr 1fr; }
-    .compare-head .compare-cell.label,
-    .compare-row .compare-cell.label {
-      grid-column: 1 / -1;
-      background: var(--bg-elev);
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 12px;
-      padding-top: 12px;
-    }
-    .compare-cell { padding: 14px 16px; font-size: 0.9rem; }
-
-    .reminder-card { flex-direction: column; align-items: flex-start; gap: 16px; padding: 24px; }
-
+    .hero { padding: 48px 0 16px; }
+    .overview, .how, .pricing { padding-block: 56px; }
+    .cta { padding-block: 64px; }
     .footer-inner { flex-direction: column; align-items: flex-start; }
   }
 
+  @media (max-width: 600px) {
+    .plan-grid { grid-template-columns: 1fr; }
+    .hero-actions .btn { flex: 1; padding-inline: 14px; white-space: nowrap; }
+  }
+
   @media (max-width: 480px) {
-    .feature-grid { grid-template-columns: 1fr; }
-    .steps { grid-template-columns: 1fr; }
-    .platform-grid { grid-template-columns: repeat(2, 1fr); }
-    .who-card { padding: 26px 22px; }
-    .privacy-donts { padding: 26px 22px; }
-    .reminder-card { padding: 20px; }
+    .overview-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+    .steps { grid-template-columns: 1fr; gap: 20px; }
+    .defs > div { flex-direction: column; gap: 2px; }
+    .plan { padding: 24px; }
   }
 </style>

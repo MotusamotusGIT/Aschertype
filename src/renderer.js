@@ -187,6 +187,126 @@ menuToggle.addEventListener('click', () => {
 });
 sidebarBackdrop.addEventListener('click', closeSidebar);
 
+// ===== Desktop resizable sidebar (VS Code behaviour) =====
+// While dragging the sidebar follows the cursor between MIN and MAX. Dragging further left keeps it at MIN until the
+// cursor passes HIDE_AT, then it slides shut live (no waiting for mouse-up). Drag back past REOPEN_AT and it slides
+// open again. The resizer stays reachable at the left edge while hidden so it can be dragged open, like a VS Code sash.
+// Below the desktop breakpoint (<= 860px) the sidebar is the off-canvas mobile drawer and none of this applies.
+const SIDEBAR_PREF_KEY = 'sidebarPrefs';
+const SIDEBAR_MAX = 240, SIDEBAR_MIN = 184, SIDEBAR_KEY_STEP = 16;
+const SIDEBAR_HIDE_AT = 120, SIDEBAR_REOPEN_AT = 136; // small gap = hysteresis, so it never flickers at the threshold
+const desktopSidebarMQ = window.matchMedia('(min-width: 861px)');
+const appEl = document.querySelector('.app');
+const sidebarResizer = document.getElementById('sidebar-resizer');
+const sidebarCollapseBtn = document.getElementById('sidebar-collapse-btn');
+const sidebarExpandBtn = document.getElementById('sidebar-expand-btn');
+const clampSidebarWidth = (w) => Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Math.round(w)));
+const sidebarPrefs = (() => {
+  const saved = safeParse(SIDEBAR_PREF_KEY, {});
+  const w = Number(saved && saved.width);
+  return { width: Number.isFinite(w) && w > 0 ? clampSidebarWidth(w) : SIDEBAR_MAX, collapsed: !!(saved && saved.collapsed === true) };
+})();
+function saveSidebarPrefs() { safeSetItem(SIDEBAR_PREF_KEY, JSON.stringify({ width: sidebarPrefs.width, collapsed: sidebarPrefs.collapsed })); }
+function paintSidebar(width, collapsed) {
+  appEl.style.setProperty('--sidebar-w', width + 'px');
+  appEl.classList.toggle('sidebar-collapsed', collapsed);
+  sidebar.inert = collapsed; // hidden sidebar must not be reachable by Tab / screen readers
+}
+function applySidebarState() {
+  const collapsed = desktopSidebarMQ.matches && sidebarPrefs.collapsed;
+  paintSidebar(sidebarPrefs.width, collapsed);
+  sidebarExpandBtn.hidden = !collapsed;
+  sidebarExpandBtn.setAttribute('aria-expanded', 'false');
+  sidebarCollapseBtn.setAttribute('aria-expanded', String(!collapsed));
+  sidebarResizer.setAttribute('aria-valuemin', '0');
+  sidebarResizer.setAttribute('aria-valuemax', String(SIDEBAR_MAX));
+  sidebarResizer.setAttribute('aria-valuenow', String(collapsed ? 0 : sidebarPrefs.width));
+}
+function setSidebarCollapsed(collapsed) {
+  // Only move focus when it would otherwise be lost (it was inside the sidebar or on the expand button).
+  const focusWasHere = sidebar.contains(document.activeElement) || document.activeElement === sidebarExpandBtn;
+  sidebarPrefs.collapsed = collapsed;
+  saveSidebarPrefs();
+  applySidebarState();
+  if (focusWasHere) (collapsed ? sidebarExpandBtn : sidebarCollapseBtn).focus();
+  announce(collapsed ? 'Sidebar hidden.' : 'Sidebar shown.');
+}
+function toggleSidebar() {
+  if (desktopSidebarMQ.matches) setSidebarCollapsed(!sidebarPrefs.collapsed);
+  else sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
+}
+sidebarCollapseBtn.addEventListener('click', () => setSidebarCollapsed(true));
+sidebarExpandBtn.addEventListener('click', () => setSidebarCollapsed(false)); // restores the remembered width
+document.addEventListener('keydown', (e) => { // Ctrl/Cmd+B, same as VS Code
+  if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || String(e.key).toLowerCase() !== 'b') return;
+  if (typeof tutorialActive !== 'undefined' && tutorialActive) return;
+  if (e.target && e.target.isContentEditable) return;
+  e.preventDefault();
+  toggleSidebar();
+});
+sidebarResizer.addEventListener('pointerdown', (e) => {
+  if (!desktopSidebarMQ.matches || e.button > 0) return;
+  e.preventDefault();
+  sidebarResizer.setPointerCapture(e.pointerId);
+  document.body.classList.add('sidebar-resizing');
+  appEl.classList.add('sidebar-resizing');
+  const left = appEl.getBoundingClientRect().left;
+  const startVisible = sidebarPrefs.collapsed ? 0 : sidebarPrefs.width;
+  const grabOffset = (e.clientX - left) - startVisible; // keeps the edge under the cursor, no jump on grab
+  let snapped = sidebarPrefs.collapsed, raw = startVisible, raf = 0;
+  const paint = () => {
+    raf = 0;
+    if (!snapped && raw < SIDEBAR_HIDE_AT) snapped = true;
+    else if (snapped && raw >= SIDEBAR_REOPEN_AT) snapped = false;
+    paintSidebar(clampSidebarWidth(raw), snapped);
+  };
+  const move = (ev) => { raw = ev.clientX - left - grabOffset; if (!raf) raf = requestAnimationFrame(paint); };
+  const end = () => {
+    sidebarResizer.removeEventListener('pointermove', move);
+    sidebarResizer.removeEventListener('pointerup', end);
+    sidebarResizer.removeEventListener('pointercancel', end);
+    if (raf) { cancelAnimationFrame(raf); paint(); }
+    document.body.classList.remove('sidebar-resizing');
+    appEl.classList.remove('sidebar-resizing');
+    const changed = snapped !== sidebarPrefs.collapsed;
+    sidebarPrefs.collapsed = snapped;
+    if (!snapped) sidebarPrefs.width = clampSidebarWidth(raw); // when hidden, the last good width stays remembered
+    saveSidebarPrefs(); applySidebarState();
+    if (changed) announce(snapped ? 'Sidebar hidden.' : 'Sidebar shown.');
+  };
+  sidebarResizer.addEventListener('pointermove', move);
+  sidebarResizer.addEventListener('pointerup', end);
+  sidebarResizer.addEventListener('pointercancel', end);
+});
+sidebarResizer.addEventListener('keydown', (e) => {
+  if (!desktopSidebarMQ.matches) return;
+  if (sidebarPrefs.collapsed) {
+    if (['ArrowRight', 'End', 'Enter', ' '].includes(e.key)) { e.preventDefault(); setSidebarCollapsed(false); }
+    return;
+  }
+  let w = null;
+  if (e.key === 'ArrowLeft') w = sidebarPrefs.width - SIDEBAR_KEY_STEP;
+  else if (e.key === 'ArrowRight') w = sidebarPrefs.width + SIDEBAR_KEY_STEP;
+  else if (e.key === 'End') w = SIDEBAR_MAX;
+  else if (e.key === 'Home' || e.key === 'Enter') { e.preventDefault(); setSidebarCollapsed(true); return; }
+  if (w === null) return;
+  e.preventDefault();
+  if (w < SIDEBAR_MIN) { setSidebarCollapsed(true); return; }
+  sidebarPrefs.width = clampSidebarWidth(w);
+  saveSidebarPrefs(); applySidebarState();
+});
+sidebarResizer.addEventListener('dblclick', () => { // VS Code: double-click the sash to reset (or reopen)
+  const wasHidden = sidebarPrefs.collapsed;
+  sidebarPrefs.width = SIDEBAR_MAX;
+  sidebarPrefs.collapsed = false;
+  saveSidebarPrefs(); applySidebarState();
+  if (wasHidden) announce('Sidebar shown.');
+});
+const onSidebarBreakpoint = () => { if (desktopSidebarMQ.matches) closeSidebar(); applySidebarState(); };
+if (desktopSidebarMQ.addEventListener) desktopSidebarMQ.addEventListener('change', onSidebarBreakpoint);
+else if (desktopSidebarMQ.addListener) desktopSidebarMQ.addListener(onSidebarBreakpoint);
+applySidebarState();
+
 let currentProfile = null;
 
 function profileDisplayName() {
@@ -1158,6 +1278,34 @@ const projectAnnouncementFieldEl = document.getElementById('project-announcement
 
 const projectModalOverlay = document.getElementById('project-modal-overlay');
 const projectModalTitle = document.getElementById('project-modal-title');
+// Project text limits (80 / 500). Inputs enforce them via maxlength; saves validate instead of truncating.
+const PROJECT_NAME_MAX = 80;
+const PROJECT_DESCRIPTION_MAX = 500;
+function projectTextError(kind, value) {
+  const max = kind === 'title' ? PROJECT_NAME_MAX : PROJECT_DESCRIPTION_MAX;
+  const len = [...value].length;
+  if (len <= max) return '';
+  return (kind === 'title' ? 'Project name' : 'Description') + ' is ' + (len - max) + ' character' + (len - max === 1 ? '' : 's') + ' over the ' + max + ' character limit.';
+}
+// Live "n / max" counter. Text (not colour) marks the limit; the counter is referenced by aria-describedby.
+function bindCharCounter(field, counter, max) {
+  if (!field || !counter) return () => {};
+  const update = () => {
+    const len = [...field.value].length;
+    counter.textContent = len >= max ? len + ' / ' + max + ' (limit reached)' : len + ' / ' + max;
+    counter.classList.toggle('near-limit', len >= max * 0.9);
+  };
+  field.addEventListener('input', update);
+  update();
+  return update;
+}
+// Polite status announcements for changes that have no toast of their own.
+const srStatusEl = document.getElementById('sr-status');
+function announce(msg) {
+  if (!srStatusEl || !msg) return;
+  srStatusEl.textContent = '';
+  setTimeout(() => { srStatusEl.textContent = msg; }, 60);
+}
 const projectNameInput = document.getElementById('project-name-input');
 const projectDescriptionInput = document.getElementById('project-description-input');
 const projectPreviewTile = document.getElementById('project-preview-tile');
@@ -1269,6 +1417,7 @@ function setProjectAnnouncement(projectId, text) {
   saveProjects();
   if (projectAnnouncements[key] !== undefined) { delete projectAnnouncements[key]; saveProjectAnnouncements(); }
   if (currentUser) dbUpsert('projects', projectRemoteRow(p));
+  announce(text ? 'Announcement updated.' : 'Announcement cleared.');
 }
 
 const projectAnnouncementEl = document.getElementById('project-announcement');
@@ -1405,6 +1554,9 @@ function updateProjectPreviewLetter() {
   projectPreviewTile.textContent = name.charAt(0).toUpperCase() || '?';
 }
 projectNameInput.addEventListener('input', updateProjectPreviewLetter);
+const updateProjectNameCount = bindCharCounter(projectNameInput, document.getElementById('project-name-count'), PROJECT_NAME_MAX);
+const updateProjectDescCount = bindCharCounter(projectDescriptionInput, document.getElementById('project-description-input-count'), PROJECT_DESCRIPTION_MAX);
+[projectNameInput, projectDescriptionInput].forEach((n) => n.addEventListener('input', () => { n.removeAttribute('aria-invalid'); showProjectModalError(''); }));
 
 let pendingProjectType = 'personal';
 function openProjectModal(existingProject = null, type = 'personal') {
@@ -1421,6 +1573,8 @@ function openProjectModal(existingProject = null, type = 'personal') {
   previewTileColor = projectTileColor(existingProject || { id: 'preview-' + Date.now(), name: '' });
   projectPreviewTile.style.background = previewTileColor;
   updateProjectPreviewLetter();
+  updateProjectNameCount(); updateProjectDescCount();
+  projectNameInput.removeAttribute('aria-invalid'); projectDescriptionInput.removeAttribute('aria-invalid');
   projectModalOverlay.style.display = 'flex';
   setTimeout(() => projectNameInput.focus(), 30);
 }
@@ -1450,8 +1604,19 @@ projectModalOverlay.addEventListener('click', (e) => { if (e.target === projectM
 
 projectModalSaveBtn.addEventListener('click', async () => {
   const name = projectNameInput.value.trim();
-  const description = projectDescriptionInput.value.trim().slice(0, 240);
-  if (!name) { projectNameInput.focus(); return; }
+  const description = projectDescriptionInput.value.trim();
+  if (!name) {
+    projectNameInput.setAttribute('aria-invalid', 'true');
+    showProjectModalError('Give the project a name.');
+    projectNameInput.focus(); return;
+  }
+  const modalLimitError = projectTextError('title', name) || projectTextError('description', description);
+  if (modalLimitError) {
+    const nameBad = !!projectTextError('title', name);
+    (nameBad ? projectNameInput : projectDescriptionInput).setAttribute('aria-invalid', 'true');
+    showProjectModalError(modalLimitError);
+    (nameBad ? projectNameInput : projectDescriptionInput).focus(); return;
+  }
   if (editingProjectId) {
     const p = getProject(editingProjectId);
     if (p) {
@@ -1572,8 +1737,6 @@ const projectDescriptionSaveBtn = document.getElementById('project-description-s
 const projectDescriptionCancelBtn = document.getElementById('project-description-cancel');
 const projectDescriptionErrorEl = document.getElementById('project-description-error');
 
-const PROJECT_NAME_MAX = 60;
-const PROJECT_DESCRIPTION_MAX = 240;
 // Only one field is edited at a time. `projectId` pins the edit to the project it started on.
 let inlineEdit = { field: null, projectId: null, saving: false };
 
@@ -1581,6 +1744,8 @@ function setInlineError(field, msg) {
   const node = field === 'title' ? projectTitleErrorEl : projectDescriptionErrorEl;
   node.textContent = msg || '';
   node.hidden = !msg;
+  const input = field === 'title' ? projectTitleInput : projectDescriptionInline;
+  if (msg) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid');
 }
 function setInlineBusy(busy) {
   inlineEdit.saving = busy;
@@ -1599,6 +1764,7 @@ function openInlineEdit(field) {
   setInlineError('title', ''); setInlineError('description', '');
   if (field === 'title') projectTitleInput.value = p.name || '';
   else projectDescriptionInline.value = p.description || '';
+  updateTitleCount(); updateDescCount();
   renderViewHeader();
   const focusEl = field === 'title' ? projectTitleInput : projectDescriptionInline;
   setTimeout(() => {
@@ -1629,7 +1795,9 @@ async function commitInlineEdit(fromOutside) {
 
   const prop = field === 'title' ? 'name' : 'description';
   const raw = field === 'title' ? projectTitleInput.value : projectDescriptionInline.value;
-  const value = raw.trim().slice(0, field === 'title' ? PROJECT_NAME_MAX : PROJECT_DESCRIPTION_MAX);
+  const value = raw.trim();
+  const limitError = projectTextError(field, value);
+  if (limitError) { setInlineError(field, limitError); (field === 'title' ? projectTitleInput : projectDescriptionInline).focus(); return; }
 
   if (field === 'title' && !value) { setInlineError('title', 'Give the project a name.'); projectTitleInput.focus(); return; }
   if (value === (p[prop] || '')) { closeInlineEdit(!fromOutside); return; } // nothing changed
@@ -1656,6 +1824,7 @@ async function commitInlineEdit(fromOutside) {
   renderProjectSelect();
   renderViewHeader();
   renderTodos(); // task cards show the project name
+  announce(field === 'title' ? 'Project name saved.' : 'Project description saved.');
   // Give focus back to the pencil only if nothing else took it (e.g. an outside click).
   if (document.activeElement === document.body || !document.activeElement) {
     const btn = field === 'title' ? projectTitleEditBtn : (projectDescriptionEditBtn.hidden ? projectDescriptionAddBtn : projectDescriptionEditBtn);
@@ -1663,6 +1832,8 @@ async function commitInlineEdit(fromOutside) {
   }
 }
 
+const updateTitleCount = bindCharCounter(projectTitleInput, document.getElementById('project-title-count'), PROJECT_NAME_MAX);
+const updateDescCount = bindCharCounter(projectDescriptionInline, document.getElementById('project-description-count'), PROJECT_DESCRIPTION_MAX);
 projectTitleEditBtn.addEventListener('click', () => openInlineEdit('title'));
 projectDescriptionEditBtn.addEventListener('click', () => openInlineEdit('description'));
 projectDescriptionAddBtn.addEventListener('click', () => openInlineEdit('description'));
@@ -1675,7 +1846,7 @@ projectTitleInput.addEventListener('keydown', (e) => {
 });
 projectDescriptionInline.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!inlineEdit.saving) closeInlineEdit(true); }
-  else if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); commitInlineEdit(); } // Shift+Enter = new line
+  else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.isComposing) { e.preventDefault(); commitInlineEdit(); } // plain Enter = new line; Ctrl/Cmd+Enter or the Save button saves
 });
 // Clicking outside saves a valid change (least surprising: nothing typed is lost); an empty name just cancels.
 document.addEventListener('pointerdown', (e) => {
@@ -2039,7 +2210,7 @@ function setView(view) {
   if (view === 'project') touchRecentProject(currentProjectId);
   // One active item: inside a project, highlight the hub it belongs to.
   const navKey = view === 'project' ? (isTeamProject(currentProjectId) ? 'projects' : 'personal') : view;
-  navItems.forEach(b => b.classList.toggle('active', b.dataset.view === navKey));
+  navItems.forEach(b => { const on = b.dataset.view === navKey; b.classList.toggle('active', on); if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
   allTasksBtn.classList.toggle('active', ['all', 'today', 'active', 'completed'].includes(view));
   showView(view);
   if (view === 'settings') renderSettingsUI();
@@ -2190,15 +2361,15 @@ if (taskCategoryMenu) {
   });
 }
 
-const ICON_CALENDAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>';
-const ICON_FOLDER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>';
-const ICON_PEOPLE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>';
-const ICON_PENCIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>';
-const ICON_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>';
-const ICON_SHIELD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>';
-const ICON_FLAG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V4"></path><path d="M4 4h13l-2.5 4L17 12H4"></path></svg>';
-const ICON_GRIP = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="9" cy="6" r="1.5"></circle><circle cx="15" cy="6" r="1.5"></circle><circle cx="9" cy="12" r="1.5"></circle><circle cx="15" cy="12" r="1.5"></circle><circle cx="9" cy="18" r="1.5"></circle><circle cx="15" cy="18" r="1.5"></circle></svg>';
-const ICON_PIN = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M16 3a1 1 0 0 1 1 1v6.29l2.55 3.4A1.5 1.5 0 0 1 18.35 16H13v5a1 1 0 1 1-2 0v-5H5.65a1.5 1.5 0 0 1-1.2-2.31L7 10.29V4a1 1 0 0 1 1-1zM9 5v5.62a1 1 0 0 1-.2.6L6.5 14h11l-2.3-2.78a1 1 0 0 1-.2-.6V5z"></path></svg>';
+const ICON_CALENDAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="18" rx="3"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg>';
+const ICON_FOLDER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>';
+const ICON_PEOPLE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>';
+const ICON_PENCIL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>';
+const ICON_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>';
+const ICON_SHIELD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>';
+const ICON_FLAG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 22V4"></path><path d="M4 4h13l-2.5 4L17 12H4"></path></svg>';
+const ICON_GRIP = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true" focusable="false"><circle cx="9" cy="6" r="1.5"></circle><circle cx="15" cy="6" r="1.5"></circle><circle cx="9" cy="12" r="1.5"></circle><circle cx="15" cy="12" r="1.5"></circle><circle cx="9" cy="18" r="1.5"></circle><circle cx="15" cy="18" r="1.5"></circle></svg>';
+const ICON_PIN = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true" focusable="false"><path d="M16 3a1 1 0 0 1 1 1v6.29l2.55 3.4A1.5 1.5 0 0 1 18.35 16H13v5a1 1 0 1 1-2 0v-5H5.65a1.5 1.5 0 0 1-1.2-2.31L7 10.29V4a1 1 0 0 1 1-1zM9 5v5.62a1 1 0 0 1-.2.6L6.5 14h11l-2.3-2.78a1 1 0 0 1-.2-.6V5z"></path></svg>';
 
 function truncateWords(str, maxLen) {
   if (!str) return '';
@@ -2236,6 +2407,7 @@ function buildTaskCard(t, todayKey, opts) {
 
     const card = document.createElement('div');
     card.className = `task-card priority-${t.priority}` + (t.done ? ' completed' : '') + (t.pinned ? ' is-pinned' : '') + (bulk && bulkSelectedIds.has(t.id) ? ' bulk-selected' : '');
+    card.setAttribute('role', 'group');
     card.setAttribute('aria-label', `${t.text}${t.priority !== 'low' ? ', ' + priorityLabel.toLowerCase() : ''}${t.due ? ', due ' + t.due : ''}`);
     card.draggable = !opts.hub && window.innerWidth > 760 && !bulk;
     card.addEventListener('dragstart', (e) => {
@@ -2297,6 +2469,10 @@ function buildTaskCard(t, todayKey, opts) {
     const title = document.createElement('div');
     title.className = 'task-title';
     title.textContent = truncateWords(t.text, 25);
+    if (!bulk) { // keyboard equivalent of clicking the card: focus the title, press Enter/Space to open details
+      title.tabIndex = 0; title.setAttribute('role', 'button');
+      title.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === title) { e.preventDefault(); openTaskDetail(t.id); } });
+    }
     if (title.textContent !== t.text) title.title = t.text;
     headline.appendChild(title);
 
@@ -2425,6 +2601,8 @@ function buildTaskCard(t, todayKey, opts) {
         tagText.textContent = truncateWords(p.name, 18);
         tag.title = p.name;
         tag.appendChild(tagText);
+        tag.tabIndex = 0; tag.setAttribute('role', 'link');
+        tag.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); currentProjectId = p.id; setView('project'); } });
         tag.addEventListener('click', (e) => { e.stopPropagation(); currentProjectId = p.id; setView('project'); });
         meta.appendChild(tag);
       }
@@ -2527,6 +2705,7 @@ function startInlineEdit(titleEl, t) {
   const editInput = document.createElement('input');
   editInput.type = 'text';
   editInput.className = 'task-title-edit';
+  editInput.setAttribute('aria-label', 'Edit task title');
   editInput.value = t.text;
   titleEl.replaceWith(editInput);
   editInput.focus(); editInput.select();
@@ -2739,6 +2918,7 @@ function renderSubtaskList(t) {
     const check = document.createElement('input');
     check.type = 'checkbox';
     check.checked = s.done;
+    check.setAttribute('aria-label', 'Subtask done: ' + s.text);
     check.disabled = !canEdit;
     check.addEventListener('change', () => {
       s.done = check.checked;
@@ -2752,10 +2932,13 @@ function renderSubtaskList(t) {
     label.textContent = s.text;
     label.title = canEdit ? 'Click to rename' : '';
     if (canEdit) {
+      label.tabIndex = 0; label.setAttribute('role', 'button');
+      label.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); label.click(); } });
       label.addEventListener('click', () => {
         const editInput = document.createElement('input');
         editInput.type = 'text';
         editInput.className = 'task-detail-subtask-edit';
+        editInput.setAttribute('aria-label', 'Edit subtask');
         editInput.value = s.text;
         label.replaceWith(editInput);
         editInput.focus(); editInput.select();
@@ -2879,6 +3062,7 @@ function performDeleteTask(t) {
   todos.splice(idx, 1);
   saveTodos(); renderTodos(); renderCounts(); renderProjectNav();
   if (currentUser) dbDelete('todos', removed.id);
+  announce('Task deleted.');
   showUndoToast(`"${removed.text}" deleted.`, () => {
     const reinsertAt = Math.min(idx, todos.length);
     todos.splice(reinsertAt, 0, removed);
@@ -3233,6 +3417,7 @@ function renderHomeFocus() {
     cb.type = 'checkbox';
     cb.className = 'task-check';
     cb.title = 'Mark done';
+    cb.setAttribute('aria-label', 'Mark done: ' + t.text);
     cb.addEventListener('change', () => {
       t.done = true;
       recordCompletion();
@@ -3346,7 +3531,7 @@ function renderHomeMiniCal() {
     if (hasEvent || hasDue) {
       const dot = document.createElement('span');
       dot.className = 'home-minical-dot';
-      dot.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2a6 6 0 0 0-6 6v3.586l-1.707 1.707A1 1 0 0 0 5 15h14a1 1 0 0 0 .707-1.707L18 11.586V8a6 6 0 0 0-6-6z"></path><path d="M9.5 17a2.5 2.5 0 0 0 5 0z"></path></svg>';
+      dot.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true" focusable="false"><path d="M12 2a6 6 0 0 0-6 6v3.586l-1.707 1.707A1 1 0 0 0 5 15h14a1 1 0 0 0 .707-1.707L18 11.586V8a6 6 0 0 0-6-6z"></path><path d="M9.5 17a2.5 2.5 0 0 0 5 0z"></path></svg>';
       cell.appendChild(dot);
     }
     cell.addEventListener('click', () => setView('calendar'));
@@ -3382,6 +3567,7 @@ form.addEventListener('submit', (e) => {
   renderTodos(); renderCounts(); renderViewHeader(); renderProjectNav();
   if (currentUser) dbUpsert('todos', todoRemoteRow(newTodo));
   showToast('add');
+  announce('Task added.');
   closeTaskAdd();
 });
 
@@ -4179,7 +4365,7 @@ function renderCalendar() {
     for (let d = 0; d < Math.min(count, 3); d++) {
       const dot = document.createElement('span');
       dot.className = 'day-dot';
-      dot.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2a6 6 0 0 0-6 6v3.586l-1.707 1.707A1 1 0 0 0 5 15h14a1 1 0 0 0 .707-1.707L18 11.586V8a6 6 0 0 0-6-6z"></path><path d="M9.5 17a2.5 2.5 0 0 0 5 0z"></path></svg>';
+      dot.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true" focusable="false"><path d="M12 2a6 6 0 0 0-6 6v3.586l-1.707 1.707A1 1 0 0 0 5 15h14a1 1 0 0 0 .707-1.707L18 11.586V8a6 6 0 0 0-6-6z"></path><path d="M9.5 17a2.5 2.5 0 0 0 5 0z"></path></svg>';
       dotRow.appendChild(dot);
     }
     cell.appendChild(dotRow);
@@ -4229,9 +4415,11 @@ function renderDayPanel() {
   dayEvents.forEach(ev => {
     const row = document.createElement('div');
     row.className = 'event-row';
+    row.tabIndex = 0; row.setAttribute('role', 'button');
+    row.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === row) { e.preventDefault(); row.click(); } });
     const icon = document.createElement('div');
     icon.className = 'event-icon';
-    icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="8.25" stroke="currentColor" stroke-width="1.6"/><path d="M12 7.5v4.5l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.25" stroke="currentColor" stroke-width="1.6"/><path d="M12 7.5v4.5l3 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     const main = document.createElement('div');
     main.className = 'event-row-main';
     const time = document.createElement('div');
@@ -4246,7 +4434,7 @@ function renderDayPanel() {
       notesRow.className = 'event-notes';
       const notesIcon = document.createElement('span');
       notesIcon.className = 'event-notes-icon';
-      notesIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 4.5h14v11l-4 4H5v-15Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9 9h6M9 13h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+      notesIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M5 4.5h14v11l-4 4H5v-15Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9 9h6M9 13h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
       const notesText = document.createElement('span');
       notesText.textContent = ev.notes;
       notesRow.append(notesIcon, notesText);

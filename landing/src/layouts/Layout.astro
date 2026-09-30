@@ -6,15 +6,16 @@ export interface Props {
 }
 
 const {
-  title = 'MossTask — Plan your day without the complexity',
-  description = 'A calm workspace for everyday life with simple tasks, calendar, notes, projects, and focus timers. Free to start, no account required.',
+  title = 'MossTask — Calm workflow. Work fast.',
+  description = 'MossTask is a calm workspace for tasks, projects, notes, calendar, and focused work. Free to start, no account required.',
   heroImage,
 } = Astro.props;
 
-const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+const SITE = 'https://mosstask-landing.vercel.app';
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? SITE);
 // Uses a screenshot that exists in /public. Swap for a dedicated
 // 1200x630 /og-image.png if you add one.
-const ogImage = new URL('/project.png', Astro.site);
+const ogImage = new URL('/project.png', Astro.site ?? SITE);
 ---
 
 <!DOCTYPE html>
@@ -53,15 +54,13 @@ const ogImage = new URL('/project.png', Astro.site);
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
     name: 'MossTask',
-    alternateName: 'Aschertype',
     applicationCategory: 'ProductivityApplication',
     operatingSystem: 'Web, Windows, macOS, Linux',
     description,
-    offers: {
-      '@type': 'Offer',
-      price: '0',
-      priceCurrency: 'USD',
-    },
+    offers: [
+      { '@type': 'Offer', name: 'Free', price: '0', priceCurrency: 'USD' },
+      { '@type': 'Offer', name: 'Team', price: '5', priceCurrency: 'USD' },
+    ],
     url: canonicalURL,
   })} />
 
@@ -98,7 +97,7 @@ const ogImage = new URL('/project.png', Astro.site);
     --accent-contrast: #ffffff;
     --ink: #2b3542;
     --ink-2: #4c596b;
-    --ink-light: #808d9e;
+    --ink-light: #5f6b7b;
     --bg: #ecedf1;
     --bg-elev: #e7e8ec;
     --card: #eeeeeb;
@@ -112,7 +111,7 @@ const ogImage = new URL('/project.png', Astro.site);
 
   /* ===== Dark — same palette as the app's [data-theme="dark"] ===== */
   :root[data-theme="dark"] {
-    --accent: #529872;
+    --accent: #3f7a5b;
     --accent-ink: #8fbfa4;
     --accent-soft: rgba(143, 191, 164, 0.14);
     --accent-contrast: #ffffff;
@@ -150,6 +149,22 @@ const ogImage = new URL('/project.png', Astro.site);
   }
 
   img { max-width: 100%; display: block; }
+
+  /* The landing page has no prose lists; every list is a styled component. */
+  ul, ol { list-style: none; margin: 0; padding: 0; }
+  li::marker { content: none; }
+
+  :focus-visible {
+    outline: 2px solid var(--accent-ink);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+    .btn:hover { transform: none; }
+  }
 
   main > section:not(.hero) {
     content-visibility: auto;
@@ -206,8 +221,8 @@ const ogImage = new URL('/project.png', Astro.site);
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    width: 36px;
+    height: 36px;
     border-radius: 7px;
     border: none;
     background: none;

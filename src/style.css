@@ -7,7 +7,7 @@
   --accent-contrast: #ffffff;
   --ink: #2b3542;
   --ink-2: #4c596b;
-  --ink-light: #6b7788;
+  --ink-light: #596371;
   --bg: #e4e5e9;
   --bg-elev: #e7e8ec;
   --panel: #e7e8ec;
@@ -368,7 +368,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   cursor: pointer;
 }
 .profile-pop-action:hover { background: var(--accent-soft); color: var(--ink); }
-.profile-pop-action.danger { color: var(--high); }
+.profile-pop-action.danger { color: var(--high-text); }
 .profile-pop-action.danger:hover { background: var(--high-bg); }
 
 .profile-pop-edit {
@@ -497,7 +497,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 }
 .auth-tab.active { background: var(--card); color: var(--ink); box-shadow: var(--shadow-sm); }
 .auth-message { font-size: 13px; padding: 10px 14px; border-radius: 10px; line-height: 1.5; }
-.auth-message.error { background: var(--high-bg); color: var(--high); border: 1px solid var(--high-bg); }
+.auth-message.error { background: var(--high-bg); color: var(--high-text); border: 1px solid var(--high-bg); }
 .auth-message.notice { background: var(--accent-soft); color: var(--accent-ink); border: 1px solid var(--accent-soft); }
 .auth-form { display: flex; flex-direction: column; gap: 14px; }
 .auth-form .field-label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-light); }
@@ -814,7 +814,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   display: block;
 }
 .header-icon-btn:hover { background: var(--accent-soft); color: var(--accent-ink); }
-.header-icon-btn.danger:hover { background: var(--high-bg); color: var(--high); }
+.header-icon-btn.danger:hover { background: var(--high-bg); color: var(--high-text); }
 
 .home-summary { margin: 4px 0 34px; text-align: center; }
 .home-greeting {
@@ -1226,18 +1226,18 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .task-pill span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .task-pill svg { width: 10px; height: 10px; flex-shrink: 0; opacity: 0.85; }
 .pill-icon { display: inline-flex; align-items: center; }
-.task-pill.due-overdue { color: var(--high); background: var(--high-bg); padding: 2.5px 7px 2.5px 6px; border-radius: 6px; }
+.task-pill.due-overdue { color: var(--high-text); background: var(--high-bg); padding: 2.5px 7px 2.5px 6px; border-radius: 6px; }
 .task-pill.due-today { color: var(--accent-ink); background: var(--accent-soft); padding: 2.5px 7px 2.5px 6px; border-radius: 6px; }
 .task-pill.project-tag { color: var(--ink-2); background: var(--task-bg); cursor: pointer; border: 1px solid var(--border); padding: 2.5px 8px 2.5px 6px; border-radius: 6px; max-width: 160px; }
 .task-pill.project-tag:hover { border-color: var(--border-hover); background: var(--task-bg-hover); }
 .task-pill .project-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.task-pill.shared-tag { color: var(--medium); background: var(--medium-bg); }
+.task-pill.shared-tag { color: var(--medium-text); background: var(--medium-bg); }
 
 /* Secondary tier: priority, shown only when it isn't the low/default case. */
 .task-pill.priority-tag { font-weight: 600; padding: 2.5px 7px 2.5px 6px; border-radius: 6px; }
 .task-pill.priority-tag svg { width: 9px; height: 9px; }
-.task-pill.priority-tag.priority-medium { color: var(--medium); background: var(--medium-bg); }
-.task-pill.priority-tag.priority-high { color: var(--high); background: var(--high-bg); }
+.task-pill.priority-tag.priority-medium { color: var(--medium-text); background: var(--medium-bg); }
+.task-pill.priority-tag.priority-high { color: var(--high-text); background: var(--high-bg); }
 
 /* Tertiary tier: project, category, assignee, time spent. Quieter than the
    due date / priority tags above so attention lands on what matters first. */
@@ -1250,7 +1250,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 }
 .task-pill.tag-quiet.project-tag { cursor: pointer; }
 .task-pill.tag-quiet.project-tag:hover { color: var(--ink-2); opacity: 1; }
-.task-pill.tag-quiet.shared-tag { color: var(--medium); }
+.task-pill.tag-quiet.shared-tag { color: var(--medium-text); }
 .task-card.completed .task-pill.tag-quiet { opacity: 0.6; }
 
 .task-card-actions {
@@ -1269,7 +1269,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 }
 .task-icon-btn svg { width: 13px; height: 13px; }
 .task-icon-btn:hover { color: var(--accent-ink); background: var(--accent-soft); }
-.task-icon-btn.delete-btn:hover { color: var(--high); background: var(--high-bg); }
+.task-icon-btn.delete-btn:hover { color: var(--high-text); background: var(--high-bg); }
 
 .touch-drag-ghost {
   position: fixed; top: 0; left: 0; z-index: 200;
@@ -1304,17 +1304,17 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   animation: dropzonePop .3s ease 1;
 }
 .drag-dropzone.danger.drop-target {
-  border: 1px solid var(--high); background: var(--high-bg); color: var(--high);
+  border: 1px solid var(--high); background: var(--high-bg); color: var(--high-text);
 }
 .drag-dropzone.zone-invalid {
   opacity: 0.45; cursor: not-allowed;
   border-style: solid; border-color: var(--border);
 }
 .drag-dropzone.zone-invalid.drop-target {
-  border-color: var(--high); background: var(--high-bg); color: var(--high);
+  border-color: var(--high); background: var(--high-bg); color: var(--high-text);
   animation: none;
 }
-.touch-drag-ghost.ghost-over-invalid { border-color: var(--high); color: var(--high); }
+.touch-drag-ghost.ghost-over-invalid { border-color: var(--high); color: var(--high-text); }
 @keyframes dropzonePop {
   0%, 100% { transform: scale(1); }
   35% { transform: scale(1.1); }
@@ -1518,7 +1518,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
 .btn.small { padding: 8px 16px; font-size: 13px; border-radius: 10px; }
 .btn.primary { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
 .btn.primary:hover { filter: brightness(1.08); }
-.btn.danger { background: none; color: var(--high); border-color: var(--high-bg); }
+.btn.danger { background: none; color: var(--high-text); border-color: var(--high-bg); }
 .btn.danger:hover { background: var(--high-bg); border-color: var(--high); }
 
 .pomodoro-card {
@@ -1604,7 +1604,7 @@ input, select, textarea, button, .pomodoro-card, .settings-card,
   flex-shrink: 0; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
   border-radius: 50%; color: var(--ink-light); font-size: 15px; line-height: 1;
 }
-.pomodoro-queue-item-remove:hover { background: var(--high-bg); color: var(--high); }
+.pomodoro-queue-item-remove:hover { background: var(--high-bg); color: var(--high-text); }
 .pomodoro-queue-empty { font-size: 12.5px; color: var(--ink-light); text-align: center; padding: 6px 4px; margin: 0; }
 
 .calendar-layout { display: grid; grid-template-columns: 1fr 340px; gap: 24px; }
@@ -1943,7 +1943,7 @@ body.tutorial-scroll-lock .notes-list {
   background: var(--task-bg); color: var(--ink); font-size: 14px; font-family: inherit;
 }
 .category-modal-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-.category-modal-error { color: var(--high); font-size: 12.5px; }
+.category-modal-error { color: var(--high-text); font-size: 12.5px; }
 
 .welcome-card {
   max-width: 520px;
@@ -2317,7 +2317,7 @@ body.tutorial-scroll-lock .notes-list {
   display: block;
 }
 .collab-action-btn:hover { background: var(--bg); color: var(--accent-ink); }
-.collab-action-btn.danger:hover { color: var(--high); }
+.collab-action-btn.danger:hover { color: var(--high-text); }
 
 @media (max-width: 1200px) {
   :root {
@@ -2812,7 +2812,7 @@ body.tutorial-scroll-lock .notes-list {
   padding: 10px 15px;
   border-radius: 14px;
   background: var(--high-bg);
-  color: var(--high);
+  color: var(--high-text);
   border: 1px solid var(--high-bg);
 }
 
@@ -2851,7 +2851,7 @@ body.tutorial-scroll-lock .notes-list {
   animation: assistantActionIn 0.18s ease-out;
 }
 .assistant-action.fail {
-  color: var(--high);
+  color: var(--high-text);
   background: var(--high-bg);
   border-color: var(--high-bg);
   white-space: normal;
@@ -2941,7 +2941,7 @@ body.tutorial-scroll-lock .notes-list {
 .assistant-icon-btn.send:disabled { opacity: 0.45; cursor: default; transform: none; }
 .assistant-icon-btn.stop {
   background: var(--high-bg);
-  color: var(--high);
+  color: var(--high-text);
 }
 .assistant-icon-btn.stop:hover { background: var(--high); color: #fff; }
 
@@ -3062,7 +3062,7 @@ body.tutorial-scroll-lock .notes-list {
   color: var(--accent-ink);
   background: var(--accent-soft);
 }
-.home-focus-item.is-overdue .home-focus-due { color: var(--high); background: var(--high-bg); }
+.home-focus-item.is-overdue .home-focus-due { color: var(--high-text); background: var(--high-bg); }
 .home-focus-more { padding-top: 6px; font-size: 13px; color: var(--ink-light); }
 
 #home-summary, #home-focus, #home-widgets { display: none !important; }
@@ -3194,7 +3194,7 @@ body.tutorial-scroll-lock .notes-list {
   font-weight: 400;
   color: var(--ink-light);
 }
-.home-focus-item.is-overdue .home-focus-due { background: none; color: var(--high); }
+.home-focus-item.is-overdue .home-focus-due { background: none; color: var(--high-text); }
 
 .home-progress-dot { border-color: var(--home-line); color: var(--ink-light); }
 .home-progress-dot.is-filled {
@@ -3594,8 +3594,8 @@ kbd {
 .project-more-menu[hidden] { display: none; }
 .project-more-item { display: block; width: 100%; text-align: left; padding: 9px 12px; border: 0; border-radius: 8px; background: none; font: inherit; font-size: 13.5px; color: var(--ink-2); cursor: pointer; }
 .project-more-item:hover { background: var(--accent-soft); color: var(--ink); }
-.project-more-item.danger { color: var(--high); }
-.project-more-item.danger:hover { background: var(--high-bg); color: var(--high); }
+.project-more-item.danger { color: var(--high-text); }
+.project-more-item.danger:hover { background: var(--high-bg); color: var(--high-text); }
 #project-modal-announcement { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); color: var(--ink); }
 #project-modal-announcement:focus { outline: none; border-color: var(--accent); }
 
@@ -3604,7 +3604,7 @@ kbd {
 #task-view.is-project {
   --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;  --sp-4: 16px;
   --sp-5: 24px; --sp-6: 32px; --sp-7: 40px;
-  --tile: 56px;        /* project avatar; the title row is as tall as it so they centre together */
+  --head-row: 44px;    /* height of the title row / actions row so title and Members/More centre together */
   --edit-slot: 36px;   /* room kept beside title/description so the hover pencil never changes layout */
   --ph-gap: 24px;      /* gutter on each side of the identity | about divider */
   --ph-actions: 64px;  /* fixed width reserved for Members / More so the two halves stay symmetric */
@@ -3628,25 +3628,28 @@ kbd {
      left of the other half after the tile, so the divider sits dead centre at any desktop width. */
   display: grid;
   grid-template-columns:
-    var(--tile)
     minmax(0, 1fr)
     minmax(0, calc((100% - var(--ph-actions) - var(--ph-gap)) / 2))
     var(--ph-actions);
   grid-template-areas:
-    "tile title about actions"
-    ".    meta  about actions";
+    "eyebrow about actions"
+    "title   about actions"
+    "meta    about actions";
+  grid-template-rows: auto auto 1fr; /* spare height from a long description goes below the status, not between it and the title */
   column-gap: var(--ph-gap); row-gap: 0; align-items: start; width: 100%;
 }
-#task-view.is-project .project-identity-tile {
-  grid-area: tile; display: flex; width: var(--tile); height: var(--tile); border-radius: 16px; font-size: 24px;
-}
+/* "PROJECT" eyebrow above the title: mirrors "ABOUT THIS PROJECT" so both halves read label -> content */
+.project-eyebrow { display: none; }
+#task-view.is-project .project-eyebrow { display: block; grid-area: eyebrow; }
+/* the project avatar is not shown in the project header (element stays in the DOM for renderer.js) */
+#task-view.is-project .project-identity-tile { display: none; }
 /* body dissolves so title / status / about can each sit in their own grid area */
 #task-view.is-project .project-identity-body { display: contents; }
 #task-view.is-project .project-title-row, #task-view.is-project #project-title-form { grid-area: title; }
-#task-view.is-project .project-header-actions { grid-area: actions; justify-self: end; display: flex; align-items: center; align-self: start; min-height: var(--tile); gap: var(--sp-1); }
+#task-view.is-project .project-header-actions { grid-area: actions; justify-self: end; display: flex; align-items: center; align-self: start; margin-top: -10px; gap: var(--sp-1); }
 
-#task-view.is-project .project-title-row { display: flex; align-items: center; position: relative; width: fit-content; max-width: calc(100% - var(--edit-slot)); min-height: var(--tile); }
-#task-view.is-project #project-title-form { min-height: var(--tile); display: flex; flex-direction: column; justify-content: center; }
+#task-view.is-project .project-title-row { display: flex; align-items: center; position: relative; width: fit-content; max-width: calc(100% - var(--edit-slot)); }
+#task-view.is-project #project-title-form { display: flex; flex-direction: column; justify-content: center; }
 #task-view.is-project .main-header h1 { font-size: 30px; line-height: 1.2; min-width: 0; overflow-wrap: anywhere; word-break: normal; }
 #task-view.is-project .project-title-row .inline-edit-btn { top: 50%; transform: translateY(-50%); }
 
@@ -3654,23 +3657,28 @@ kbd {
 .project-about { margin-top: 0; }
 #task-view.is-project .project-about {
   grid-area: about; align-self: stretch; min-width: 0;
-  padding: var(--sp-2) 0 var(--sp-1) var(--ph-gap);
+  padding: 0 0 var(--sp-1) var(--ph-gap);
   border-left: 1px solid var(--border);
 }
-.project-about-label {
+.project-about-label, .project-eyebrow {
   margin: 0 0 var(--sp-2); font-size: 11px; font-weight: 700; letter-spacing: .09em;
   text-transform: uppercase; color: var(--ink-light);
 }
+/* Hierarchy: title (largest, darkest) > description (dark, comfortable) > labels (small, quiet).
+   PROJECT is the one label in moss green: it anchors the title as "the thing you're looking at",
+   while ABOUT THIS PROJECT stays neutral so it reads as supporting information. */
+#task-view.is-project .project-eyebrow { color: var(--accent-ink); }
+#task-view.is-project .project-about-label { font-weight: 600; opacity: .85; }
 .project-about-row { position: relative; display: block; width: fit-content; max-width: calc(100% - var(--edit-slot)); min-width: 0; }
 #task-view.is-project .project-description {
-  margin: 0; max-width: 64ch; font-size: 15px; line-height: 1.65; color: var(--ink-2);
+  margin: 0; max-width: 64ch; font-size: 15.5px; line-height: 1.65; color: var(--ink);
   white-space: pre-line; overflow-wrap: anywhere;
 }
 #task-view.is-project .project-description-add { margin: 0; padding: var(--sp-1) 0; font-size: 14px; }
 .project-about-row .inline-edit-btn { top: -4px; }
 
 /* Status: metadata, quieter than everything above it */
-#task-view.is-project .main-header-meta { grid-area: meta; display: block; margin-top: calc(var(--sp-2) * -1); }
+#task-view.is-project .main-header-meta { grid-area: meta; display: block; margin-top: var(--sp-1); }
 #task-view.is-project #view-subtitle { display: block; font-size: 12.5px; font-weight: 500; letter-spacing: .01em; color: var(--ink-light); text-align: left; margin: 0; }
 
 /* Edit pencil: overlaid beside the text (absolute) so showing it never moves anything */
@@ -3726,7 +3734,7 @@ kbd {
 .inline-edit-icon.save:hover { background: var(--accent); color: var(--accent-contrast, #fff); }
 .inline-edit-icon:disabled { opacity: .55; cursor: default; }
 .inline-edit-actions { display: flex; gap: var(--sp-2); margin-top: var(--sp-2); }
-.inline-edit-error { margin: var(--sp-2) 0 0; font-size: 12.5px; line-height: 1.4; color: var(--high); }
+.inline-edit-error { margin: var(--sp-2) 0 0; font-size: 12.5px; line-height: 1.4; color: var(--high-text); }
 
 /* --- Announcement: distinct context card with room inside --- */
 #task-view.is-project .project-announcement {
@@ -3746,20 +3754,30 @@ kbd {
 #task-view.is-project .task-add { margin-bottom: var(--sp-3); }
 #task-view.is-project .task-toolbar { margin: 0 0 var(--sp-4); }   /* replaces the old negative-margin pull-up */
 #task-view.is-project .task-toolbar-icon-btn { width: 36px; height: 36px; }
-#task-view.is-project .empty-state { margin: 0; padding: var(--sp-5) 0; text-align: left; }
+#task-view.is-project .empty-state { margin: 0; padding: var(--sp-5) 0; text-align: center; width: 100%; }
 
 /* --- Narrow desktop / tablet: not enough width for two comfortable columns, so the description
        drops beneath the identity at full width rather than being squeezed --- */
 @media (max-width: 1100px) {
+  /* Centred stack, shared by tablet and phone: PROJECT, title, status, ABOUT, description, actions */
   #task-view.is-project .project-identity {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas:
-      "tile title actions"
-      ".    meta  actions"
-      "about about about";
-    row-gap: var(--sp-1);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas: "eyebrow" "title" "meta" "about" "actions";
+    column-gap: 0; row-gap: var(--sp-1); justify-items: center; text-align: center;
   }
-  #task-view.is-project .project-about { margin: var(--sp-4) 0 0; padding: 0; border-left: 0; align-self: start; }
+  #task-view.is-project .project-title-row { min-height: 0; max-width: calc(100% - var(--edit-slot) * 2); justify-content: center; }
+  #task-view.is-project #project-title-form { min-height: 0; justify-self: stretch; width: 100%; max-width: 560px; }
+  #task-view.is-project .main-header h1 { text-align: center; }
+  #task-view.is-project .project-about { grid-area: about; margin: var(--sp-5) 0 0; padding: 0; border-left: 0; align-self: start; width: 100%; text-align: center; }
+  #task-view.is-project .project-about-row { margin: 0 auto; max-width: calc(100% - var(--edit-slot) * 2); }
+  #task-view.is-project .project-description { text-align: center; margin-left: auto; margin-right: auto; }
+  #task-view.is-project .inline-edit-actions { justify-content: center; }
+  #task-view.is-project .main-header-meta { grid-area: meta; margin-top: 0; }
+  #task-view.is-project #view-subtitle { text-align: center; }
+  #task-view.is-project .project-header-actions { justify-self: center; margin: var(--sp-3) 0 0; min-height: 0; }
+  #task-view.is-project .project-more-menu { right: auto; left: 0; }
+  #task-view.is-project .project-about .inline-edit-form { margin-left: auto; margin-right: auto; max-width: 560px; }
 }
 
 /* --- Tablet: keep the grid, tighten only the gaps that need it --- */
@@ -3773,30 +3791,8 @@ kbd {
 
 /* --- Mobile: reflow structurally, actions drop under the identity --- */
 @media (max-width: 600px) {
-  /* Centred stack: icon, title, status, then the description, all on the centre line */
-  #task-view.is-project .project-identity {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: "tile" "title" "meta" "about" "actions";
-    column-gap: 0; justify-items: center; text-align: center;
-  }
-  #task-view.is-project { --tile: 44px; }
-  #task-view.is-project .project-identity-tile { border-radius: 13px; font-size: 19px; margin-bottom: var(--sp-2); }
-  #task-view.is-project .project-title-row { min-height: 0; max-width: calc(100% - var(--edit-slot) * 2); justify-content: center; }
-  #task-view.is-project #project-title-form { min-height: 0; justify-self: stretch; width: 100%; }
-  #task-view.is-project .main-header h1 { text-align: center; }
-  #task-view.is-project .project-identity { row-gap: var(--sp-1); }
-  /* body dissolves so description + status use the full width instead of sitting beside the avatar */
-  #task-view.is-project .project-identity-body { display: contents; }
-  #task-view.is-project .project-title-row, #task-view.is-project #project-title-form { grid-area: title; }
-  #task-view.is-project .project-about { grid-area: about; margin-top: var(--sp-4); width: 100%; text-align: center; }
-  #task-view.is-project .project-about-row { margin: 0 auto; max-width: calc(100% - var(--edit-slot) * 2); }
-  #task-view.is-project .project-description { text-align: center; }
-  #task-view.is-project .inline-edit-actions { justify-content: center; }
-  #task-view.is-project .main-header-meta { grid-area: meta; margin-top: 0; }
-  #task-view.is-project #view-subtitle { text-align: center; }
-  #task-view.is-project .project-header-actions { min-height: 0; }
-  #task-view.is-project .project-header-actions { justify-self: center; margin: var(--sp-3) 0 0; }
-  #task-view.is-project .project-more-menu { right: auto; left: 0; }
+  #task-view.is-project { --head-row: 40px; }
+  #task-view.is-project .project-about { margin-top: var(--sp-4); }
   #task-view.is-project .main-header h1 { font-size: 24px; }
   .inline-edit-form input[type="text"] { font-size: 19px; }
   .inline-edit-form textarea, #task-view.is-project .project-description { max-width: none; }
@@ -3808,4 +3804,222 @@ kbd {
   #task-view.is-project .project-announcement-actions { order: 2; margin: -6px -10px -6px 0; }
   #task-view.is-project .project-announcement-text { order: 3; flex: 1 1 100%; }
   #task-view.is-project .project-announcement-date { order: 4; flex: 1 1 100%; margin-top: var(--sp-1); }
+}
+/* ---- Shared a11y helpers ---- */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+/* ---- Character counters (text carries the meaning; colour only reinforces) ---- */
+.inline-edit-count { margin: var(--sp-1) 0 0; font-size: 12px; line-height: 1.4; color: var(--ink-light); font-variant-numeric: tabular-nums; }
+.inline-edit-count.near-limit { color: var(--ink); font-weight: 600; }
+[aria-invalid="true"] { border-color: var(--high) !important; }
+
+/* ---- Desktop resizable sidebar (VS Code style; <= 860px keeps the off-canvas mobile drawer untouched) ----
+   Hiding slides the sidebar off the left edge with a negative margin instead of display:none, so:
+   - its content never re-wraps/squishes while it animates,
+   - it can snap shut live during a drag and slide back open if you drag back,
+   - the resizer stays at the left edge so a hidden sidebar can be dragged open again. */
+.sidebar-resizer, .sidebar-collapse-btn { display: none; }
+@media (min-width: 861px) {
+  .app { position: relative; overflow: hidden; }
+  .sidebar {
+    width: var(--sidebar-w, 240px);
+    margin-left: 0;
+    transition: margin-left .24s var(--ease), visibility 0s linear 0s, background-color .25s ease, border-color .25s ease;
+  }
+  .app.sidebar-collapsed .sidebar {
+    margin-left: calc(var(--sidebar-w, 240px) * -1);
+    visibility: hidden; pointer-events: none;
+    transition: margin-left .24s var(--ease), visibility 0s linear .24s, background-color .25s ease, border-color .25s ease;
+  }
+  .sidebar-resizer { display: block; position: relative; flex: none; width: 0; z-index: 6; cursor: col-resize; touch-action: none; }
+  .sidebar-resizer::before { content: ""; position: absolute; top: 0; bottom: 0; left: -5px; width: 10px; }
+  .sidebar-resizer::after { content: ""; position: absolute; top: 0; bottom: 0; left: -1px; width: 2px; background: transparent; transition: background-color .15s ease .1s; }
+  .sidebar-resizer:hover::after { background: var(--accent); }
+  .sidebar-resizer:focus-visible { outline: none; }
+  .sidebar-resizer:focus-visible::after, body.sidebar-resizing .sidebar-resizer::after { background: var(--accent); transition-delay: 0s; }
+  /* hidden: only the right half of the grab zone is on-screen */
+  .app.sidebar-collapsed .sidebar-resizer::before { left: 0; width: 8px; }
+  .app.sidebar-collapsed .sidebar-resizer::after { left: 0; width: 3px; }
+  .sidebar-collapse-btn {
+    display: inline-flex; align-items: center; justify-content: center; margin-left: auto; flex: none;
+    width: var(--icon-btn); height: var(--icon-btn); padding: 0; border: 0; border-radius: var(--r-ctl); background: transparent; color: var(--ink-light); cursor: pointer;
+  }
+  .sidebar-collapse-btn:hover { background: var(--accent-soft); color: var(--accent-ink); }
+  .sidebar-collapse-btn svg, .sidebar-expand-btn svg { width: 16px; height: 16px; }
+  .sidebar-expand-btn { margin-right: auto; }
+}
+@media (min-width: 861px) and (pointer: coarse) {
+  .sidebar-resizer::before { left: -12px; width: 24px; }
+  .app.sidebar-collapsed .sidebar-resizer::before { left: 0; width: 16px; }
+  .sidebar-collapse-btn { width: 40px; height: 40px; }
+}
+.sidebar-expand-btn[hidden] { display: none !important; }
+.sidebar-collapse-btn:focus-visible, .sidebar-expand-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+body.sidebar-resizing { cursor: col-resize; user-select: none; -webkit-user-select: none; }
+body.sidebar-resizing iframe { pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .sidebar, .app.sidebar-collapsed .sidebar, .sidebar-resizer::after { transition: none !important; } }
+
+/* ---- Focus visibility: one consistent, clearly visible indicator (light + dark, uses --accent) ---- */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* controls that previously suppressed the outline with only a faint replacement */
+.hub-row:focus-visible, .password-toggle:focus-visible, .task-detail-title:focus-visible,
+.task-detail-subtask-edit:focus-visible, .task-title-edit:focus-visible, .hub-filter:focus-visible, .hub-sort:focus-visible {
+  outline: 2px solid var(--accent) !important; outline-offset: 2px;
+}
+[data-theme="dark"] :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline-color: var(--accent-ink); }
+[data-theme="dark"] .hub-row:focus-visible, [data-theme="dark"] .password-toggle:focus-visible { outline-color: var(--accent-ink) !important; }
+
+/* ---- Hover-only controls: also reveal on keyboard focus and on touch (no hover exists there) ---- */
+.collab-member:focus-within .collab-actions,
+.task-detail-subtask-row:focus-within .task-detail-subtask-remove { opacity: 1; }
+@media (hover: none) {
+  .task-card-actions { opacity: 1; transform: none; }
+  .collab-actions, .task-detail-subtask-remove { opacity: 1; }
+}
+/* closed slide-over panel must not be reachable by Tab while invisible */
+.task-detail-overlay { visibility: hidden; transition: opacity .18s ease, visibility 0s linear .18s; }
+.task-detail-overlay.open { visibility: visible; transition-delay: 0s; }
+
+/* ---- Contrast: text-safe status colours (dark theme already passes, so it keeps the originals) ---- */
+[data-theme="dark"] { --high-text: var(--high); --medium-text: var(--medium); }
+::placeholder { color: var(--ink-light); opacity: 1; }
+.task-card.completed .task-meta, .task-card.completed .task-pill.tag-quiet,
+.task-detail-section-quiet .task-detail-section-title, .task-detail-section-quiet .task-detail-label,
+#task-view.is-project .project-about-label { opacity: 1; }
+
+/* ---- Sidebar header at narrow widths: keep clear space between the collapse button and the sidebar edge ---- */
+@media (min-width: 861px) {
+  .sidebar-header { min-width: 0; gap: 10px; padding-right: 10px; }
+  .sidebar-header .logo-img { flex: none; }
+  .sidebar-header .logo-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sidebar-collapse-btn { margin-left: 0; margin-right: 4px; }
+}
+
+/* =====================================================================================================
+   DESIGN SYSTEM LAYER
+   One set of tokens + one definition per primitive (buttons, fields, cards, headers, icon buttons, modals).
+   Loaded last on purpose: it unifies the per-screen variants above without touching layout logic.
+   Radius tiers:  --r-xl 20 (modal, settings, pomodoro)  ·  --r-lg 16 (cards, forms)  ·  --r-ctl 10 (buttons, fields, icon buttons)  ·  pill
+   ===================================================================================================== */
+:root {
+  --r-sm: 8px; --r-ctl: 10px; --r-md: 12px; --r-lg: 16px; --r-xl: 20px; --r-pill: 9999px;
+  --ctl-h: 40px; --ctl-h-sm: 34px; --icon-btn: 34px;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --dur-fast: .14s; --dur: .2s;
+  --ring: 0 0 0 3px var(--accent-soft);
+  --field-bg: var(--bg);
+  --page-gap: 28px;
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px; --sp-7: 40px;
+}
+::selection { background: var(--accent-soft); color: var(--ink); }
+[data-theme="dark"] ::selection { background: rgba(143, 191, 164, 0.28); }
+
+/* ---- Page headers: every view starts the same way (left-aligned title + quiet subtitle) ---- */
+.main-header { margin-bottom: var(--page-gap); }
+.main-header-block { align-items: flex-start; text-align: left; gap: 4px; }
+.main-header-meta { align-items: flex-start; gap: 8px; }
+.main-header :is(h1, h2), .hub-title {
+  margin: 0; font-family: var(--font-display); font-optical-sizing: auto;
+  font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; color: var(--ink);
+}
+.hub-head { margin-bottom: var(--page-gap); }
+.hub-sub, #view-subtitle, #pomodoro-mode-label, #calendar-subtitle { font-size: 13.5px; font-weight: 500; color: var(--ink-light); }
+.home-summary { text-align: left; }
+.home-greeting { align-items: flex-start; }
+.home-pulse { justify-content: flex-start; }
+.home-focus.is-empty { align-items: flex-start; }
+.home-focus-empty-text { text-align: left; }
+
+/* ---- Top bar + icon buttons: one size, one radius ---- */
+.top-header-bar { gap: 4px; margin-bottom: var(--sp-4); }
+.topbar-btn { width: var(--icon-btn); height: var(--icon-btn); border-radius: var(--r-ctl); }
+.topbar-btn:active, .sidebar-collapse-btn:active { transform: scale(.94); }
+.profile-chip { border-radius: var(--r-pill); }
+.profile-chip:hover { background: var(--accent-soft); }
+
+/* ---- Buttons ---- */
+.btn {
+  min-height: var(--ctl-h); padding: 0 18px; border-radius: var(--r-ctl);
+  font-size: 13.5px; font-weight: 600; letter-spacing: 0; line-height: 1.2; white-space: nowrap;
+  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease,
+              box-shadow var(--dur-fast) ease, transform var(--dur-fast) var(--ease), filter var(--dur-fast) ease;
+}
+.btn.small { min-height: var(--ctl-h-sm); padding: 0 14px; font-size: 13px; border-radius: var(--r-ctl); }
+.btn:hover { transform: none; border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+.btn:active { transform: scale(.97); }
+.btn.primary:hover { background: var(--accent); color: var(--accent-contrast); filter: brightness(1.1); }
+.btn.danger:hover { background: var(--high-bg); border-color: var(--high); color: var(--high-text); }
+.btn:disabled, .btn[aria-disabled="true"] { opacity: .5; cursor: not-allowed; transform: none; filter: none; background: var(--card); border-color: var(--border); color: var(--ink-light); box-shadow: none; }
+.btn.primary:disabled { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+.pill-btn, .category-tab { min-height: 32px; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--r-pill); font-size: 13px; font-weight: 600; }
+.category-tab:hover:not(.active) { border-color: var(--border-hover); color: var(--ink); background: var(--accent-soft); }
+
+/* ---- Form fields: same height, radius, inset background and focus ring everywhere ---- */
+:is(.task-add-form, .note-form, .day-panel-form, .project-modal-card, .invite-modal-card, .task-detail-panel, .auth-form, .settings-card)
+  :is(input[type="text"], input[type="email"], input[type="password"], input[type="search"], input[type="number"], input[type="date"], input[type="time"], select, textarea),
+#language-select, #project-modal-announcement {
+  font-family: inherit; font-size: 14px; font-weight: 500; line-height: 1.4; color: var(--ink);
+  padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--r-ctl); background-color: var(--field-bg);
+  transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease, background-color var(--dur-fast) ease;
+}
+:is(.task-add-form, .note-form, .day-panel-form, .project-modal-card, .invite-modal-card, .task-detail-panel, .auth-form, .settings-card)
+  :is(input[type="text"], input[type="email"], input[type="password"], input[type="search"], input[type="number"], input[type="date"], input[type="time"], select),
+#language-select { min-height: var(--ctl-h); }
+:is(.task-add-form, .note-form, .day-panel-form, .project-modal-card, .invite-modal-card, .task-detail-panel, .auth-form, .settings-card)
+  :is(input, select, textarea):hover:not(:focus),
+#language-select:hover:not(:focus), #project-modal-announcement:hover:not(:focus) { border-color: var(--border-hover); }
+:is(.task-add-form, .note-form, .day-panel-form, .project-modal-card, .invite-modal-card, .task-detail-panel, .auth-form, .settings-card)
+  :is(input, select, textarea):focus,
+#language-select:focus, #project-modal-announcement:focus { outline: none; border-color: var(--accent); box-shadow: var(--ring); }
+:is(.task-add-form, .note-form, .day-panel-form, .project-modal-card, .invite-modal-card, .task-detail-panel, .auth-form, .settings-card) textarea { min-height: 84px; resize: vertical; line-height: 1.55; }
+:is(.task-add-form, .note-form, .task-detail-panel, .project-modal-card, .invite-modal-card, .settings-card) select, #language-select {
+  appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 34px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23808d9e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; background-size: 14px;
+}
+:is(input, select, textarea):disabled { opacity: .55; cursor: not-allowed; }
+@media (max-width: 860px) { /* 16px keeps iOS from zooming on focus */
+  :is(.task-add-form, .note-form, .day-panel-form, .project-modal-card, .invite-modal-card, .task-detail-panel, .auth-form, .settings-card)
+    :is(input, select, textarea), #language-select, #project-modal-announcement { font-size: 16px; }
+}
+
+/* ---- Cards ---- */
+.settings-card, .pomodoro-card, .modal-card, .auth-card { border-radius: var(--r-xl); }
+.task-card, .task-add-form, .note-card, .note-form, .home-focus:not(.is-empty), .home-widget, .store-tier-card { border-radius: var(--r-lg); }
+.event-row, .closeout-item { border-radius: var(--r-md); }
+.note-card { transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease, transform var(--dur) var(--ease); }
+
+/* ---- Sidebar: footer actions read exactly like nav items ---- */
+.nav-item, #clear-completed, #closeout-btn, #shortcuts-btn { min-height: 38px; padding: 8px 12px; font-size: 14px; font-weight: 500; border-radius: var(--r-ctl); }
+.nav-item.sub, .nav-item.project-item { min-height: 34px; font-size: 13.5px; }
+.nav-item:active, #clear-completed:active, #closeout-btn:active { transform: scale(.985); }
+.nav-item:hover, #clear-completed:hover, #closeout-btn:hover { background: var(--accent-soft); color: var(--ink); }
+.nav-item.active:hover { background: var(--accent); color: var(--accent-contrast); }
+.sidebar-header { padding-bottom: var(--sp-5); }
+
+/* ---- Modals: soft entrance ---- */
+@keyframes dsOverlayIn { from { opacity: 0; } }
+@keyframes dsModalIn { from { opacity: 0; transform: translateY(8px) scale(.985); } }
+.modal-overlay { animation: dsOverlayIn .16s ease; }
+.modal-overlay > .modal-card { animation: dsModalIn .22s var(--ease); }
+.modal-actions { gap: 10px; }
+.icon-btn:not(.round):not(.plus):not(.compact) { border-radius: var(--r-ctl); }
+.icon-btn:not(.round):not(.plus):not(.compact):hover { background: var(--accent-soft); color: var(--accent-ink); }
+
+/* ---- Empty states ---- */
+.empty-state, .day-panel-empty { color: var(--ink-light); font-size: 13.5px; line-height: 1.6; }
+
+/* ---- Settings rows breathe the same on every card ---- */
+.settings-block { padding: 20px 24px; }
+.settings-label { font-size: 14.5px; }
+.settings-group-title { margin-top: var(--sp-6); }
+
+@media (max-width: 860px) {
+  :root { --page-gap: 20px; }
+  .main-header :is(h1, h2), .hub-title { font-size: 22px; }
+  .settings-block { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-overlay, .modal-overlay > .modal-card { animation: none !important; }
+  .btn:active, .nav-item:active, .topbar-btn:active { transform: none; }
 }
