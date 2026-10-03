@@ -1401,6 +1401,51 @@ function canAssignTask(t) {
   return !!t.projectId && isTeamProject(t.projectId) && isProjectOwner(t.projectId);
 }
 
+// ===== Multiple assignees (task_assignees table; legacy todos.assignee_email kept in sync with the first one) =====
+function taskAssignees(t) {
+  if (t.assigneeEmails && t.assigneeEmails.length) return t.assigneeEmails;
+  return t.assigneeEmail ? [t.assigneeEmail] : [];
+}
+function isAssignedToMe(t) {
+  if (!currentUser || !currentUser.email) return false;
+  const me = currentUser.email.toLowerCase();
+  return taskAssignees(t).some(e => (e || '').toLowerCase() === me);
+}
+async function loadTaskAssignees() {
+  if (!supabaseReady || !currentUser || typeof supabaseClient === 'undefined') return;
+  const { data, error } = await supabaseClient.from('task_assignees').select('task_id,member_email');
+  if (error || !data) return; // table not migrated yet: legacy single assignee keeps working
+  const byTask = new Map();
+  data.forEach(r => {
+    const k = String(r.task_id);
+    if (!byTask.has(k)) byTask.set(k, []);
+    byTask.get(k).push(r.member_email);
+  });
+  todos.forEach(t => {
+    const list = byTask.get(String(t.id));
+    t.assigneeEmails = list || (t.assigneeEmail ? [t.assigneeEmail] : []);
+  });
+  saveTodos(); renderTodos();
+}
+// Diff against the server so RLS decides; returns the error (if any) so callers never show a rejected change as saved.
+async function saveTaskAssignees(t, emails) {
+  const wanted = Array.from(new Set(emails));
+  const { data: existing, error: readErr } = await supabaseClient.from('task_assignees').select('member_email').eq('task_id', t.id);
+  if (readErr) return readErr;
+  const have = new Set((existing || []).map(r => r.member_email));
+  const toRemove = [...have].filter(e => !wanted.includes(e));
+  const toAdd = wanted.filter(e => !have.has(e));
+  if (toRemove.length) {
+    const { error } = await supabaseClient.from('task_assignees').delete().eq('task_id', t.id).in('member_email', toRemove);
+    if (error) return error;
+  }
+  if (toAdd.length) {
+    const { error } = await supabaseClient.from('task_assignees').insert(toAdd.map(e => ({ task_id: t.id, member_email: e })));
+    if (error) return error;
+  }
+  return null;
+}
+
 let projectAnnouncements = safeParse('projectAnnouncements', {});
 function saveProjectAnnouncements() { safeSetItem('projectAnnouncements', JSON.stringify(projectAnnouncements)); }
 function getProjectAnnouncement(projectId) {
@@ -2542,8 +2587,17 @@ function buildTaskCard(t, todayKey, opts) {
         t.done = checkbox.checked;
         if (!wasDone && t.done) recordCompletion();
         saveTodos(); renderTodos(); renderCounts(); renderProjectNav();
-        if (currentUser) dbUpdate('todos', t.id, { done: t.done });
         if (t.done) showToast('complete');
+        if (currentUser) {
+          // Roll back if the database (RLS) rejects the change, instead of leaving a fake success on screen.
+          Promise.resolve(dbUpdate('todos', t.id, { done: t.done })).then((res) => {
+            if (res && res.error) {
+              t.done = wasDone;
+              saveTodos(); renderTodos(); renderCounts(); renderProjectNav();
+              console.warn('Task update rejected:', res.error);
+            }
+          });
+        }
       });
       checkWrap.appendChild(checkbox);
     }
@@ -2621,14 +2675,26 @@ function buildTaskCard(t, todayKey, opts) {
       timePill.textContent = `⏱ ${formatDuration(t.timeSpentSec)}`;
       meta.appendChild(timePill);
     }
-    if (t.assigneeEmail) {
+    const assigneeList = taskAssignees(t);
+    if (assigneeList.length) {
       const assignee = document.createElement('span');
       assignee.className = 'task-pill tag-quiet assignee-tag';
-      assignee.title = 'Assigned to ' + t.assigneeEmail;
+      assignee.title = 'Assigned to ' + assigneeList.join(', ');
       assignee.appendChild(pillIcon(ICON_PEOPLE));
       const assigneeText = document.createElement('span');
-      assigneeText.textContent = t.assigneeEmail.split('@')[0];
+      assigneeText.className = 'assignee-names';
+      const first = assigneeList[0].split('@')[0];
+      assigneeText.textContent = assigneeList.length > 1 ? `${first} +${assigneeList.length - 1}` : first;
       assignee.appendChild(assigneeText);
+      if (isAssignedToMe(t)) {
+        const me = document.createElement('span');
+        me.className = 'assigned-you';
+        me.title = 'Assigned to you';
+        me.setAttribute('role', 'img');
+        me.setAttribute('aria-label', 'Assigned to you');
+        me.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"></circle><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"></path></svg>';
+        assignee.appendChild(me);
+      }
       meta.appendChild(assignee);
     }
     if (meta.children.length) content.appendChild(meta);
@@ -2745,18 +2811,140 @@ const taskDetailSaveBtn = document.getElementById('task-detail-save-btn');
 const taskDetailDeleteBtn = document.getElementById('task-detail-delete-btn');
 let activeDetailTaskId = null;
 
-function fillTaskDetailAssigneeOptions(t) {
-  taskDetailAssignee.innerHTML = '<option value="">Unassigned</option>';
-  if (!t.projectId || !isTeamProject(t.projectId)) return;
-  const members = membersForProject(t.projectId).filter(m => m.status === 'accepted');
-  members.forEach(m => {
-    const opt = document.createElement('option');
-    opt.value = m.member_email;
-    const rn = roleNameForMember(m);
-    opt.textContent = rn ? `${m.member_email} · ${rn}` : m.member_email;
-    taskDetailAssignee.appendChild(opt);
+// ===== Assignee selector: compact summary button -> searchable, scrollable checkbox popover =====
+function memberLabel(m) {
+  return m.display_name || m.username || (m.member_email || '').split('@')[0];
+}
+function assigneeSummaryText(emails, t) {
+  if (!emails.length) return 'Unassigned';
+  const first = emails[0];
+  const m = membersForProject(t.projectId).find(x => x.member_email === first);
+  const name = m ? memberLabel(m) : first.split('@')[0];
+  return emails.length > 1 ? `${name} +${emails.length - 1}` : name;
+}
+let assigneeUI = null;
+function ensureAssigneeUI() {
+  if (assigneeUI) return assigneeUI;
+  taskDetailAssignee.style.display = 'none';
+  const lbl = taskDetailAssigneeField.querySelector('label');
+  if (lbl) lbl.removeAttribute('for');
+  const wrap = document.createElement('div');
+  wrap.className = 'assignee-picker';
+  wrap.innerHTML =
+    '<button type="button" class="assignee-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="assignee-popover">' +
+      '<span class="assignee-trigger-text"></span>' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><polyline points="6 9 12 15 18 9"></polyline></svg>' +
+    '</button>' +
+    '<div class="assigned-you-line" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"></circle><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"></path></svg><span>Assigned to you</span></div>' +
+    '<div class="assignee-popover" id="assignee-popover" role="dialog" aria-label="Assign to" hidden>' +
+      '<div class="assignee-pop-title">Assign to</div>' +
+      '<input type="search" class="assignee-search" placeholder="Search members…" aria-label="Search members" autocomplete="off">' +
+      '<div class="assignee-list" role="group" aria-label="Project members"></div>' +
+      '<p class="assignee-error" role="alert" hidden></p>' +
+    '</div>';
+  taskDetailAssigneeField.appendChild(wrap);
+  const ui = {
+    wrap,
+    trigger: wrap.querySelector('.assignee-trigger'),
+    text: wrap.querySelector('.assignee-trigger-text'),
+    you: wrap.querySelector('.assigned-you-line'),
+    pop: wrap.querySelector('.assignee-popover'),
+    search: wrap.querySelector('.assignee-search'),
+    list: wrap.querySelector('.assignee-list'),
+    err: wrap.querySelector('.assignee-error'),
+    taskId: null,
+  };
+  ui.trigger.addEventListener('click', () => (ui.pop.hidden ? openAssigneePop() : closeAssigneePop()));
+  ui.search.addEventListener('input', () => filterAssigneeList());
+  document.addEventListener('mousedown', (e) => { if (!ui.pop.hidden && !wrap.contains(e.target)) closeAssigneePop(); });
+  wrap.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !ui.pop.hidden) { e.stopPropagation(); closeAssigneePop(true); } });
+  assigneeUI = ui;
+  return ui;
+}
+function openAssigneePop() {
+  const ui = ensureAssigneeUI();
+  ui.pop.hidden = false; ui.trigger.setAttribute('aria-expanded', 'true');
+  ui.search.value = ''; filterAssigneeList();
+  if (!window.matchMedia('(pointer: coarse)').matches) ui.search.focus(); // don't pop the mobile keyboard unasked
+}
+function closeAssigneePop(refocus) {
+  if (!assigneeUI) return;
+  assigneeUI.pop.hidden = true; assigneeUI.trigger.setAttribute('aria-expanded', 'false');
+  assigneeUI.err.hidden = true;
+  if (refocus) assigneeUI.trigger.focus();
+}
+function filterAssigneeList() {
+  const q = assigneeUI.search.value.trim().toLowerCase();
+  let shown = 0;
+  assigneeUI.list.querySelectorAll('.assignee-option').forEach(row => {
+    const hit = !q || row.dataset.search.includes(q);
+    row.hidden = !hit; if (hit) shown++;
   });
-  taskDetailAssignee.value = members.some(m => m.member_email === t.assigneeEmail) ? t.assigneeEmail : '';
+  let empty = assigneeUI.list.querySelector('.assignee-empty');
+  if (!empty) { empty = document.createElement('p'); empty.className = 'assignee-empty'; assigneeUI.list.appendChild(empty); }
+  empty.hidden = shown > 0;
+  empty.textContent = q ? 'No matching members.' : 'No members yet.';
+}
+function refreshAssigneeSummary(t) {
+  const ui = ensureAssigneeUI();
+  const emails = taskAssignees(t);
+  ui.text.textContent = assigneeSummaryText(emails, t);
+  ui.trigger.setAttribute('aria-label', `Assignees, currently ${emails.length} ${emails.length === 1 ? 'user' : 'users'} assigned`);
+  ui.you.hidden = !isAssignedToMe(t);
+}
+function showAssigneeError(msg) {
+  assigneeUI.err.textContent = msg; assigneeUI.err.hidden = false;
+  clearTimeout(showAssigneeError._t);
+  showAssigneeError._t = setTimeout(() => { if (assigneeUI) assigneeUI.err.hidden = true; }, 4000);
+}
+async function toggleAssignee(t, email, cb) {
+  const prev = taskAssignees(t).slice();
+  const next = cb.checked ? Array.from(new Set([...prev, email])) : prev.filter(e => e !== email);
+  t.assigneeEmails = next; t.assigneeEmail = next[0] || null;
+  refreshAssigneeSummary(t);
+  cb.disabled = true;
+  let error = null;
+  if (currentUser && supabaseReady) {
+    if (cb.checked) {
+      ({ error } = await supabaseClient.from('task_assignees').insert({ task_id: t.id, member_email: email }));
+    } else {
+      ({ error } = await supabaseClient.from('task_assignees').delete().eq('task_id', t.id).eq('member_email', email));
+    }
+    if (!error) dbUpdate('todos', t.id, { assignee_email: t.assigneeEmail });
+  }
+  cb.disabled = !canAssignTask(t);
+  if (error) { // revert: never leave a rejected assignment on screen
+    t.assigneeEmails = prev; t.assigneeEmail = prev[0] || null;
+    cb.checked = !cb.checked;
+    refreshAssigneeSummary(t);
+    showAssigneeError("Couldn't update assignees. Please try again.");
+  }
+  saveTodos(); renderTodos();
+}
+function fillTaskDetailAssigneeOptions(t) {
+  const ui = ensureAssigneeUI();
+  closeAssigneePop();
+  ui.list.innerHTML = '';
+  if (!t.projectId || !isTeamProject(t.projectId)) return;
+  const current = taskAssignees(t);
+  const editable = canAssignTask(t);
+  membersForProject(t.projectId).filter(m => m.status === 'accepted').forEach(m => {
+    const row = document.createElement('label');
+    row.className = 'assignee-option';
+    row.dataset.search = `${memberLabel(m)} ${m.member_email || ''}`.toLowerCase();
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.value = m.member_email;
+    cb.checked = current.includes(m.member_email);
+    cb.disabled = !editable;
+    cb.setAttribute('aria-label', `Assign ${memberLabel(m)} to this task`);
+    cb.addEventListener('change', () => toggleAssignee(t, m.member_email, cb));
+    const txt = document.createElement('span');
+    txt.textContent = memberLabel(m);
+    row.appendChild(cb); row.appendChild(txt);
+    ui.list.appendChild(row);
+  });
+  filterAssigneeList();
+  refreshAssigneeSummary(t);
 }
 
 function fillTaskDetailProjectOptions(selectedId) {
@@ -2864,7 +3052,17 @@ taskDetailCheck.addEventListener('change', () => {
   if (!wasDone && t.done) { recordCompletion(); handleRecurringCompletion(t); }
   taskDetailTitle.classList.toggle('completed', t.done);
   saveTodos(); renderTodos(); renderCounts();
-  if (currentUser) dbUpdate('todos', t.id, { done: t.done });
+  if (currentUser) {
+    Promise.resolve(dbUpdate('todos', t.id, { done: t.done })).then((res) => {
+      if (res && res.error) {
+        t.done = wasDone;
+        taskDetailCheck.checked = wasDone;
+        taskDetailTitle.classList.toggle('completed', wasDone);
+        saveTodos(); renderTodos(); renderCounts();
+        console.warn('Task update rejected:', res.error);
+      }
+    });
+  }
 });
 
 const taskDetailRecurrence = document.getElementById('task-detail-recurrence');
@@ -3011,13 +3209,7 @@ taskDetailSaveBtn.addEventListener('click', () => {
   t.projectId = taskDetailProject.value || null;
   t.category = taskDetailCategory.value || null;
   t.reminderTime = taskDetailReminder.value || null;
-  if (!t.projectId || !isTeamProject(t.projectId)) {
-    t.assigneeEmail = null;
-  } else if (canAssignTask(t)) {
-    const chosen = taskDetailAssignee.value || null;
-    const stillMember = chosen && membersForProject(t.projectId).some(m => m.status === 'accepted' && m.member_email === chosen);
-    t.assigneeEmail = stillMember ? chosen : null;
-  }
+  if (!t.projectId || !isTeamProject(t.projectId)) { t.assigneeEmail = null; t.assigneeEmails = []; } // assignments themselves save immediately from the selector
   saveTodos(); renderTodos(); renderCounts(); renderProjectNav();
   if (currentUser) dbUpdate('todos', t.id, { text: t.text, desc: t.desc, due: t.due, priority: t.priority, project_id: t.projectId, category: t.category || null, reminder_time: t.reminderTime, assignee_email: t.assigneeEmail });
   closeTaskDetail();
@@ -4226,6 +4418,7 @@ async function refreshSharedData() {
       assigneeEmail: t.assignee_email || null,
     }));
     saveTodos();
+    loadTaskAssignees();
   }
   if (remoteMembers) projectMembers = remoteMembers;
 
